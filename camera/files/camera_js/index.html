@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">70.45</p>
+      <p class="stat">70.59</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">982</p>
+      <p class="stat">1031</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">72.38</p>
+      <p class="stat">69.93</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">10.23</p>
+      <p class="stat">10.88</p>
     </div>
   </div>
 </div>
@@ -91,6 +91,8 @@
 <div class="container">
   <div class="row">
     <textarea id="file-source" class="span12">'use strict';
+
+var loader = LazyLoader;
 
 // Utility functions
 function padLeft(num, length) {
@@ -326,8 +328,25 @@ var Camera = {
   // previewStream as fast as possible, once the previewStream is
   // active we do the rest of the initialisation.
   init: function() {
+    var self = this;
     this.setCaptureMode(this.CAMERA);
-    this.loadCameraPreview(this._camera, this.delayedInit.bind(this));
+    this.loadCameraPreview(this._camera, function() {
+      var files = [
+        'style/filmstrip.css',
+        'style/VideoPlayer.css',
+        '/shared/js/async_storage.js',
+        '/shared/js/blobview.js',
+        '/shared/js/media/jpeg_metadata_parser.js',
+        '/shared/js/media/get_video_rotation.js',
+        '/shared/js/media/video_player.js',
+        '/shared/js/media/media_frame.js',
+        '/shared/js/gesture_detector.js',
+        'js/filmstrip.js'
+      ];
+      loader.load(files, function() {
+        self.delayedInit();
+      });
+    });
   },
 
   delayedInit: function camera_delayedInit() {
@@ -397,6 +416,7 @@ var Camera = {
 
     this._pictureStorage
       .addEventListener('change', this.deviceStorageChangeHandler.bind(this));
+    this.checkStorageSpace();
 
     navigator.mozSetMessageHandler('activity', function(activity) {
       var name = activity.source.name;
@@ -412,6 +432,7 @@ var Camera = {
       Camera.enableButtons();
     });
 
+    this.previewEnabled();
     DCFApi.init();
   },
 
@@ -514,7 +535,7 @@ var Camera = {
 
     var onerror = function() {
       handleError('error-recording');
-    }
+    };
     var onsuccess = (function onsuccess() {
       document.body.classList.add('capturing');
       captureButton.removeAttribute('disabled');
@@ -573,7 +594,7 @@ var Camera = {
         spaceReq.onerror = onerror;
         spaceReq.onsuccess = function() {
           startRecording(spaceReq.result);
-        }
+        };
       }).bind(this);
     }).bind(this));
   },
@@ -730,8 +751,6 @@ var Camera = {
       }
 
       this._previewActive = true;
-      this.checkStorageSpace();
-      setTimeout(this.initPositionUpdate.bind(this), this.PROMPT_DELAY);
     }
 
     function gotCamera(camera) {
@@ -792,8 +811,13 @@ var Camera = {
 
   startPreview: function camera_startPreview() {
     this.viewfinder.play();
-    this.loadCameraPreview(this._camera, this.enableButtons.bind(this));
+    this.loadCameraPreview(this._camera, this.previewEnabled.bind(this));
     this._previewActive = true;
+  },
+
+  previewEnabled: function() {
+    this.enableButtons();
+    setTimeout(this.initPositionUpdate.bind(this), this.PROMPT_DELAY);
   },
 
   stopPreview: function camera_stopPreview() {
@@ -819,6 +843,7 @@ var Camera = {
   },
 
   takePictureSuccess: function camera_takePictureSuccess(blob) {
+    this._config.position = null;
     this._manuallyFocused = false;
     this.hideFocusRing();
     this.restartPreview();
@@ -826,20 +851,13 @@ var Camera = {
       var addreq = this._pictureStorage.addNamed(blob, path + name);
       addreq.onsuccess = (function() {
         if (this._pendingPick) {
-          // XXX: https://bugzilla.mozilla.org/show_bug.cgi?id=806503
-          // We ought to just be able to pass this blob to the activity.
-          // But there seems to be a bug with blob lifetimes and activities.
-          // So we'll get a new blob back out of device storage to ensure
-          // that we've got a file-backed blob instead of a memory-backed blob.
-          var getreq = this._pictureStorage.get(path + name);
-          getreq.onsuccess = (function() {
+          this._resizeBlobIfNeeded(blob, function(resized_blob) {
             this._pendingPick.postResult({
               type: 'image/jpeg',
-              blob: getreq.result
+              blob: resized_blob
             });
-            this.cancelPick();
-          }).bind(this);
-
+            this._pendingPick = null;
+          }.bind(this));
           return;
         }
 
@@ -854,6 +872,28 @@ var Camera = {
               navigator.mozL10n.get('error-saving-text'));
       };
     }).bind(this));
+  },
+
+  _resizeBlobIfNeeded: function camera_resizeBlobIfNeeded(blob, callback) {
+    var pickWidth = this._pendingPick.source.data.width;
+    var pickHeight = this._pendingPick.source.data.height;
+    if (!pickWidth || !pickHeight) {
+      callback(blob);
+      return;
+    }
+
+    var img = new Image();
+    img.onload = function resizeImg() {
+      var canvas = document.createElement('canvas');
+      canvas.width = pickWidth;
+      canvas.height = pickHeight;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, pickWidth, pickHeight);
+      canvas.toBlob(function toBlobSuccess(resized_blob) {
+        callback(resized_blob);
+      }, 'image/jpeg');
+    };
+    img.src = window.URL.createObjectURL(blob);
   },
 
   hideFocusRing: function camera_hideFocusRing() {
@@ -906,6 +946,11 @@ var Camera = {
     case 'unavailable':
     case 'shared':
       this.updateStorageState(e.reason);
+      break;
+
+    // Remove filmstrip item if its correspondent file is deleted
+    case 'deleted':
+      Filmstrip.deleteItem(e.path);
       break;
     }
     this.checkStorageSpace();
@@ -981,7 +1026,11 @@ var Camera = {
   takePicture: function camera_takePicture() {
     this._config.rotation = this._phoneOrientation;
     this._config.pictureSize = this._pictureSize;
-    if (this._position) {
+    this._config.dateTime = Date.now() / 1000;
+    // We do not attach our current position to the exif of photos
+    // that are taken via an activity as that leaks position information
+    // to other apps without permission
+    if (this._position && !this._pendingPick) {
       this._config.position = this._position;
     }
     this._cameraObj

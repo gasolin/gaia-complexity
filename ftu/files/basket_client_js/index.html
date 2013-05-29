@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">67.21</p>
+      <p class="stat">70.66</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">42</p>
+      <p class="stat">56</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">16.15</p>
+      <p class="stat">15.12</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">0.26</p>
+      <p class="stat">0.35</p>
     </div>
   </div>
 </div>
@@ -97,11 +97,12 @@
 var Basket = {
 
   basketUrl: 'http://basket.mozilla.org/news/subscribe/',
-  newsletterId: 'mozilla-and-you',
+  newsletterId: 'firefox-os',
   callback: null,
   xhr: null,
+  itemId: 'newsletter_email',
 
-  responseHandler: function() {
+  responseHandler: function b_responseHandler() {
     if (this.xhr.readyState === 4) {
       if (this.xhr.status === 200) {
         if (typeof this.callback === 'function') {
@@ -109,7 +110,11 @@ var Basket = {
         }
       } else {
         if (typeof this.callback === 'function') {
-          this.callback(JSON.parse(this.xhr.responseText));
+          if (this.xhr.responseText) {
+            this.callback(JSON.parse(this.xhr.responseText));
+          } else {
+            this.callback('Unknown error');
+          }
         }
       }
     }
@@ -124,13 +129,22 @@ var Basket = {
    *                            is result of operation or null
    *                            in the error case.
    */
-  send: function(email, callback) {
+  send: function b_send(email, callback) {
     this.callback = callback;
     this.xhr = new XMLHttpRequest({mozSystem: true});
     this.xhr.onreadystatechange = this.responseHandler.bind(this);
     this.xhr.open('POST', this.basketUrl, true);
     this.xhr.send('email=' + email + '&newsletters=' + this.newsletterId);
+  },
+
+  store: function b_store(email, callback) {
+    var self = this;
+    window.asyncStorage.setItem(this.itemId, email, function stored() {
+      if (callback)
+        callback();
+    });
   }
+
 };</textarea>
   </div>
 </div>

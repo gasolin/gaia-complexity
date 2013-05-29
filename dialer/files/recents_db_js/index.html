@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">74.68</p>
+      <p class="stat">74.24</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">188</p>
+      <p class="stat">200</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">39.12</p>
+      <p class="stat">40.25</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.74</p>
+      <p class="stat">1.84</p>
     </div>
   </div>
 </div>
@@ -96,7 +96,7 @@ var RecentsDBManager = {
   _dbName: 'dialerRecents',
   _dbStore: 'dialerRecents',
   _dbVersion: 1,
-  prepolulated : false,
+  prepolulate: false,
   init: function rdbm_init(callback) {
     try {
       var indexedDB = window.indexedDB || window.webkitIndexedDB ||
@@ -112,9 +112,8 @@ var RecentsDBManager = {
       this.request.onsuccess = function(event) {
         //Store DB object in RecentsDBManager
         self.db = event.target.result;
-        if(!navigator.mozTelephony && !self.prepopulated){
+        if (self.prepolulate) {
           self.prepopulateDB();
-          self.prepopulated = true;
         }
         if (callback) {
           //Callback if needed
@@ -170,22 +169,23 @@ var RecentsDBManager = {
    });
   },
   // Method for prepopulating the recents DB for Dev-team
+  // Set self.prepopulate to true in order to call it.
   prepopulateDB: function rdbm_prepopulateDB(callback) {
     var recent;
-    for (var i = 0; i < 5; i++) {
+    for (var i = 0; i < 500; i++) {
       recent = {
         date: (Date.now() - i * 86400000),
         type: 'incoming',
         number: '123123123'
       };
-      this.add(recent);
+      RecentsDBManager.add(recent);
     }
     recent = {
       date: (Date.now() - 86400000),
       type: 'dialing',
       number: '321321321'
     };
-    this.add(recent);
+    RecentsDBManager.add(recent);
     if (callback) {
       callback();
     }
@@ -201,12 +201,12 @@ var RecentsDBManager = {
         if (callback && callback instanceof Function) {
           callback();
         }
-      }
+      };
 
       delRequest.onerror = function de_onsuccess(e) {
         console.log('recents_db delete item failure: ',
             e.message, delRequest.errorCode);
-      }
+      };
     });
   },
   deleteList: function rdbm_deleteList(list, callback) {
@@ -242,24 +242,36 @@ var RecentsDBManager = {
     });
   },
   // Method for retrieving all recents from DB
-  get: function rdbm_get(callback) {
-    var objectStore = this.db.transaction(RecentsDBManager._dbStore).
+  get: function rdbm_get(callback, dateFilter) {
+    this._checkDBReady.call(this, function() {
+      var objectStore = this.db.transaction(RecentsDBManager._dbStore).
                         objectStore(RecentsDBManager._dbStore);
-    var recents = [];
-    var cursor = objectStore.openCursor(null, 'prev');
-    cursor.onsuccess = function(event) {
-      var item = event.target.result;
-      if (item) {
-        recents.push(item.value);
-        item.continue();
-      } else {
-        callback(recents);
+      var recents = [];
+      // Number 0 is smaller than any timestamp and empty string is larger
+      // than all numeric values.
+      var startDate = 0, endDate = '';
+      if (dateFilter && dateFilter.startDate) {
+        startDate = dateFilter.startDate;
       }
-    };
+      if (dateFilter && dateFilter.endDate) {
+        endDate = dateFilter.endDate;
+      }
+      var range = IDBKeyRange.bound(startDate, endDate);
+      var cursor = objectStore.openCursor(range, 'prev');
+      cursor.onsuccess = function(event) {
+        var item = event.target.result;
+        if (item) {
+          recents.push(item.value);
+          item.continue();
+        } else {
+          callback(recents);
+        }
+      };
 
-    cursor.onerror = function(e) {
-      console.log('recents_db get failure: ', e.message);
-    };
+      cursor.onerror = function(e) {
+        console.log('recents_db get failure: ', e.message);
+      };
+    });
   },
 
   getLast: function rdbm_getLast(callback) {

@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">70.74</p>
+      <p class="stat">74.43</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">43</p>
+      <p class="stat">41</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">10.38</p>
+      <p class="stat">10.56</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">0.30</p>
+      <p class="stat">0.25</p>
     </div>
   </div>
 </div>
@@ -90,7 +90,11 @@
 
 <div class="container">
   <div class="row">
-    <textarea id="file-source" class="span12">var LazyL10n = {
+    <textarea id="file-source" class="span12">'use strict';
+
+var loader = LazyLoader;
+
+var LazyL10n = {
   _inDOM: false,
   _loaded: false,
 
@@ -105,17 +109,11 @@
       return;
     }
 
-    // Adding the l10n JS files to the DOM
-    // the l10n resources
-    var l10nScript = document.createElement('script');
-    l10nScript.src = '/shared/js/l10n.js';
-    document.head.appendChild(l10nScript);
+    // Add the l10n JS files to the DOM and wait for them to load.
+    loader.load(['/shared/js/l10n.js',
+                 '/shared/js/l10n_date.js']);
     this._waitForLoad(callback);
     this._inDOM = true;
-
-    var l10nDateScript = document.createElement('script');
-    l10nDateScript.src = '/shared/js/l10n_date.js';
-    document.head.appendChild(l10nDateScript);
   },
 
   _waitForLoad: function ll10n_waitForLoad(callback) {

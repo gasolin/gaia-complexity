@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.07</p>
+      <p class="stat">64.37</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">246</p>
+      <p class="stat">297</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">53.66</p>
+      <p class="stat">56.41</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.69</p>
+      <p class="stat">3.23</p>
     </div>
   </div>
 </div>
@@ -104,29 +104,44 @@ var SimManager = {
                                   this.handleCardState.bind(this));
 
     this.alreadyImported = false;
+
+    Object.defineProperty(this,
+                          'retryCount', {
+                            get: function() {
+                              return this.mobConn.retryCount;
+                            }
+                          });
   },
 
   handleUnlockError: function sm_handleUnlockError(data) {
+    var l10nArgs = {n: data.retryCount};
     switch (data.lockType) {
       case 'pin':
         UIManager.pinInput.value = '';
         UIManager.fakePinInput.value = '';
         UIManager.pinInput.classList.add('onerror');
-        UIManager.pinError.innerHTML = _('pinErrorMsg');
+        UIManager.pinError.textContent = _('pinError');
         UIManager.pinError.classList.remove('hidden');
-        UIManager.pinLabel.innerHTML = _('pinAttemptMsg2',
-                                         {n: data.retryCount});
-        if (data.retryCount == 1)
-          UIManager.pinError.innerHTML += _('pinLastChanceMsg');
+        UIManager.pinError.textContent = _('pinAttemptMsg2', l10nArgs);
+        UIManager.pinRetriesLeft.textContent = _('inputCodeRetriesLeft',
+                                                 l10nArgs);
+        if (data.retryCount == 1) {
+          UIManager.pinError.textContent += ' ' + _('pinLastChanceMsg');
+        }
         break;
       case 'puk':
         UIManager.pukInput.value = '';
         UIManager.fakePukInput.value = '';
         UIManager.pukInput.classList.add('onerror');
-        UIManager.pukError.innerHTML = _('pukErrorMsg');
+        UIManager.pukError.textContent = _('pukError');
         UIManager.pukError.classList.remove('hidden');
         UIManager.pukInfo.classList.add('hidden');
-        UIManager.pukLabel.innerHTML = _('pukAttemptMsg', {n: data.retryCount});
+        UIManager.pukError.textContent = _('pukAttemptMsg2', l10nArgs);
+        UIManager.pukRetriesLeft.textContent = _('inputCodeRetriesLeft',
+                                                 l10nArgs);
+        if (data.retryCount == 1) {
+          UIManager.pukError.textContent += _('pukLastChanceMsg');
+        }
         // TODO what if counter gets to 0 ??
         break;
     }
@@ -135,17 +150,14 @@ var SimManager = {
   available: function sm_available() {
     if (!this.mobConn)
       return false;
-    // Card should either be "ready" (connected to network) or "null" (card in
-    // phone but cannot connect to network for some reason).
-    // See https://bugzilla.mozilla.org/show_bug.cgi?id=822522
-    return (this.mobConn.cardState === 'ready' ||
-            this.mobConn.cardState === null);
+    return (this.mobConn.cardState === 'ready');
   },
 
  /**
   * Possible values:
   *   null,
   *   'absent',
+  *   'unknown',
   *   'pinRequired',
   *   'pukRequired',
   *   'networkLocked',
@@ -162,6 +174,11 @@ var SimManager = {
         this.showPukScreen();
         break;
       default:
+        // Quick fix for bug 831697,
+        // should be fixed when uplifting 814840
+        if (this.mobConn.cardState === 'ready') {
+          AppManager.disableLockscreen();
+        }
         if (this.accessCallback) {
           this.accessCallback(this.mobConn.cardState === 'ready');
         }
@@ -185,6 +202,14 @@ var SimManager = {
   accessCallback: null,
 
   showPinScreen: function sm_showScreen() {
+    if (!this.retryCount || this.retryCount === 'undefined') {
+      UIManager.pinRetriesLeft.classList.add('hidden');
+    } else {
+      var l10nArgs = {n: this.retryCount};
+      UIManager.pinRetriesLeft.textContent = _('inputCodeRetriesLeft',
+                                               l10nArgs);
+      UIManager.pinRetriesLeft.classList.remove('hidden');
+    }
     UIManager.activationScreen.classList.remove('show');
     UIManager.unlockSimScreen.classList.add('show');
     UIManager.pincodeScreen.classList.add('show');
@@ -192,11 +217,19 @@ var SimManager = {
   },
 
   showPukScreen: function sm_showPukScreen() {
+    if (!this.retryCount) {
+      UIManager.pukRetriesLeft.classList.add('hidden');
+    } else {
+      var l10nArgs = {n: this.retryCount};
+      UIManager.pukRetriesLeft.textContent = _('inputCodeRetriesLeft',
+                                               l10nArgs);
+      UIManager.pukRetriesLeft.classList.remove('hidden');
+    }
     UIManager.unlockSimScreen.classList.add('show');
     UIManager.activationScreen.classList.remove('show');
     UIManager.pincodeScreen.classList.remove('show');
     UIManager.pukcodeScreen.classList.add('show');
-    UIManager.unlockSimHeader.innerHTML = _('pukcode');
+    UIManager.unlockSimHeader.textContent = _('pukcode');
     UIManager.fakePukInput.focus();
   },
 
@@ -228,7 +261,7 @@ var SimManager = {
   unlockPin: function sm_unlockPin() {
     var pin = UIManager.pinInput.value;
     if (pin.length < 4 || pin.length > 8) {
-      UIManager.pinError.innerHTML = _('pinValidation');
+      UIManager.pinError.textContent = _('pinValidation');
       UIManager.pinInput.classList.add('onerror');
       UIManager.pinError.classList.remove('hidden');
       return;
@@ -247,22 +280,20 @@ var SimManager = {
 
   clearFields: function sm_clearFields() {
     UIManager.pukInput.classList.remove('onerror');
-    UIManager.pukError.innerHTML = '';
     UIManager.pukError.classList.add('hidden');
 
     UIManager.newpinInput.classList.remove('onerror');
-    UIManager.newpinError.innerHTML = '';
     UIManager.newpinError.classList.add('hidden');
 
     UIManager.confirmNewpinInput.classList.remove('onerror');
-    UIManager.confirmNewpinError.innerHTML = '';
     UIManager.confirmNewpinError.classList.add('hidden');
   },
+
   unlockPuk: function sm_unlockPuk() {
     this.clearFields();
     var pukCode = UIManager.pukInput.value;
     if (pukCode.length !== 8) {
-      UIManager.pukError.innerHTML = _('pukValidation');
+      UIManager.pukError.textContent = _('pukValidation');
       UIManager.pukError.classList.remove('hidden');
       UIManager.pukInfo.classList.add('hidden');
       UIManager.pukInput.classList.add('onerror');
@@ -272,14 +303,14 @@ var SimManager = {
     var newpinCode = UIManager.newpinInput.value;
     var confirmNewpin = UIManager.confirmNewpinInput.value;
     if (newpinCode.length < 4 || newpinCode.length > 8) {
-      UIManager.newpinError.innerHTML = _('pinValidation');
+      UIManager.newpinError.textContent = _('pinValidation');
       UIManager.newpinError.classList.remove('hidden');
       UIManager.newpinInput.classList.add('onerror');
       UIManager.newpinError.focus();
       return;
     }
     if (newpinCode != confirmNewpin) {
-      UIManager.confirmNewpinError.innerHTML = _('newpinConfirmation');
+      UIManager.confirmNewpinError.textContent = _('newpinConfirmation');
       UIManager.confirmNewpinError.classList.remove('hidden');
       UIManager.newpinInput.classList.add('onerror');
       UIManager.confirmNewpinInput.classList.add('onerror');
@@ -290,50 +321,70 @@ var SimManager = {
     // Unlock SIM with PUK and new PIN
     var options = {lockType: 'puk', puk: pukCode, newPin: newpinCode };
     var req = this.mobConn.unlockCardLock(options);
-    req.onsuccess = function sm_unlockSuccess() {
+    req.onsuccess = (function sm_unlockSuccess() {
       this.hideScreen();
-    }.bind(this);
+    }).bind(this);
   },
 
   importContacts: function sm_importContacts() {
+    // Delay for showing feedback to the user after importing
+    var DELAY_FEEDBACK = 300;
     UIManager.navBar.setAttribute('aria-disabled', 'true');
-    UIManager.loadingHeader.innerHTML = _('simContacts-importing');
-    UIManager.loadingOverlay.classList.add('show-overlay');
+    var progress = utils.overlay.show(_('simContacts-reading'),
+                                      'activityBar');
+
     var importButton = UIManager.simImportButton;
     importButton.setAttribute('disabled', 'disabled');
 
-    importSIMContacts(
-      function() {
-      }, function onsuccess(n) {
+    var importer = new SimContactsImporter();
+    var importedContacts = 0;
+
+    importer.onread = function sim_import_read(n) {
+      progress.setClass('progressBar');
+      progress.setHeaderMsg(_('simContacts-importing'))
+      progress.setTotal(n);
+    };
+
+    importer.onimported = function imported_contact() {
+      importedContacts++;
+      progress.update();
+    };
+
+    importer.onfinish = function sim_import_finish() {
+      window.setTimeout(function do_sim_import_finish() {
         SimManager.alreadyImported = true;
         UIManager.navBar.removeAttribute('aria-disabled');
-        UIManager.loadingOverlay.classList.remove('show-overlay');
-        utils.status.show(_('simContacts-imported3', {n: n}));
-      }.bind(this),
-      function onerror() {
-        UIManager.navBar.removeAttribute('aria-disabled');
-        UIManager.loadingOverlay.classList.remove('show-overlay');
-        // Just in case the user decides to do so later
-        importButton.removeAttribute('disabled');
+        utils.overlay.hide();
+        utils.status.show(_('simContacts-imported3', {n: importedContacts}));
+      }, DELAY_FEEDBACK);
+    };
 
-        // Showing error message allowing user to retry
-        var cancel = {
-          title: _('cancel'),
-          callback: function() {
-            ConfirmDialog.hide();
-          }
-        };
-        var retry = {
-          title: _('retry'),
-          isRecommend: true,
-          callback: function() {
-            ConfirmDialog.hide();
-            // And now the action is reproduced one more time
-            importButton.click();
-          }
-        };
-        ConfirmDialog.show(null, _('simContacts-error'), cancel, retry);
-    }.bind(this));
+    importer.onerror = function sim_import_error() {
+      UIManager.navBar.removeAttribute('aria-disabled');
+      utils.overlay.hide();
+      // Just in case the user decides to do so later
+      importButton.removeAttribute('disabled');
+
+      // Showing error message allowing user to retry
+      var cancel = {
+        title: _('cancel'),
+        callback: function() {
+          ConfirmDialog.hide();
+        }
+      };
+      var retry = {
+        title: _('retry'),
+        isRecommend: true,
+        callback: function() {
+          ConfirmDialog.hide();
+          // And now the action is reproduced one more time
+          importButton.click();
+        }
+      };
+      ConfirmDialog.show(null, _('simContacts-error'), cancel, retry);
+    }; // importer.onerror
+
+    importer.start();
   }
 };</textarea>
   </div>

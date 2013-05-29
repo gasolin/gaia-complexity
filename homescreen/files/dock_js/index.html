@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">63.92</p>
+      <p class="stat">66.41</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">240</p>
+      <p class="stat">271</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">51.29</p>
+      <p class="stat">52.50</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.59</p>
+      <p class="stat">1.86</p>
     </div>
   </div>
 </div>
@@ -103,21 +103,45 @@ const DockManager = (function() {
   var duration = 300;
 
   var initialOffsetLeft, initialOffsetRight, numApps, cellWidth;
-  var isPanning = false, startX, currentX, deltaX;
-  var tapThreshold = Page.prototype.tapThreshold;
+  var isPanning = false, startEvent, currentX, deltaX, tapThreshold;
+
+  var isTouch = 'ontouchstart' in window;
+  var touchstart = isTouch ? 'touchstart' : 'mousedown';
+  var touchmove = isTouch ? 'touchmove' : 'mousemove';
+  var touchend = isTouch ? 'touchend' : 'mouseup';
+
+  var getX = (function getXWrapper() {
+    return isTouch ? function(e) { return e.touches[0].pageX } :
+                     function(e) { return e.pageX };
+  })();
+
+  function addActive(target) {
+    if ('isIcon' in target.dataset) {
+      target.classList.add('active');
+      removeActive = function _removeActive() {
+        target.classList.remove('active');
+      }
+    } else {
+      removeActive = function() {};
+    }
+  }
+
+  var removeActive = function() {};
 
   function handleEvent(evt) {
     switch (evt.type) {
-      case 'touchstart':
+      case touchstart:
+        evt.stopPropagation();
         initialOffsetLeft = dock.getLeft();
         initialOffsetRight = dock.getRight();
         numApps = dock.getNumIcons();
-        startX = evt.touches[0].pageX;
+        startEvent = isTouch ? evt.touches[0] : evt;
         attachEvents();
+        addActive(evt.target);
         break;
 
-      case 'touchmove':
-        deltaX = evt.touches[0].pageX - startX;
+      case touchmove:
+        deltaX = getX(evt) - startEvent.pageX;
         if (!isPanning) {
           if (Math.abs(deltaX) < tapThreshold) {
             return;
@@ -155,7 +179,7 @@ const DockManager = (function() {
         dock.moveBy(initialOffsetLeft + deltaX);
         break;
 
-      case 'touchend':
+      case touchend:
         releaseEvents();
 
         if (!isPanning) {
@@ -164,6 +188,8 @@ const DockManager = (function() {
           isPanning = false;
           onTouchEnd(deltaX);
         }
+
+        removeActive();
 
         break;
 
@@ -177,9 +203,13 @@ const DockManager = (function() {
             GridManager.landingPage) {
 
           Homescreen.setMode('edit');
+          removeActive();
 
           if ('isIcon' in evt.target.dataset) {
-            DragDropManager.start(evt, {x: evt.clientX, y: evt.clientY});
+            DragDropManager.start(evt, {
+              'x': startEvent.pageX,
+              'y': startEvent.pageY
+            });
           }
         }
         break;
@@ -219,14 +249,14 @@ const DockManager = (function() {
 
   function releaseEvents() {
     container.removeEventListener('contextmenu', handleEvent);
-    window.removeEventListener('touchmove', handleEvent);
-    window.removeEventListener('touchend', handleEvent);
+    window.removeEventListener(touchmove, handleEvent);
+    window.removeEventListener(touchend, handleEvent);
   }
 
   function attachEvents() {
     container.addEventListener('contextmenu', handleEvent);
-    window.addEventListener('touchmove', handleEvent);
-    window.addEventListener('touchend', handleEvent);
+    window.addEventListener(touchmove, handleEvent);
+    window.addEventListener(touchend, handleEvent);
   }
 
   function placeAfterRemovingApp(numApps, centering) {
@@ -265,9 +295,10 @@ const DockManager = (function() {
      * @param {Dock} page
      *               The dock page object.
      */
-    init: function dm_init(containerEl, page) {
+    init: function dm_init(containerEl, page, pTapThreshold) {
+      tapThreshold = pTapThreshold;
       container = containerEl;
-      container.addEventListener('touchstart', handleEvent);
+      container.addEventListener(touchstart, handleEvent);
       dock = this.page = page;
 
       var numIcons = dock.getNumIcons();
@@ -283,7 +314,7 @@ const DockManager = (function() {
     },
 
     onDragStop: function dm_onDragStop() {
-      container.addEventListener('touchstart', handleEvent);
+      container.addEventListener(touchstart, handleEvent);
       var numApps = dock.getNumIcons();
       calculateDimentions(numApps);
 
@@ -300,7 +331,7 @@ const DockManager = (function() {
 
     onDragStart: function dm_onDragStart() {
       releaseEvents();
-      container.removeEventListener('touchstart', handleEvent);
+      container.removeEventListener(touchstart, handleEvent);
       numAppsBeforeDrag = dock.getNumIcons();
     },
 

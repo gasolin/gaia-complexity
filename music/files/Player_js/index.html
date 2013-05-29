@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">62.42</p>
+      <p class="stat">62.38</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">671</p>
+      <p class="stat">663</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">79.45</p>
+      <p class="stat">81.14</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">6.30</p>
+      <p class="stat">6.42</p>
     </div>
   </div>
 </div>
@@ -91,9 +91,6 @@
 <div class="container">
   <div class="row">
     <textarea id="file-source" class="span12">'use strict';
-
-// We will use a wake lock later to prevent Music from sleeping
-var cpuLock = null;
 
 // We have three types of the playing sources
 // These are for player to know which source type is playing
@@ -387,19 +384,15 @@ var PlayerView = {
     // due to b2g cannot get some mp3's duration
     // and the seekBar can still show 00:00 to -00:00
     this.setSeekBar(0, 0, 0);
-  },
-
-  play: function pv_play(targetIndex, backgroundIndex) {
-    this.isPlaying = true;
-
-    // Hold a wake lock to prevent from sleeping
-    if (!cpuLock)
-      cpuLock = navigator.requestWakeLock('cpu');
 
     if (this.endedTimer) {
       clearTimeout(this.endedTimer);
       this.endedTimer = null;
     }
+  },
+
+  play: function pv_play(targetIndex, backgroundIndex) {
+    this.isPlaying = true;
 
     this.showInfo();
 
@@ -409,7 +402,11 @@ var PlayerView = {
       playerTitle = songData.metadata.title || unknownTitle;
       TitleBar.changeTitleText(playerTitle);
       this.artist.textContent = songData.metadata.artist || unknownArtist;
+      this.artist.dataset.l10nId =
+        songData.metadata.artist ? '' : unknownArtistL10nId;
       this.album.textContent = songData.metadata.album || unknownAlbum;
+      this.album.dataset.l10nId =
+        songData.metadata.album ? '' : unknownAlbumL10nId;
       this.currentIndex = targetIndex;
 
       // backgroundIndex is from the index of sublistView
@@ -442,8 +439,11 @@ var PlayerView = {
         var titleBar = document.getElementById('title-text');
 
         titleBar.textContent = metadata.title || unknownTitle;
+        titleBar.dataset.l10nId = metadata.title ? '' : unknownTitleL10nId;
         this.artist.textContent = metadata.artist || unknownArtist;
+        this.artist.dataset.l10nId = metadata.artist ? '' : unknownArtistL10nId;
         this.album.textContent = metadata.album || unknownAlbum;
+        this.album.dataset.l10nId = metadata.album ? '' : unknownAlbumL10nId;
 
         // Add the blob from the dataSource to the fileinfo
         // because we want use the cover image which embedded in that blob
@@ -462,13 +462,6 @@ var PlayerView = {
 
   pause: function pv_pause() {
     this.isPlaying = false;
-
-    // We can go to sleep if music pauses
-    if (cpuLock) {
-      cpuLock.unlock();
-      cpuLock = null;
-    }
-
     this.audio.pause();
   },
 
@@ -743,7 +736,6 @@ var PlayerView = {
             this.endedTimer == null) {
           var timeToNext = (this.audio.duration - this.audio.currentTime + 1);
           this.endedTimer = setTimeout(function() {
-                                         this.endedTimer = null;
                                          this.next(true);
                                        }.bind(this),
                                        timeToNext * 1000);

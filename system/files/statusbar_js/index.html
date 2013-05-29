@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">64.98</p>
+      <p class="stat">65.36</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">612</p>
+      <p class="stat">767</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">66.73</p>
+      <p class="stat">72.00</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">6.20</p>
+      <p class="stat">7.60</p>
     </div>
   </div>
 </div>
@@ -94,6 +94,110 @@
 /* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
 
 'use strict';
+
+/**
+ * Create an animated icon by using a canvas element coupled with a flat image
+ * containing all the animation frames arranged as a vertical row. The delay
+ * between each frame is fixed.
+ */
+
+function AnimatedIcon(element, path, frames, delay) {
+  var context = element.getContext('2d');
+
+  this.frame = 1;
+  this.frames = frames;
+  this.timerId = null;
+
+  // Load the image and paint the first frame
+  var image = new Image();
+  image.src = path;
+  image.onload = function() {
+    var w = image.width;
+    var h = image.height / frames;
+
+    context.drawImage(image, 0, 0, w, h, 0, 0, w, h);
+  }
+
+  this.start = function() {
+    var self = this;
+
+    if (this.timerId == null) {
+      this.timerId = setInterval(function() {
+          var w = image.width;
+          var h = image.height / frames;
+
+          context.drawImage(image, 0, self.frame * h, w, h, 0, 0, w, h);
+          self.frame++;
+
+          if (self.frame == self.frames) {
+            self.frame = 0;
+          }
+      }, delay);
+    }
+  }
+
+  this.stop = function() {
+    if (this.timerId != null) {
+      clearInterval(this.timerId);
+      this.timerId = null;
+    }
+  }
+}
+
+/**
+ * Creates an object used for refreshing the clock UI element. Handles all
+ * related timer manipulation (start/stop/cancel).
+ */
+function Clock() {
+  /** One-shot timer used to refresh the clock at a minute's turn */
+  this.timeoutID = null;
+
+  /** Timer used to refresh the clock every minute */
+  this.timerID = null;
+
+  /**
+   * Start the timer used to refresh the clock, will call the specified
+   * callback at every timer tick to refresh the UI. The callback used to
+   * refresh the UI will also be called immediately to ensure the UI is
+   * consistent.
+   *
+   * @param {Function} refresh Function used to refresh the UI at every timer
+   *        tick, should accept a date object as its only argument.
+   */
+  this.start = function cl_start(refresh) {
+      var date = new Date();
+      var self = this;
+
+      refresh(date);
+
+      if (this.timeoutID == null) {
+        this.timeoutID = window.setTimeout(function cl_setClockInterval() {
+          refresh(new Date());
+
+          if (self.timerID == null) {
+            self.timerID = window.setInterval(function cl_clockInterval() {
+              refresh(new Date());
+            }, 60000);
+          }
+        }, (60 - date.getSeconds()) * 1000);
+      }
+    };
+
+  /**
+   * Stops the timer used to refresh the clock
+   */
+  this.stop = function cl_stop() {
+    if (this.timeoutID != null) {
+      window.clearTimeout(this.timeoutID);
+      this.timeoutID = null;
+    }
+
+    if (this.timerID != null) {
+      window.clearInterval(this.timerID);
+      this.timerID = null;
+    }
+  };
+}
 
 var StatusBar = {
   /* all elements that are children nodes of the status bar */
@@ -145,6 +249,15 @@ var StatusBar = {
    */
   systemDownloadsCount: 0,
 
+  /* Objects used to animate the system downloads and network activity canvas elements */
+  networkActivityAnimation: null,
+  systemDownloadsAnimation: null,
+
+  /**
+   * Object used for handling the clock UI element, wraps all related timers
+   */
+  clock: new Clock(),
+
   /* For other modules to acquire */
   get height() {
     if (this.screen.classList.contains('fullscreen-app') ||
@@ -153,12 +266,16 @@ var StatusBar = {
     } else if (this.screen.classList.contains('active-statusbar')) {
       return this.attentionBar.offsetHeight;
     } else {
-      return this.element.offsetHeight;
+      return this._cacheHeight ||
+             (this._cacheHeight = this.element.getBoundingClientRect().height);
     }
   },
 
   init: function sb_init() {
     this.getAllElements();
+
+    // Refresh the time to reflect locale changes
+    this.update.time.call(this, new Date());
 
     var settings = {
       'ril.radio.disabled': ['signal', 'data'],
@@ -169,7 +286,7 @@ var StatusBar = {
       'tethering.wifi.enabled': ['tethering'],
       'tethering.wifi.connectedClients': ['tethering'],
       'tethering.usb.connectedClients': ['tethering'],
-      'ring.enabled': ['mute'],
+      'audio.volume.notification': ['mute'],
       'alarm.enabled': ['alarm'],
       'vibration.enabled': ['vibration'],
       'ril.cf.enabled': ['callForwarding']
@@ -204,7 +321,19 @@ var StatusBar = {
     // Listen to 'moztimechange'
     window.addEventListener('moztimechange', this);
 
+    // Listen to 'lock', 'unlock' to determine the visible state of the clock
+    window.addEventListener('lock', this);
+    window.addEventListener('unlock', this);
+
     this.systemDownloadsCount = 0;
+
+    // Create the objects used to animate the statusbar-network-activity and
+    // statusbar-system-downloads canvas elements
+    this.networkActivityAnimation = new AnimatedIcon(this.icons.networkActivity,
+      'style/statusbar/images/network-activity-flat.png', 6, 200);
+    this.systemDownloadsAnimation = new AnimatedIcon(this.icons.systemDownloads,
+      'style/statusbar/images/system-downloads-flat.png', 8, 130);
+
     this.setActive(true);
   },
 
@@ -248,7 +377,7 @@ var StatusBar = {
         break;
 
       case 'moztimechange':
-        this.update.time.call(this);
+        this.clock.start.bind(this.clock, this.update.time.bind(this))
         break;
 
       case 'mozChromeEvent':
@@ -280,14 +409,20 @@ var StatusBar = {
       case 'moznetworkdownload':
         this.update.networkActivity.call(this);
         break;
+
+      case 'lock':
+        this.clock.stop();
+        break;
+
+      case 'unlock':
+        this.clock.start(this.update.time.bind(this));
+        break;
     }
   },
 
   setActive: function sb_setActive(active) {
     this.active = active;
     if (active) {
-      this.update.time.call(this);
-
       var battery = window.navigator.battery;
       if (battery) {
         battery.addEventListener('chargingchange', this);
@@ -307,13 +442,22 @@ var StatusBar = {
 
       window.addEventListener('wifi-statuschange',
                               this.update.wifi.bind(this));
+
+      var wifiManager = window.navigator.mozWifiManager;
+      if (wifiManager) {
+        wifiManager.connectionInfoUpdate = this.update.wifi.bind(this);
+      }
+
       this.update.wifi.call(this);
 
       window.addEventListener('moznetworkupload', this);
       window.addEventListener('moznetworkdownload', this);
-    } else {
-      clearTimeout(this._clockTimer);
 
+      if (!LockScreen.locked) {
+        // Start refreshing the clock only if it's visible
+        this.clock.start(this.update.time.bind(this));
+      }
+    } else {
       var battery = window.navigator.battery;
       if (battery) {
         battery.removeEventListener('chargingchange', this);
@@ -330,6 +474,9 @@ var StatusBar = {
 
       window.removeEventListener('moznetworkupload', this);
       window.removeEventListener('moznetworkdownload', this);
+
+      // Always prevent the clock from refreshing itself when the screen is off
+      this.clock.stop();
     }
   },
 
@@ -363,16 +510,10 @@ var StatusBar = {
       label.textContent = navigator.mozL10n.get('statusbarLabel', l10nArgs);
     },
 
-    time: function sb_updateTime() {
-      // Schedule another clock update when a new minute rolls around
+    time: function sb_updateTime(now) {
       var _ = navigator.mozL10n.get;
       var f = new navigator.mozL10n.DateTimeFormat();
-      var now = new Date();
       var sec = now.getSeconds();
-      if (this._clockTimer)
-        window.clearTimeout(this._clockTimer);
-      this._clockTimer =
-        window.setTimeout((this.update.time).bind(this), (59 - sec) * 1000);
 
       var formated = f.localeFormat(now, _('shortTimeFormat'));
       formated = formated.replace(/\s?(AM|PM)\s?/i, '<span>$1</span>');
@@ -402,11 +543,14 @@ var StatusBar = {
       // show up for 500ms.
 
       var icon = this.icons.networkActivity;
+      var animation = this.networkActivityAnimation;
 
       clearTimeout(this._networkActivityTimer);
       icon.hidden = false;
+      animation.start();
 
       this._networkActivityTimer = setTimeout(function hideNetActivityIcon() {
+        animation.stop();
         icon.hidden = true;
       }, 500);
     },
@@ -518,6 +662,9 @@ var StatusBar = {
         case 'connected':
           icon.hidden = false;
 
+          if (icon.dataset.connecting) {
+            delete icon.dataset.connecting;
+          }
           var relSignalStrength =
             wifiManager.connectionInformation.relSignalStrength;
           icon.dataset.level = Math.floor(relSignalStrength / 25);
@@ -552,7 +699,7 @@ var StatusBar = {
 
     mute: function sb_updateMute() {
       this.icons.mute.hidden =
-        (this.settingValues['ring.enabled'] == true);
+        (this.settingValues['audio.volume.notification'] != 0);
     },
 
     vibration: function sb_vibration() {
@@ -621,7 +768,15 @@ var StatusBar = {
 
     systemDownloads: function sb_updatesystemDownloads() {
       var icon = this.icons.systemDownloads;
-      icon.hidden = (this.systemDownloadsCount === 0);
+      var animation = this.systemDownloadsAnimation;
+
+      if (this.systemDownloadsCount > 0) {
+        icon.hidden = false;
+        animation.start();
+      } else {
+        animation.stop();
+        icon.hidden = true;
+      }
     },
 
     callForwarding: function sb_updateCallForwarding() {

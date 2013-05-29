@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">72.49</p>
+      <p class="stat">72.50</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">106</p>
+      <p class="stat">97</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">20.33</p>
+      <p class="stat">20.68</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">0.83</p>
+      <p class="stat">0.82</p>
     </div>
   </div>
 </div>
@@ -105,17 +105,17 @@ var EntrySheet = (function invocation() {
 
   EntrySheet.prototype.setTitle = function(title) {
     this.titleElement.textContent = title;
-  };
+  }
 
   EntrySheet.prototype.open = function() {
     // Transtion won't happen if adding class directly
-    setTimeout(function() {
+    setTimeout(function(){
       this.element.classList.add('active');
     }.bind(this));
-  };
+  }
 
   EntrySheet.prototype.close = function() {
-    this.element.addEventListener('transitionend', function onTransitionend() {
+    this.element.addEventListener('transitionend', function onTransitionend(){
       this.element.removeEventListener('transitionend', onTransitionend);
       this.element.classList.remove('disappearing');
       this.element.classList.remove('active');
@@ -124,7 +124,7 @@ var EntrySheet = (function invocation() {
       this.container.removeChild(this.element);
     }.bind(this));
     this.element.classList.add('disappearing');
-  };
+  }
 
   // These are helper functions and variables used by the methods above
   // They're not part of the public API of the module, but they're hidden
@@ -135,11 +135,9 @@ var EntrySheet = (function invocation() {
     return '<div class="' + EntrySheet.className + '">' +
       '<section role="region" class="skin-organic header">' +
         '<header>' +
-          '<button class="close">' +
-              '<span class="icon icon-close">close</span>' +
-          '</button>' +
-          '<h1 class="title">' + '</h1>' +
-          '<div class="throbber"></div>' +
+          '<button class="close"><span class="icon icon-close">close</span></button>' +
+            '<h1 class="title">' + '</h1>' +
+            '<div class="throbber"></div>' +
         '</header>' +
       '</section>' +
       '<div class="content">' +
@@ -151,30 +149,23 @@ var EntrySheet = (function invocation() {
     this.container = container;
     this.title = title;
     this.container.insertAdjacentHTML('beforeend', view.apply(this));
-    this.closeButton =
-      this.container.querySelector('.' + EntrySheet.className + ' .close');
-    this.titleElement =
-      this.container.querySelector('.' + EntrySheet.className + ' .title');
-    this.throbberElement =
-      this.container.querySelector('.' + EntrySheet.className + ' .throbber');
-    this.content =
-      this.container.querySelector('.' + EntrySheet.className + ' .content');
+    this.closeButton = this.container.querySelector('.' + EntrySheet.className + ' .close');
+    this.titleElement = this.container.querySelector('.' + EntrySheet.className + ' .title');
+    this.throbberElement = this.container.querySelector('.' + EntrySheet.className + ' .throbber');
+    this.content = this.container.querySelector('.' + EntrySheet.className + ' .content');
     this.element = this.container.querySelector('.' + EntrySheet.className);
     this.element.dataset.zIndexLevel = 'dialog-overlay';
 
     var self = this;
     // XXX: We may make entry sheet to generate browser frame by itself,
     // hence we don't need to check the type here.
-    if (typeof(BrowserFrame) != 'undefined' &&
-        content instanceof BrowserFrame) {
-      content.element.addEventListener('mozbrowserloadstart',
-        function onLoadStart() {
-          self.throbberElement.dataset.loading = true;
-        });
-      content.element.addEventListener('mozbrowserloadend',
-        function onLoadEnd() {
-          delete self.throbberElement.dataset.loading;
-        });
+    if (typeof(BrowserFrame) != 'undefined' && content instanceof BrowserFrame) {
+      content.element.addEventListener('mozbrowserloadstart', function onLoadStart(){
+        self.throbberElement.dataset.loading = true;
+      });
+      content.element.addEventListener('mozbrowserloadend', function onLoadEnd(){
+        delete self.throbberElement.dataset.loading;
+      });
       this.content.appendChild(content.element);
     } else if (content && content.nodeType == 1) {
       // In case the content isn't a browserElement object but a DOM element.
@@ -185,7 +176,7 @@ var EntrySheet = (function invocation() {
     var self = this;
     this.closeButton.onclick = function() {
       self.close();
-    };
+    }
   }
 
   var nextId = 0;

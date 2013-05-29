@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">62.66</p>
+      <p class="stat">62.72</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">340</p>
+      <p class="stat">390</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">37.07</p>
+      <p class="stat">39.80</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">3.30</p>
+      <p class="stat">3.80</p>
     </div>
   </div>
 </div>
@@ -110,6 +110,7 @@
   var hasSim = true;
   function onReady() {
     var mobileConnection = window.navigator.mozMobileConnection;
+    var iccid = mobileConnection.iccInfo.iccid;
 
     // No SIM
     if (!mobileConnection || mobileConnection.cardState === 'absent') {
@@ -119,28 +120,56 @@
     // SIM is not ready
     } else if (mobileConnection.cardState !== 'ready') {
       debug('SIM not ready:', mobileConnection.cardState);
+      mobileConnection.oncardstatechange = onReady;
+
+    // SIM is ready, but ICC info is not ready yet
+    } else if (iccid === null) {
+      debug('ICC info not ready yet');
       mobileConnection.oniccinfochange = onReady;
 
-    // SIM is ready
+    // All ready
     } else {
-      debug('SIM ready. ICCID:', mobileConnection.iccInfo.iccid);
+      debug('SIM ready. ICCID:', iccid);
+      mobileConnection.oncardstatechange = undefined;
       mobileConnection.oniccinfochange = undefined;
       startWidget();
     }
   };
 
   function startWidget() {
-    checkSIMChange(function _onSIMChecked() {
-      CostControl.getInstance(function _onCostControlReady(instance) {
-        costcontrol = instance;
-        setupWidget();
-      });
-    });
+    function _onNoICCID() {
+      console.error('checkSIMChange() failed. Impossible to ensure consistent' +
+                    'data. Aborting start up.');
+      window.close(); // remove the widget
+    }
+
+    if (!hasSim) {
+      var leftPanel = document.getElementById('left-panel');
+      var rightPanel = document.getElementById('right-panel');
+      var fte = document.getElementById('fte-view');
+
+      fte.setAttribute('aria-hidden', false);
+      leftPanel.setAttribute('aria-hidden', true);
+      rightPanel.setAttribute('aria-hidden', true);
+
+      document.getElementById('fte-icon').className = 'icon ' + 'widget-no-sim2';
+      fte.querySelector('p:first-child').innerHTML = _('widget-no-sim2-heading');
+      fte.querySelector('p:last-child').innerHTML = _('widget-no-sim2-meta');
+
+    } else {
+      checkSIMChange(function _onSIMChecked() {
+        CostControl.getInstance(function _onCostControlReady(instance) {
+          costcontrol = instance;
+          setupWidget();
+        });
+      }, _onNoICCID);
+    }
   }
 
   window.addEventListener('localized', function _onLocalize() {
-    if (initialized)
+    if (initialized) {
       updateUI();
+    }
   });
 
   var initialized, widget, leftPanel, rightPanel, fte, views = {};
@@ -165,10 +194,18 @@
     // Update UI when visible
     document.addEventListener('mozvisibilitychange',
       function _onVisibilityChange(evt) {
-        if (!document.mozHidden && initialized)
+        if (!document.mozHidden && initialized) {
           updateUI();
+        }
       }
     );
+
+    // Update data usage on network activity
+    window.addEventListener('hashchange', function _onHashChange() {
+      if (window.location.hash.split('#')[1] === 'update') {
+        updateUI(true); // update only data usage
+      }
+    });
 
     // Open application with the proper view
     views.balance.addEventListener('click',
@@ -203,8 +240,9 @@
 
   // On balance update fail
   function onErrors(errors, old, key, settings) {
-    if (!errors['BALANCE_TIMEOUT'])
+    if (!errors['BALANCE_TIMEOUT']) {
       return;
+    }
     debug('Balance timeout!');
 
     setBalanceMode('warning');
@@ -225,19 +263,17 @@
     leftPanel.setAttribute('aria-hidden', true);
     rightPanel.setAttribute('aria-hidden', true);
 
-    if (hasSim) {
-      fte.addEventListener('click', function launchFte() {
-        fte.removeEventListener('click', launchFte);
-        var activity = new MozActivity({ name: 'costcontrol/balance' });
-      });
-    }
+    fte.addEventListener('click', function launchFte() {
+      fte.removeEventListener('click', launchFte);
+      var activity = new MozActivity({ name: 'costcontrol/balance' });
+    });
 
     var keyLookup = {
         PREPAID: 'widget-authed-sim',
         POSTPAID: 'widget-authed-sim',
         DATA_USAGE_ONLY: 'widget-nonauthed-sim'
     };
-    var simKey = hasSim ? keyLookup[mode] : 'widget-no-sim2';
+    var simKey = keyLookup[mode];
 
     document.getElementById('fte-icon').className = 'icon ' + simKey;
     fte.querySelector('p:first-child').innerHTML = _(simKey + '-heading',
@@ -245,7 +281,8 @@
     fte.querySelector('p:last-child').innerHTML = _(simKey + '-meta');
   }
 
-  function updateUI() {
+  var hashMark = 0;
+  function updateUI(updateOnlyDataUsage) {
     ConfigManager.requestAll(function _onInfo(configuration, settings) {
       var mode = costcontrol.getApplicationMode(settings);
       debug('Widget UI mode:', mode);
@@ -285,7 +322,7 @@
       // Content for data statistics
       var requestObj = { type: 'datausage' };
       costcontrol.request(requestObj, function _onDataStatistics(result) {
-        debug(JSON.stringify(result));
+        debug(result);
         var stats = result.data;
         var data = roundData(stats.mobile.total);
         if (isLimited) {
@@ -313,8 +350,8 @@
           if (limitTresspased) {
             views.limitedDataUsage.classList.add('reached-limit');
 
-          //  80% of the limit reached
-          } else if (current >= limit * 0.8) {
+          //  Warning percentage of the limit reached
+          } else if (current >= limit * costcontrol.getDataUsageWarning()) {
             views.limitedDataUsage.classList.add('nearby-limit');
           }
 
@@ -341,10 +378,18 @@
           views.dataUsage.querySelector('.meta').innerHTML =
             formatTimeHTML(stats.timestamp);
         }
+        checkDataUsageNotification(settings, stats.mobile.total,
+          // inform driver in system we are finished to update the widget
+          function _done() {
+            debug('Data usage notification checked!');
+            hashMark = 1 - hashMark; // toogle between 0 and 1
+            window.location.hash = '#updateDone#' + hashMark;
+          }
+        );
       });
 
       // Content for balance or telephony
-      if (!isDataUsageOnly) {
+      if (!isDataUsageOnly && !updateOnlyDataUsage) {
         if (mode === 'PREPAID') {
           updateBalance(settings.lastBalance,
                         settings.lowLimit && settings.lowLimitThreshold);
@@ -402,8 +447,9 @@
 
     // Timestamp
     var timeContent = formatTimeHTML(balance.timestamp);
-    if (views.balance.classList.contains('updating'))
+    if (views.balance.classList.contains('updating')) {
       timeContent = _('updating') + '...';
+    }
     views.balance.querySelector('.meta').innerHTML = timeContent;
 
     // Limits: reaching zero / low limit
@@ -413,10 +459,11 @@
     } else {
       views.balance.classList.remove('no-credit');
 
-      if (limit && balance.balance < limit)
+      if (limit && balance.balance < limit) {
         views.balance.classList.add('low-credit');
-      else
+      } else {
         views.balance.classList.remove('low-credit');
+      }
     }
   }
 
@@ -424,18 +471,21 @@
   // Set warning / updating modes
   var lastBalanceMode;
   function setBalanceMode(mode) {
-    if (mode === lastBalanceMode)
+    if (mode === lastBalanceMode) {
       return;
+    }
 
     lastBalanceMode = mode;
     views.balance.classList.remove('updating');
     views.balance.classList.remove('warning');
 
-    if (mode === 'warning')
+    if (mode === 'warning') {
       views.balance.classList.add('warning');
+    }
 
-    if (mode === 'updating')
+    if (mode === 'updating') {
       views.balance.classList.add('updating');
+    }
   }
 
 }());</textarea>

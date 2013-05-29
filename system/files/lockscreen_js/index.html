@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">62.73</p>
+      <p class="stat">62.34</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">965</p>
+      <p class="stat">989</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">77.71</p>
+      <p class="stat">79.47</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">8.93</p>
+      <p class="stat">9.05</p>
     </div>
   </div>
 </div>
@@ -196,10 +196,15 @@ var LockScreen = {
   */
   HANDLE_MAX: 70,
 
+  /**
+   * Object used for handling the clock UI element, wraps all related timers
+   */
+  clock: new Clock(),
+
   /* init */
   init: function ls_init() {
     if (this.ready) { // already initialized: just trigger a translation
-      this.updateTime();
+      this.refreshClock(new Date());
       this.updateConnState();
       return;
     }
@@ -259,8 +264,8 @@ var LockScreen = {
       self.setEnabled(value);
     });
 
-    SettingsListener.observe('ring.enabled', true, function(value) {
-      self.mute.hidden = value;
+    SettingsListener.observe('audio.volume.notification', 7, function(value) {
+      self.mute.hidden = (value != 0);
     });
 
     SettingsListener.observe('vibration.enabled', true, function(value) {
@@ -354,6 +359,8 @@ var LockScreen = {
           if (this.camera.firstElementChild)
             this.camera.removeChild(this.camera.firstElementChild);
 
+          // Stop refreshing the clock when the screen is turned off.
+          this.clock.stop();
         } else {
           var _screenOffInterval = new Date().getTime() - this._screenOffTime;
           if (_screenOffInterval > this.passCodeRequestTimeout * 1000) {
@@ -361,6 +368,9 @@ var LockScreen = {
           } else {
             this._passCodeTimeoutCheck = false;
           }
+
+          // Resume refreshing the clock when the screen is turned on.
+          this.clock.start(this.refreshClock.bind(this));
         }
 
         this.lockIfEnabled(true);
@@ -607,19 +617,31 @@ var LockScreen = {
   },
 
   unlock: function ls_unlock(instant) {
-    var currentApp = WindowManager.getDisplayedApp();
-    WindowManager.setOrientationForApp(currentApp);
+    // This file is loaded before the Window Manager in order to intercept
+    // hardware buttons events. As a result WindowManager is not defined when
+    // the device is turned on and this file is loaded.
+    var currentApp =
+      'WindowManager' in window ? WindowManager.getDisplayedApp() : null;
+    if (currentApp)
+      WindowManager.setOrientationForApp(currentApp);
 
-    var currentFrame = WindowManager.getAppFrame(currentApp).firstChild;
+    var currentFrame = 'WindowManager' in window && currentApp ?
+                       WindowManager.getAppFrame(currentApp).firstChild :
+                       null;
+
     var wasAlreadyUnlocked = !this.locked;
     this.locked = false;
     this.setElasticEnabled(false);
     this.mainScreen.focus();
 
+    // The lockscreen will be hidden, stop refreshing the clock.
+    this.clock.stop();
+
     var repaintTimeout = 0;
     var nextPaint= function() {
       clearTimeout(repaintTimeout);
-      currentFrame.removeNextPaintListener(nextPaint);
+      if (currentFrame)
+        currentFrame.removeNextPaintListener(nextPaint);
 
       if (instant) {
         this.overlay.classList.add('no-transition');
@@ -647,7 +669,8 @@ var LockScreen = {
     }.bind(this);
 
     this.dispatchEvent('will-unlock');
-    currentFrame.addNextPaintListener(nextPaint);
+    if (currentFrame)
+      currentFrame.addNextPaintListener(nextPaint);
     repaintTimeout = setTimeout(function ensureUnlock() {
       nextPaint();
     }, 400);
@@ -656,8 +679,6 @@ var LockScreen = {
   lock: function ls_lock(instant) {
     var wasAlreadyLocked = this.locked;
     this.locked = true;
-
-    this.updateTime();
 
     this.switchPanel();
 
@@ -797,16 +818,21 @@ var LockScreen = {
       return;
     }
 
-    var overlay = this.overlay;
-    var self = this;
     panel = panel || 'main';
+    var overlay = this.overlay;
+    var currentPanel = overlay.dataset.panel;
+
+    if (currentPanel && currentPanel === panel) {
+      return;
+    }
+
+    var self = this;
 
     this._switchingPanel = true;
     this.loadPanel(panel, function panelLoaded() {
       self.unloadPanel(overlay.dataset.panel, panel,
         function panelUnloaded() {
-          if (overlay.dataset.panel !== panel)
-            self.dispatchEvent('lockpanelchange');
+          self.dispatchEvent('lockpanelchange');
 
           overlay.dataset.panel = panel;
           self._switchingPanel = false;
@@ -814,25 +840,19 @@ var LockScreen = {
     });
   },
 
-  updateTime: function ls_updateTime() {
+  refreshClock: function ls_refreshClock(now) {
     if (!this.locked)
       return;
 
-    var d = new Date();
     var f = new navigator.mozL10n.DateTimeFormat();
     var _ = navigator.mozL10n.get;
 
     var timeFormat = _('shortTimeFormat') || '%H:%M';
     var dateFormat = _('longDateFormat') || '%A %e %B';
-    var time = f.localeFormat(d, timeFormat);
+    var time = f.localeFormat(now, timeFormat);
     this.clockNumbers.textContent = time.match(/([012]?\d).[0-5]\d/g);
     this.clockMeridiem.textContent = (time.match(/AM|PM/i) || []).join('');
-    this.date.textContent = f.localeFormat(d, dateFormat);
-
-    var self = this;
-    window.setTimeout(function ls_clockTimeout() {
-      self.updateTime();
-    }, (59 - d.getSeconds()) * 1000);
+    this.date.textContent = f.localeFormat(now, dateFormat);
   },
 
   updateConnState: function ls_updateConnState() {
@@ -894,6 +914,10 @@ var LockScreen = {
       updateConnstateLine1('emergencyCallsOnly');
 
       switch (conn.cardState) {
+        case 'unknown':
+          updateConnstateLine2('emergencyCallsOnly-unknownSIMState');
+          break;
+
         case 'absent':
           updateConnstateLine2('emergencyCallsOnly-noSIM');
           break;

@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">60.46</p>
+      <p class="stat">61.38</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">261</p>
+      <p class="stat">287</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">44.25</p>
+      <p class="stat">47.34</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.30</p>
+      <p class="stat">2.53</p>
     </div>
   </div>
 </div>
@@ -193,16 +193,22 @@ var Navigation = {
     }
   },
 
-
   forward: function n_forward(event) {
     var self = this;
     var goToStepForward = function() {
       self.previousStep = self.currentStep;
       self.currentStep++;
       if (self.currentStep > numSteps) {
-        UIManager.activationScreen.classList.remove('show');
-        UIManager.finishScreen.classList.add('show');
-        Tutorial.init();
+        // Try to send Newsletter here
+        UIManager.sendNewsletter(function newsletterSent(result) {
+          if (result) { // sending process ok, we advance
+            UIManager.activationScreen.classList.remove('show');
+            UIManager.finishScreen.classList.add('show');
+            Tutorial.init();
+          } else { // error on sending, we stay where we are
+            self.currentStep--;
+          }
+        });
         return;
       }
       self.manageStep();
@@ -237,10 +243,22 @@ var Navigation = {
     }
   },
 
+  getProgressBarClassName: function n_getProgressBarClassName() {
+    // Manage step state (dynamically change)
+    var className = 'step-state step-';
+    if (this.skipped && this.currentStep > 2) {
+      className += (this.currentStep - 1) + ' less-steps';
+    } else {
+      className += this.currentStep;
+    }
 
+    return className;
+  },
 
   handleEvent: function n_handleEvent(event) {
     var actualHash = window.location.hash;
+
+    var className = this.getProgressBarClassName();
 
     switch (actualHash) {
       case '#languages':
@@ -277,8 +295,7 @@ var Navigation = {
           fbOption.classList.remove('disabled');
           return;
         }
-        if (WifiManager.api.connection.status === 'connected' ||
-            DataMobile.isDataAvailable) {
+        if (window.navigator.onLine) {
           fbOption.classList.remove('disabled');
         } else {
           fbOption.classList.add('disabled');
@@ -287,22 +304,20 @@ var Navigation = {
       case '#welcome_browser':
         UIManager.mainTitle.innerHTML = _('browserPrivacyChoices');
         break;
+      case '#browser_privacy':
+        UIManager.mainTitle.innerHTML = _('browserPrivacyChoices');
+        break;
       case '#about-your-rights':
       case '#about-your-privacy':
       case '#sharing-performance-data':
         UIManager.mainTitle.innerHTML = _('browserPrivacyChoices');
       case this.externalUrlLoaderSelector:
-        UIManager.progressBar.className = 'hidden';
+        // override the className here
+        className = 'hidden';
         UIManager.navBar.classList.add('back-only');
         break;
     }
-    // Manage step state (dinamically change)
-    var className = 'step-state step-';
-    if (this.skipped && this.currentStep > 2) {
-      className += (this.currentStep - 1) + ' less-steps';
-    } else {
-      className += this.currentStep;
-    }
+
     UIManager.progressBar.className = className;
 
     // Managing options button
@@ -338,6 +353,17 @@ var Navigation = {
     } else {
       UIManager.navBar.classList.remove('forward-only');
     }
+    // Substitute button content on last step
+    var nextButton = document.getElementById('forward');
+    var innerNode = nextButton.childNodes[1];
+    if (this.currentStep == numSteps) {
+      nextButton.dataset.l10nId = 'done';
+      nextButton.textContent = _('done');
+    } else {
+      nextButton.dataset.l10nId = 'navbar-next';
+      nextButton.textContent = _('navbar-next');
+    }
+    nextButton.appendChild(innerNode);
 
     window.location.hash = steps[self.currentStep].hash;
     // SIM card management

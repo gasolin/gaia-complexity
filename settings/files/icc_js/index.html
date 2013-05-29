@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">63.27</p>
+      <p class="stat">63.01</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">960</p>
+      <p class="stat">963</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">66.48</p>
+      <p class="stat">63.94</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">9.22</p>
+      <p class="stat">9.24</p>
     </div>
   </div>
 </div>
@@ -177,9 +177,9 @@
       handleSTKCommand(event.command);
     });
     window.addEventListener('stkasynccommand',
-        function do_handleAsyncSTKCmd(event) {
-      handleSTKCommand(event.detail.command);
-    });
+      function do_handleAsyncSTKCmd(event) {
+        handleSTKCommand(event.detail.command);
+      });
 
     /**
      * Open STK main application
@@ -191,41 +191,24 @@
     // Load STK apps
     updateMenu();
 
+    // XXX https://bugzilla.mozilla.org/show_bug.cgi?id=844727
+    // We should use Settings.settingsCache first
+    var settings = Settings.mozSettings;
+    var lock = settings.createLock();
     // Update displayTextTimeout with settings parameter
-    var reqDisplayTimeout =
-      window.navigator.mozSettings.createLock().get('icc.displayTextTimeout');
+    var reqDisplayTimeout = lock.get('icc.displayTextTimeout');
     reqDisplayTimeout.onsuccess = function icc_getDisplayTimeout() {
       displayTextTimeout = reqDisplayTimeout.result['icc.displayTextTimeout'];
     };
 
     // Update inputTimeout with settings parameter
-    var reqInputTimeout =
-      window.navigator.mozSettings.createLock().get('icc.inputTextTimeout');
+    var reqInputTimeout = lock.get('icc.inputTextTimeout');
     reqInputTimeout.onsuccess = function icc_getInputTimeout() {
       inputTimeout = reqInputTimeout.result['icc.inputTextTimeout'];
     };
 
     getIccInfo();
-
-    // Check if async message has arrived
-    var reqIccData = window.navigator.mozSettings.createLock().get('icc.data');
-    reqIccData.onsuccess = function icc_getIccData() {
-      var cmd = reqIccData.result['icc.data'];
-      if (cmd) {
-        var iccCommand = JSON.parse(cmd);
-        debug('ICC async command: ', iccCommand);
-        reqIccData = window.navigator.mozSettings.createLock().set({
-          'icc.data': ''
-        });
-        if (iccCommand) {        // Open ICC section
-          var event = new CustomEvent('stkasynccommand', {
-            detail: { 'command': iccCommand }
-          });
-          window.dispatchEvent(event);
-        }
-      }
-    }
-  };
+  }
 
   function stkResTerminate() {
     iccLastCommandProcessed = true;
@@ -399,16 +382,21 @@
 
       case icc.STK_CMD_SET_UP_CALL:
         debug(' STK:Setup Phone Call. Number: ' + options.address);
-        var msg = '';
-        if (options.confirmMessage) {
-          msg += options.confirmMessage;
+        if (!options.confirmMessage) {
+          options.confirmMessage = _(
+            'operatorService-confirmCall-defaultmessage', {
+              'number': options.address
+            });
         }
-        var confirmed = confirm(msg + ' ' + options.address);
+        var confirmed = confirm(options.confirmMessage);
         iccLastCommandProcessed = true;
         responseSTKCommand({
           hasConfirmed: confirmed,
           resultCode: icc.STK_RESULT_OK
         });
+        if (options.callMessage) {
+          alert(options.callMessage);
+        }
         break;
 
       case icc.STK_CMD_LAUNCH_BROWSER:
@@ -753,6 +741,9 @@
     if (options.isYesNoRequired) {
       input.type = 'checkbox';
     }
+    if (options.hideInput) {
+      input.type = 'password';
+    }
     if (options.hidden) {
       input.type = 'hidden';
     }
@@ -792,6 +783,13 @@
         clearTimeout(inputTimeOutID);
         inputTimeOutID = null;
       }
+      if (input.type === 'tel') {
+        // Removing unauthorized characters
+        console.log('TEL keypad. Remove unauthorized characters: ' +
+          input.value);
+        input.value = input.value.replace(/[()-]/g,'');
+        console.log('TEL keypad. Final entry: ' + input.value);
+      }
       button.disabled = !checkInputLengthValid(input.value.length,
                                               options.minLength,
                                               options.maxLength);
@@ -800,6 +798,7 @@
     label.appendChild(button);
     li.appendChild(label);
     iccStkList.appendChild(li);
+    input.focus();
 
     // Help
     if (options.isHelpAvailable) {
@@ -808,6 +807,7 @@
       var buttonHelp = document.createElement('button');
       buttonHelp.id = 'stk-item-help';
       buttonHelp.textContent = _('operatorServices-help');
+      buttonHelp.dataset.l10nId = 'operatorServices-help';
       buttonHelp.onclick = function(event) {
         responseSTKCommand({
           resultCode: icc.STK_RESULT_HELP_INFO_REQUIRED
@@ -919,17 +919,20 @@
 
     var timeout = 0;
     if (options.duration &&
-        options.duration.timeUnit &&
-        options.duration.timeInterval) {
+        options.duration.timeUnit != undefined &&
+        options.duration.timeInterval != undefined) {
       timeout = calculateDurationInMS(options.duration.timeUnit,
         options.duration.timeInterval);
-    } else if (options.timeUnit && options.timeInterval) {
+    } else if (options.timeUnit != undefined &&
+        options.timeInterval != undefined) {
       timeout = calculateDurationInMS(options.timUnit, options.timeInterval);
     }
     if (timeout) {
       debug('Tone stop in (ms): ', timeout);
       setTimeout(function() {
-        tonePlayer.pause();
+        closeToneAlert();
+        iccLastCommandProcessed = true;
+        responseSTKCommand({ resultCode: icc.STK_RESULT_OK });
       }, timeout);
     }
 

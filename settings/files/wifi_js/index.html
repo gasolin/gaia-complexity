@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.58</p>
+      <p class="stat">65.23</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">751</p>
+      <p class="stat">762</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">83.13</p>
+      <p class="stat">85.34</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">6.92</p>
+      <p class="stat">7.19</p>
     </div>
   </div>
 </div>
@@ -103,6 +103,7 @@ navigator.mozL10n.ready(function wifiSettings() {
   if (!settings)
     return;
 
+  var gWifiManager = getWifiManager();
   var gWifi = document.querySelector('#wifi');
   var gWifiCheckBox = document.querySelector('#wifi-enabled input');
   var gWifiInfoBlock = document.querySelector('#wifi-desc');
@@ -183,6 +184,7 @@ navigator.mozL10n.ready(function wifiSettings() {
     // Re-enable UI toggle
     gWifiCheckBox.disabled = false;
     gWifiInfoBlock.textContent = _('disabled');
+    gWifiInfoBlock.dataset.l10nId = 'disabled';
     gNetworkList.clear(false);
     gNetworkList.autoscan = false;
   };
@@ -197,7 +199,9 @@ navigator.mozL10n.ready(function wifiSettings() {
       req.onsuccess = function() {
         gWpsInProgress = false;
         gWpsPbcLabelBlock.textContent = _('wpsMessage');
+        gWpsPbcLabelBlock.dataset.l10nId = 'wpsMessage';
         gWpsInfoBlock.textContent = _('fullStatus-wps-canceled');
+        gWpsInfoBlock.dataset.l10nId = 'fullStatus-wps-canceled';
       };
       req.onerror = function() {
         gWpsInfoBlock.textContent = _('wpsCancelFailedMessage') +
@@ -229,7 +233,9 @@ navigator.mozL10n.ready(function wifiSettings() {
         }
         gWpsInProgress = true;
         gWpsPbcLabelBlock.textContent = _('wpsCancelMessage');
+        gWpsPbcLabelBlock.dataset.l10nId = 'wpsCancelMessage';
         gWpsInfoBlock.textContent = _('fullStatus-wps-inprogress');
+        gWpsInfoBlock.dataset.l10nId = 'fullStatus-wps-inprogress';
       };
       req.onerror = function() {
         gWpsInfoBlock.textContent = _('fullStatus-wps-failed') +
@@ -320,6 +326,7 @@ navigator.mozL10n.ready(function wifiSettings() {
       ssid.className = 'wifi-secure';
     } else {
       small.textContent = _('securityOpen');
+      small.dataset.l10nId = 'securityOpen';
     }
 
     // create list item
@@ -606,10 +613,12 @@ navigator.mozL10n.ready(function wifiSettings() {
     function wifiConnect() {
       gCurrentNetwork = network;
       gWifiManager.associate(network);
+      settings.createLock().set({'wifi.connect_via_settings': true});
       gNetworkList.display(network, _('shortStatus-connecting'));
     }
 
     function wifiDisconnect() {
+      settings.createLock().set({'wifi.connect_via_settings': false});
       gWifiManager.forget(network);
       gNetworkList.display(network, _('shortStatus-disconnected'));
       // get available network list
@@ -774,6 +783,7 @@ navigator.mozL10n.ready(function wifiSettings() {
         _('fullStatus-' + networkStatus, gWifiManager.connection.network);
 
     if (networkStatus === 'connectingfailed' && gCurrentNetwork) {
+      settings.createLock().set({'wifi.connect_via_settings': false});
       // connection has failed, probably an authentication issue...
       delete(gCurrentNetwork.password);
       gWifiManager.forget(gCurrentNetwork); // force a new authentication dialog
@@ -792,6 +802,7 @@ navigator.mozL10n.ready(function wifiSettings() {
           networkStatus === 'wps-overlapped') {
         gWpsInProgress = false;
         gWpsPbcLabelBlock.textContent = _('wpsMessage');
+        gWpsPbcLabelBlock.dataset.l10nId = 'wpsMessage';
       }
     }
   }

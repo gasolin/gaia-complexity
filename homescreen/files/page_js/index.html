@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">69.55</p>
+      <p class="stat">70.31</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">878</p>
+      <p class="stat">932</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">74.27</p>
+      <p class="stat">78.48</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">8.77</p>
+      <p class="stat">9.35</p>
     </div>
   </div>
 </div>
@@ -132,6 +132,16 @@ Icon.prototype = {
    */
   app: null,
 
+  /**
+   * It returns an unique identifier among all icons installed on the homescreen
+   */
+  getUID: function icon_getUID() {
+    var descriptor = this.descriptor;
+
+    return (descriptor.manifestURL || descriptor.bookmarkURL) +
+           (descriptor.entry_point ? descriptor.entry_point : '');
+  },
+
   /*
    * Renders the icon into the page
    *
@@ -173,21 +183,16 @@ Icon.prototype = {
 
     // Image
     var img = this.img = new Image();
-    icon.appendChild(img);
+    img.setAttribute('role', 'presentation');
+    img.width = 64;
+    img.height = 64;
     img.style.visibility = 'hidden';
-    if (this.downloading) {
-      img.src = descriptor.icon;
-      img.style.visibility = 'visible';
+    if (descriptor.renderedIcon) {
+      this.displayRenderedIcon();
     } else {
-      img.setAttribute('role', 'presentation');
-      img.width = 64;
-      img.height = 64;
-      if (descriptor.renderedIcon) {
-        this.displayRenderedIcon();
-      } else {
-        this.fetchImageData();
-      }
+      this.fetchImageData();
     }
+    icon.appendChild(img);
 
     // Label
 
@@ -204,12 +209,8 @@ Icon.prototype = {
 
     container.appendChild(icon);
 
-    if (descriptor.removable) {
-      // Menu button to delete the app
-      var options = document.createElement('span');
-      options.className = 'options';
-      options.dataset.isIcon = true;
-      container.appendChild(options);
+    if (descriptor.removable === true) {
+      this.appendOptions();
     }
 
     target.appendChild(container);
@@ -220,6 +221,28 @@ Icon.prototype = {
       container.style.visibility = 'visible';
       icon.classList.add('loading');
     }
+  },
+
+  appendOptions: function icon_appendOptions() {
+    var options = this.container.querySelector('.options');
+    if (options) {
+      return;
+    }
+
+    // Menu button to delete the app
+    options = document.createElement('span');
+    options.className = 'options';
+    options.dataset.isIcon = true;
+    this.container.appendChild(options);
+  },
+
+  removeOptions: function icon_removeOptions() {
+    var options = this.container.querySelector('.options');
+    if (!options) {
+      return;
+    }
+
+    this.container.removeChild(options);
   },
 
   applyOverflowTextMask: function icon_applyOverflowTextMask() {
@@ -235,43 +258,29 @@ Icon.prototype = {
     var descriptor = this.descriptor;
     var icon = descriptor.icon;
     if (!icon) {
-      this.loadImageData();
-      return;
-    }
-
-    // If we already have locally cached data, load the image right away.
-    if (icon.indexOf('data:') == 0) {
-      this.loadImageData();
-      return;
-    }
-
-    var self = this;
-    var xhr = new XMLHttpRequest({mozAnon: true, mozSystem: true});
-    xhr.open('GET', icon, true);
-    xhr.responseType = 'blob';
-    try {
-      xhr.send(null);
-    } catch (e) {
-      console.error('Got an exception when trying to load icon "' + icon +
-          '", falling back to default icon. Exception is:', e);
       this.loadCachedIcon();
       return;
     }
 
-    xhr.onreadystatechange = function saveIcon_readyStateChange(evt) {
-      if (xhr.readyState != xhr.DONE)
-        return;
+    // Display the default/oldRendered icon before trying to get the icon.
+    // Sometimes when the network is quite bad the XHR can take time, and we
+    // have an empty space
+    this.loadCachedIcon();
 
-      if (xhr.status != 0 && xhr.status != 200) {
-        self.loadCachedIcon();
-        return;
+    IconRetriever.get({
+      icon: this,
+      success: function(blob) {
+        this.loadImageData(blob);
+      },
+      error: function() {
+        if (this.icon && !this.downloading &&
+            this.icon.classList.contains('loading')) {
+          this.icon.classList.remove('loading');
+          this.img.src = null;
+        }
+        this.loadCachedIcon();
       }
-      self.loadImageData(xhr.response);
-    };
-
-    xhr.onerror = function saveIcon_onerror() {
-      self.loadCachedIcon();
-    };
+    });
   },
 
   loadCachedIcon: function icon_loadCachedImage() {
@@ -279,38 +288,56 @@ Icon.prototype = {
     if (oldRenderedIcon && oldRenderedIcon instanceof Blob) {
       this.renderBlob(oldRenderedIcon);
     } else {
-      this.loadImageData();
+      this.loadDefaultIcon();
     }
   },
 
   loadImageData: function icon_loadImageData(blob) {
     var self = this;
     var img = new Image();
-    if (blob) {
-      var url = window.URL.createObjectURL(blob);
-      img.src = url;
-    } else {
-      img.src = this.descriptor.icon;
-    }
+    img.src = window.URL.createObjectURL(blob);
 
     if (this.icon && !this.downloading) {
       this.icon.classList.remove('loading');
     }
 
     img.onload = function icon_loadSuccess() {
-      if (blob)
-        window.URL.revokeObjectURL(img.src);
+      img.onload = img.onerror = null;
+      window.URL.revokeObjectURL(img.src);
       self.renderImage(img);
     };
 
     img.onerror = function icon_loadError() {
-      if (blob)
-        window.URL.revokeObjectURL(img.src);
-      img.src = getDefaultIcon(self.app);
-      img.onload = function icon_errorIconLoadSucess() {
-        self.renderImage(img);
-      };
+      console.error('error while loading the icon', img.src, '. Falling back ' +
+          'to default icon.');
+      window.URL.revokeObjectURL(img.src);
+      self.loadDefaultIcon(img);
     };
+  },
+
+  loadDefaultIcon: function icon_loadDefaultIcon(img) {
+    var image = img || new Image();
+    var self = this;
+
+    if (self.img && self.img.src) {
+      // If there is one already loaded, do not continue...
+      image.onload = image.onerror = null;
+      return;
+    }
+
+    var blob = GridManager.getBlobByDefault(self.app);
+    if (blob === null) {
+      // At this point theoretically the flow shouldn't go because the icons
+      // by default have to be loaded, but just in case to avoid race conditions
+      image.src = getDefaultIcon(self.app);
+      image.onload = function icon_defaultIconLoadSucess() {
+        image.onload = image.onerror = null;
+        self.renderImage(image);
+      };
+    } else {
+      self.renderBlob(blob);
+      image.onload = image.onerror = null;
+    }
   },
 
   renderImageForBookMark: function icon_renderImageForBookmark(img) {
@@ -421,6 +448,7 @@ Icon.prototype = {
     this.updateAppStatus(app);
     var oldDescriptor = this.descriptor;
     this.descriptor = descriptor;
+    descriptor.removable === true ? this.appendOptions() : this.removeOptions();
 
     if (descriptor.updateTime == oldDescriptor.updateTime &&
         descriptor.icon == oldDescriptor.icon) {
@@ -586,6 +614,37 @@ Icon.prototype = {
   }
 };
 
+function TemplateIcon(isBookmark) {
+  var descriptor = {
+    name: 'templateIcon',
+    hidden: true,
+    renderedIcon: null
+  };
+
+  var app = {};
+  if (isBookmark) {
+    app.iconable = true;
+  }
+
+  Icon.call(this, descriptor, app);
+}
+
+TemplateIcon.prototype = {
+  __proto__: Icon.prototype,
+  loadDefaultIcon: function ticon_loadDefaultIcon() {
+    var image = new Image();
+    var self = this;
+    image.src = getDefaultIcon(self.app);
+    image.onload = function icon_defaultIconLoadSucess() {
+      image.onload = null;
+      self.renderImage(image);
+    };
+  },
+  renderBlob: function ticon_renderBlob(blob) {
+    this.descriptor.renderedIcon = blob;
+  }
+};
+
 /*
  * Page constructor
  *
@@ -602,11 +661,6 @@ function Page(container, icons) {
 }
 
 Page.prototype = {
-
-  /*
-   * It defines the threshold in pixels to consider a gesture like a tap event
-   */
-  tapThreshold: 10,
 
   /*
    * Renders a page for a list of apps
@@ -732,12 +786,12 @@ Page.prototype = {
    */
   tap: function pg_tap(elem) {
     if (Homescreen.isInEditMode()) {
-      if (elem.className === 'options') {
+      if (elem.classList.contains('options')) {
         var icon = GridManager.getIcon(elem.parentNode.dataset);
         if (icon.app)
           Homescreen.showAppDialog(icon.app);
       }
-    } else if (elem.className === 'icon') {
+    } else if ('isIcon' in elem.dataset) {
       var icon = GridManager.getIcon(elem.dataset);
       if (!icon.app)
         return;

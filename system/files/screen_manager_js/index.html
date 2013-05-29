@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">64.07</p>
+      <p class="stat">63.47</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">500</p>
+      <p class="stat">555</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">62.10</p>
+      <p class="stat">62.26</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.92</p>
+      <p class="stat">3.33</p>
     </div>
   </div>
 </div>
@@ -191,9 +191,21 @@ var ScreenManager = {
    */
   _cpuWakeLock: null,
 
+  /*
+   * Current state of the CPU Wake lock
+   */
+  _cpuState: null,
+
+  /*
+   * We track the audio status
+   */
+  _audioActive: false,
+  _audioCpuSleepTimerId: 0,
+
   init: function scm_init() {
     window.addEventListener('sleep', this);
     window.addEventListener('wake', this);
+    window.addEventListener('mozChromeEvent', this);
 
     this.screen = document.getElementById('screen');
 
@@ -213,8 +225,8 @@ var ScreenManager = {
             break;
 
           case 'cpu':
-            power.cpuSleepAllowed = (state != 'locked-foreground' &&
-                                     state != 'locked-background');
+            self._cpuState = state;
+            self.refreshCpuSleepAllowed();
             break;
         }
       });
@@ -299,6 +311,11 @@ var ScreenManager = {
         break;
 
       case 'userproximity':
+        // XXX: Remove this hack in Bug 868348
+        // We shouldn't access headset status from statusbar.  
+        if (StatusBar.headphonesActive)
+          break;
+
         this._screenOffByProximity = evt.near;
         if (evt.near) {
           this.turnScreenOff(true);
@@ -329,6 +346,9 @@ var ScreenManager = {
         // notification.
         if (this._cpuWakeLock) {
           this.turnScreenOn();
+          // In case of user making an extra call, the attention screen
+          // may be hidden at top so we need to confirm it's shown again.
+          AttentionScreen.show();
 
           break;
         }
@@ -341,16 +361,44 @@ var ScreenManager = {
 
       case 'statechange':
         var call = evt.target;
-        if (call.state !== 'connected') {
+        if (call.state !== 'connected' && call.state !== 'alerting') {
           break;
         }
 
-        // The call is connected. Remove the statechange listener
-        // and enable the user proximity sensor.
+        // The call is connected (MT call) or alerting (MO call).
+        // Remove the statechange listener and enable the user proximity
+        // sensor.
         call.removeEventListener('statechange', this);
 
         this._cpuWakeLock = navigator.requestWakeLock('cpu');
         window.addEventListener('userproximity', this);
+        break;
+
+      case 'mozChromeEvent':
+        if (evt.detail.type == 'audio-channel-changed') {
+          var audioActive = (evt.detail.channel !== 'none' &&
+                             evt.detail.channel !== 'telephony');
+
+          if (this._audioCpuSleepTimerId) {
+            clearTimeout(this._audioCpuSleepTimerId);
+            this._audioCpuSleepTimerId = 0;
+          }
+
+          // If some audio channel is active we refresh the cpuSleepAllowed
+          // immediately, otherwise we just use a timer in order to prevert
+          // rapid stop/start.
+          if (audioActive) {
+            this._audioActive = true;
+            this.refreshCpuSleepAllowed();
+          } else {
+            var self = this;
+            this._audioCpuSleepTimerId = setTimeout(function cpuSleepTimer() {
+              self._audioActive = false;
+              self.refreshCpuSleepAllowed();
+              self._audioCpuSleepTimerId = 0;
+            }, 2000);
+          }
+        }
         break;
     }
   },
@@ -589,6 +637,13 @@ var ScreenManager = {
       { bubbles: true, cancelable: false,
         detail: { screenEnabled: this.screenEnabled } });
     window.dispatchEvent(evt);
+  },
+
+  refreshCpuSleepAllowed: function scm_refreshCpuSleepAllowed() {
+    var power = navigator.mozPower;
+    power.cpuSleepAllowed = (this._cpuState != 'locked-foreground' &&
+                             this._cpuState != 'locked-background' &&
+                             !this._audioActive);
   }
 };
 

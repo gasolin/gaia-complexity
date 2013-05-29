@@ -45,7 +45,7 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">67.57</p>
+      <p class="stat">67.08</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
@@ -63,7 +63,7 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">56.24</p>
+      <p class="stat">56.17</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
@@ -142,7 +142,6 @@ var NotificationScreen = {
 
   lockscreenPreview: true,
   silent: false,
-  alerts: true,
   vibrates: true,
 
   init: function ns_init() {
@@ -380,7 +379,7 @@ var NotificationScreen = {
                                this.lockScreenContainer.firstElementChild);
     }
 
-    if (this.alerts && !this.silent) {
+    if (!this.silent) {
       var ringtonePlayer = new Audio();
       ringtonePlayer.src = this._sound;
       ringtonePlayer.mozAudioChannelType = 'notification';
@@ -421,8 +420,13 @@ var NotificationScreen = {
   removeNotification: function ns_removeNotification(notificationID) {
     var notifSelector = '[data-notification-i-d="' + notificationID + '"]';
     var notificationNode = this.container.querySelector(notifSelector);
+    var lockScreenNotificationNode = this.lockScreenContainer.querySelector(notifSelector);
 
-    notificationNode.parentNode.removeChild(notificationNode);
+    if (notificationNode)
+      notificationNode.parentNode.removeChild(notificationNode);
+    
+    if (lockScreenNotificationNode)
+      lockScreenNotificationNode.parentNode.removeChild(lockScreenNotificationNode);
     this.updateStatusBarIcon();
   },
 
@@ -471,15 +475,11 @@ SettingsListener.observe(
   NotificationScreen.lockscreenPreview = value;
 });
 
-SettingsListener.observe('alert-sound.enabled', true, function(value) {
-  NotificationScreen.alerts = value;
+SettingsListener.observe('audio.volume.notification', 7, function(value) {
+  NotificationScreen.silent = (value == 0);
 });
 
-SettingsListener.observe('ring.enabled', true, function(value) {
-  NotificationScreen.silent = !value;
-});
-
-SettingsListener.observe('alert-vibration.enabled', true, function(value) {
+SettingsListener.observe('vibration.enabled', true, function(value) {
   NotificationScreen.vibrates = value;
 });</textarea>
   </div>

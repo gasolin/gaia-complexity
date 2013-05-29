@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.07</p>
+      <p class="stat">65.50</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">491</p>
+      <p class="stat">525</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">49.00</p>
+      <p class="stat">49.47</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">5.11</p>
+      <p class="stat">5.43</p>
     </div>
   </div>
 </div>
@@ -105,14 +105,13 @@ var UIManager = {
     'finish-screen',
     'nav-bar',
     'main-title',
-    'loading-overlay',
-    'loading-header',
     // Unlock SIM Screen
     'unlock-sim-screen',
     'unlock-sim-header',
     // PIN Screen
     'pincode-screen',
     'pin-label',
+    'pin-retries-left',
     'pin-input',
     'fake-pin-input',
     'pin-error',
@@ -121,9 +120,10 @@ var UIManager = {
     // PUK Screen
     'pukcode-screen',
     'puk-label',
+    'puk-retries-left',
     'puk-input',
-    'puk-info',
     'fake-puk-input',
+    'puk-info',
     'puk-error',
     'newpin-input',
     'fake-newpin-input',
@@ -156,7 +156,6 @@ var UIManager = {
     'offline-error-dialog',
     // Browser privacy newsletter subscription
     'newsletter-form',
-    'newsletter-button',
     'newsletter-input',
     'newsletter-success-screen',
     'offline-newsletter-error-dialog',
@@ -218,39 +217,25 @@ var UIManager = {
 
     // Browser privacy newsletter subscription
     var basketCallback = function(err, data) {
-      this.loadingOverlay.classList.remove('show-overlay');
+      utils.overlay.hide();
       if (err || data.status !== 'ok') {
         // We don't have any error numbers etc, so we are looking for
         // 'email address' string in the error description.
         if (err.desc.indexOf('email address') > -1) {
           this.invalidEmailErrorDialog.classList.add('visible');
         } else {
-          // Display 'no connection' dialog on error
-          this.offlineNewsletterErrorDialog.classList.add('visible');
+          // Store locally
+          Basket.store(this.newsletterInput.value, function stored() {
+            UIManager.newsletterSuccessScreen.classList.add('visible');
+          });
         }
-
         return;
       }
+      // if properly sent, remove stored email (in case of any)
+      window.asyncStorage.removeItem('newsletter_email');
       this.newsletterForm.classList.add('hidden');
       this.newsletterSuccessScreen.classList.add('visible');
     };
-
-    this.newsletterButton.addEventListener('click', function() {
-        if (WifiManager.isConnected || DataMobile.isDataAvailable) {
-          if (
-            this.newsletterInput.checkValidity() &&
-            this.newsletterInput.value.length > 0
-          ) {
-            this.loadingHeader.innerHTML = _('email-loading');
-            this.loadingOverlay.classList.add('show-overlay');
-            Basket.send(this.newsletterInput.value, basketCallback.bind(this));
-          } else {
-            this.invalidEmailErrorDialog.classList.add('visible');
-          }
-        } else {
-          this.offlineNewsletterErrorDialog.classList.add('visible');
-        }
-    }.bind(this));
 
     this.offlineNewsletterErrorDialog
       .querySelector('button')
@@ -267,9 +252,9 @@ var UIManager = {
         }.bind(this));
 
     this.skipTutorialButton.addEventListener('click', function() {
-      WifiManager.finish();
-      window.close();
+      AppManager.finish();
     });
+
     this.letsGoButton.addEventListener('click', function() {
       UIManager.activationScreen.classList.remove('show');
       UIManager.finishScreen.classList.remove('show');
@@ -283,11 +268,60 @@ var UIManager = {
                             this.onOfflineDialogButtonClick.bind(this));
   },
 
+  sendNewsletter: function ui_sendNewsletter(callback) {
+    var self = this;
+    var emailValue = self.newsletterInput.value;
+    if (emailValue == '') {
+      return callback(true);
+    } else {
+      utils.overlay.show(_('email-loading'), 'spinner');
+      if (self.newsletterInput.checkValidity()) {
+        if (window.navigator.onLine) {
+          Basket.send(emailValue, function emailSent(err, data) {
+            if (err) {
+              if (err.desc && err.desc.indexOf('email address') > -1) {
+                ConfirmDialog.show(_('invalid-email-dialog-title'),
+                                   _('invalid-email-dialog-text'),
+                                   {
+                                    title: _('cancel'),
+                                    callback: function ok() {
+                                      ConfirmDialog.hide();
+                                    }
+                                   });
+                utils.overlay.hide();
+                return callback(false);
+              } else {
+                Basket.store(emailValue);
+              }
+            }
+            utils.overlay.hide();
+            return callback(true);
+          });
+        } else {
+          Basket.store(emailValue);
+          utils.overlay.hide();
+          return callback(true);
+        }
+      } else {
+        utils.overlay.hide();
+        ConfirmDialog.show(_('invalid-email-dialog-title'),
+                           _('invalid-email-dialog-text'),
+                           {
+                            title: _('cancel'),
+                            callback: function ok() {
+                              ConfirmDialog.hide();
+                            }
+                           });
+        return callback(false);
+      }
+    }
+  },
+
   initTZ: function ui_initTZ() {
     // Initialize the timezone selector, see /shared/js/tz_select.js
     var tzRegion = document.getElementById('tz-region');
     var tzCity = document.getElementById('tz-city');
-    tzSelect(tzRegion, tzCity, this.setTimeZone);
+    tzSelect(tzRegion, tzCity, this.setTimeZone, this.setTimeZone);
   },
 
   fakeInputValues: function ui_fakeInputValues(event) {

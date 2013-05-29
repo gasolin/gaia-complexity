@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.65</p>
+      <p class="stat">66.76</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">659</p>
+      <p class="stat">579</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">67.89</p>
+      <p class="stat">64.69</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">6.73</p>
+      <p class="stat">5.88</p>
     </div>
   </div>
 </div>
@@ -100,7 +100,7 @@
 
 var kFontStep = 4;
 
-// Frequencies comming from http://en.wikipedia.org/wiki/Telephone_keypad
+// Frequencies coming from http://en.wikipedia.org/wiki/Telephone_keypad
 var gTonesFrequencies = {
   '1': [697, 1209], '2': [697, 1336], '3': [697, 1477],
   '4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
@@ -108,129 +108,21 @@ var gTonesFrequencies = {
   '*': [941, 1209], '0': [941, 1336], '#': [941, 1477]
 };
 
-var keypadSoundIsEnabled = true;
-SettingsListener.observe('phone.ring.keypad', true, function(value) {
-  keypadSoundIsEnabled = !!value;
-});
+var keypadSoundIsEnabled = false;
+function observeKeypadSound() {
+  SettingsListener.observe('phone.ring.keypad', false, function(value) {
+    keypadSoundIsEnabled = !!value;
+  });
+}
 
-var TonePlayer = {
-  _frequencies: null, // from gTonesFrequencies
-  _sampleRate: 8000, // number of frames/sec
-  _position: null, // number of frames generated
-  _intervalID: null, // id for the audio loop's setInterval
-  _stopping: false,
-
-  init: function tp_init() {
-    document.addEventListener('mozvisibilitychange',
-                              this.visibilityChange.bind(this));
-    this.ensureAudio();
-  },
-
-  ensureAudio: function tp_ensureAudio() {
-   if (this._audio)
-     return;
-
-   this._audio = new Audio();
-   this._audio.volume = 0.5;
-  },
-
-  // Generating audio frames for the 2 given frequencies
-  generateFrames: function tp_generateFrames(soundData, shortPress) {
-    var position = this._position;
-
-    var kr = 2 * Math.PI * this._frequencies[0] / this._sampleRate;
-    var kc = 2 * Math.PI * this._frequencies[1] / this._sampleRate;
-
-    for (var i = 0; i < soundData.length; i++) {
-      // Poor man's ADSR
-      // Only short press have a release phase because we don't know
-      // when the long press will end
-      var factor;
-      if (position < 200) {
-        // Attack
-        factor = position / 200;
-      } else if (position > 200 && position < 400) {
-        // Decay
-        factor = 1 - ((position - 200) / 200) * 0.3; // Decay factor
-      } else if (shortPress && position > 800) {
-        // Release, short press only
-        factor = 0.7 - ((position - 800) / 400 * 0.7);
-      } else {
-        // Sustain
-        factor = 0.7;
-      }
-
-      soundData[i] = (Math.sin(kr * position) +
-                      Math.sin(kc * position)) / 2 * factor;
-      position++;
-    }
-
-    this._position += soundData.length;
-  },
-
-  start: function tp_start(frequencies, shortPress) {
-    this._frequencies = frequencies;
-    this._position = 0;
-    this._stopping = false;
-
-    // Already playing
-    if (this._intervalID) {
-      return;
-    }
-
-    this._audio.mozSetup(1, this._sampleRate);
-    this._audio.volume = 1;
-
-    // Writing 150ms of sound (duration for a short press)
-    var initialSoundData = new Float32Array(1200);
-    this.generateFrames(initialSoundData, shortPress);
-    this._audio.mozWriteAudio(initialSoundData);
-
-    if (shortPress)
-      return;
-
-    // Long press support
-    // Continuing playing until .stop() is called
-    this._intervalID = setInterval((function audioLoop() {
-      if (this._stopping)
-        return;
-
-      var soundData = new Float32Array(1200);
-      this.generateFrames(soundData);
-      if (this._audio != null)
-        this._audio.mozWriteAudio(soundData);
-    }).bind(this), 60); // Avoiding under-run issues by keeping this low
-  },
-
-  stop: function tp_stop() {
-    this._stopping = true;
-
-    clearInterval(this._intervalID);
-    this._intervalID = null;
-
-    if (this._audio != null)
-      this._audio.src = '';
-  },
-
-  // If the app loses focus, close the audio stream. This works around an
-  // issue in Gecko where the Audio Data API causes gfx performance problems,
-  // in particular when scrolling the homescreen.
-  // See: https://bugzilla.mozilla.org/show_bug.cgi?id=779914
-  visibilityChange: function tp_visibilityChange(e) {
-    if (!document.mozHidden) {
-      this.ensureAudio();
-    } else {
-      // Reset the audio stream. This ensures that the stream is shutdown
-      // *immediately*.
-      this.stop();
-      // Just in case stop any dtmf tone
-      if (navigator.mozTelephony) {
-        navigator.mozTelephony.stopTone();
-      }
-      delete this._audio;
-    }
-  }
-};
+if (window.SettingsListener) {
+  observeKeypadSound();
+} else {
+  window.addEventListener('load', function onLoad() {
+    window.removeEventListener('load', onLoad);
+    loader.load('/shared/js/settings_listener.js', observeKeypadSound);
+  });
+}
 
 var KeypadManager = {
 
@@ -320,10 +212,10 @@ var KeypadManager = {
                                 .getPropertyValue('font-size');
     this.minFontSize = parseInt(parseInt(defaultFontSize) * 10 * 0.226);
     this.maxFontSize = this._onCall ?
-      parseInt(parseInt(defaultFontSize) * this._MAX_FONT_SIZE_ON_CALL
-        * 0.226) :
-      parseInt(parseInt(defaultFontSize) * this._MAX_FONT_SIZE_DIAL_PAD
-        * 0.226);
+      parseInt(parseInt(defaultFontSize) * this._MAX_FONT_SIZE_ON_CALL *
+        0.226) :
+      parseInt(parseInt(defaultFontSize) * this._MAX_FONT_SIZE_DIAL_PAD *
+        0.226);
 
     this.phoneNumberView.value = '';
     this._phoneNumber = '';
@@ -368,7 +260,7 @@ var KeypadManager = {
                                                 this.hangUpCallFromKeypad);
     }
 
-    TonePlayer.init();
+    TonePlayer.init(this._onCall ? 'telephony' : 'ringer');
 
     this.render();
   },
@@ -448,11 +340,11 @@ var KeypadManager = {
         var src = contactsIframe.src;
         // Only perform this refresh if we DID open the contacts tab
         if (src && src.length > 0) {
-          var timestamp = new Date().getTime();  
+          var timestamp = new Date().getTime();
           contactsIframe.contentWindow.location.search =
             '?timestamp=' + timestamp;
         }
-      }
+      };
     } catch (e) {
       console.log('WebActivities unavailable? : ' + e);
     }
@@ -503,7 +395,9 @@ var KeypadManager = {
         localizedSide = (side === 'begin' ? 'left' : 'right');
       }
       var computedStyle = window.getComputedStyle(view, null);
-      var currentFontSize = parseInt(computedStyle.getPropertyValue('font-size'));
+      var currentFontSize = parseInt(
+        computedStyle.getPropertyValue('font-size')
+      );
       var viewWidth = view.getBoundingClientRect().width;
       fakeView.style.fontSize = currentFontSize + 'px';
       fakeView.innerHTML = view.value ? view.value : view.innerHTML;
@@ -514,7 +408,8 @@ var KeypadManager = {
       // the following while loop iterations:
       var counter = value.length -
         (viewWidth *
-         (fakeView.textContent.length / fakeView.getBoundingClientRect().width));
+         (fakeView.textContent.length /
+           fakeView.getBoundingClientRect().width));
 
       var newPhoneNumber;
       while (fakeView.getBoundingClientRect().width > viewWidth) {
@@ -575,6 +470,14 @@ var KeypadManager = {
       return;
     }
 
+    // Per certification requirement, we need to send an MMI request to
+    // get the device's IMEI as soon as the user enters the last # key from
+    // the "*#06#" MMI string. See bug 857944.
+    if (key === '#' && this._phoneNumber === '*#06#') {
+      this.makeCall(event);
+      return;
+    }
+
     var telephony = navigator.mozTelephony;
 
     event.stopPropagation();
@@ -620,7 +523,7 @@ var KeypadManager = {
         this._holdTimer = setTimeout(function vm_call(self) {
           self._longPress = true;
           self._callVoicemail();
-        }, 3000, this);
+        }, 1500, this);
       }
 
       if (key == 'delete') {
@@ -668,6 +571,10 @@ var KeypadManager = {
     }
   },
 
+  sanitizePhoneNumber: function(number) {
+    return number.replace(/\s+/g, '');
+  },
+
   updateAddContactStatus: function kh_updateAddContactStatus() {
     if (this._phoneNumber.length === 0)
       this.callBarAddContact.classList.add('disabled');
@@ -677,8 +584,21 @@ var KeypadManager = {
 
   updatePhoneNumber: function kh_updatePhoneNumber(number, ellipsisSide,
     maxFontSize) {
+    number = this.sanitizePhoneNumber(number);
     this._phoneNumber = number;
     this._updatePhoneNumberView(ellipsisSide, maxFontSize);
+  },
+
+  press: function(value) {
+    var telephony = navigator.mozTelephony;
+
+    telephony.stopTone();
+    telephony.startTone(value);
+    TonePlayer.start(gTonesFrequencies[value], true);
+    setTimeout(function nextTick() {
+      telephony.stopTone();
+      TonePlayer.stop();
+    });
   },
 
   _updatePhoneNumberView: function kh_updatePhoneNumberview(ellipsisSide,
@@ -698,7 +618,7 @@ var KeypadManager = {
       this.phoneNumberView.value = phoneNumber;
       this.moveCaretToEnd(this.phoneNumberView);
     }
-    
+
     this.formatPhoneNumber(ellipsisSide, maxFontSize);
   },
 

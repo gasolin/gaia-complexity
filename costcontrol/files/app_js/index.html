@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">70.47</p>
+      <p class="stat">69.99</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">196</p>
+      <p class="stat">218</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">20.28</p>
+      <p class="stat">21.62</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.27</p>
+      <p class="stat">1.44</p>
     </div>
   </div>
 </div>
@@ -110,6 +110,7 @@ var CostControlApp = (function() {
   function onReady() {
     vmanager = new ViewManager();
     var mobileConnection = window.navigator.mozMobileConnection;
+    var iccid = mobileConnection.iccInfo.iccid;
 
     // SIM is absent
     if (mobileConnection.cardState === 'absent') {
@@ -123,16 +124,29 @@ var CostControlApp = (function() {
     // SIM is not ready
     } else if (mobileConnection.cardState !== 'ready') {
       debug('SIM not ready:', mobileConnection.cardState);
+      mobileConnection.oncardstatechange = onReady;
+
+    // SIM is ready, but ICC info is not ready yet
+    } else if (iccid === null) {
+      debug('ICC info not ready yet');
       mobileConnection.oniccinfochange = onReady;
 
-    // SIM is ready
+    // All ready
     } else {
+      debug('SIM ready. ICCID:', iccid);
+      mobileConnection.oncardstatechange = undefined;
       mobileConnection.oniccinfochange = undefined;
       startApp();
     }
   }
 
   function startApp() {
+    function _onNoICCID() {
+      console.error('checkSIMChange() failed. Impossible to ensure consistent' +
+                    'data. Aborting start up.');
+      window.close();
+    }
+
     checkSIMChange(function _onSIMChecked() {
       CostControl.getInstance(function _onCostControlReady(instance) {
         if (ConfigManager.option('fte')) {
@@ -142,12 +156,13 @@ var CostControlApp = (function() {
         costcontrol = instance;
         setupApp();
       });
-    });
+    }, _onNoICCID);
   }
 
   window.addEventListener('localized', function _onLocalize() {
-    if (initialized)
+    if (initialized) {
       updateUI();
+    }
   });
 
   var tabmanager, settingsVManager;
@@ -236,6 +251,9 @@ var CostControlApp = (function() {
       case 'zeroBalance':
         tabmanager.changeViewTo('balance-tab');
         break;
+      case 'dataUsage':
+        tabmanager.changeViewTo('datausage-tab');
+        break;
     }
   }
 
@@ -251,10 +269,10 @@ var CostControlApp = (function() {
 
         // Initialize on demand
         DataUsageTab.initialize(tabmanager);
-        if (mode === 'PREPAID')
+        if (mode === 'PREPAID') {
           TelephonyTab.finalize();
           BalanceTab.initialize(tabmanager, vmanager);
-        if (mode === 'POSTPAID') {
+        } else if (mode === 'POSTPAID') {
           BalanceTab.finalize();
           TelephonyTab.initialize(tabmanager);
         }
@@ -278,9 +296,10 @@ var CostControlApp = (function() {
 
           // If it was showing the left tab, force changing to the
           // proper left view
-          if (tabmanager.getCurrentTab() !== 'datausage-tab')
+          if (tabmanager.getCurrentTab() !== 'datausage-tab') {
             tabmanager.changeViewTo(mode === 'PREPAID' ? 'balance-tab' :
                                                          'telephony-tab');
+          }
         }
 
       }
@@ -288,8 +307,11 @@ var CostControlApp = (function() {
   }
 
   return {
-    showBalanceTab: function _showBalanceTab () {
+    showBalanceTab: function _showBalanceTab() {
       tabmanager.changeViewTo('balance-tab');
+    },
+    showDataUsageTab: function _showDataUsageTab() {
+      tabmanager.changeViewTo('datausage-tab');
     }
   };
 

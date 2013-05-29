@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">71.04</p>
+      <p class="stat">71.12</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">178</p>
+      <p class="stat">203</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">24.19</p>
+      <p class="stat">27.13</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.30</p>
+      <p class="stat">1.54</p>
     </div>
   </div>
 </div>
@@ -192,6 +192,18 @@ navigator.mozL10n.ready(function SettingsDateAndTime() {
 
   function setTimeAutoEnabled(enabled) {
     gTimeAutoSwitch.dataset.state = enabled ? 'auto' : 'manual';
+
+    if (enabled)
+      return;
+
+    // Reset the timezone to the previous user selected value
+    var reqUserTZ = settings.createLock().get('time.timezone.user-selected');
+    reqUserTZ.onsuccess = function dt_getUserTimezoneSuccess() {
+      var userSelTimezone = reqUserTZ.result['time.timezone.user-selected'];
+      if (userSelTimezone) {
+        settings.createLock().set({'time.timezone': userSelTimezone});
+      }
+    };
   }
 
   settings.addObserver(kTimeAutoEnabled, function(event) {
@@ -237,8 +249,21 @@ navigator.mozL10n.ready(function SettingsDateAndTime() {
   updateDate();
   updateClock();
 
+  // need to provide an onchange callback to tzSelect, so that
+  // when we change region, both region/city will be updated
+  function tzOnchange() {
+    var selectList = [gTimezoneRegion, gTimezoneCity];
+    selectList.forEach(function initLabel(select) {
+      var button = select.previousElementSibling;
+      var index = select.selectedIndex;
+      if (index >= 0) {
+        button.textContent = select.options[index].textContent;
+      }
+    });
+  }
+
   // monitor time.timezone changes, see /shared/js/tz_select.js
-  tzSelect(gTimezoneRegion, gTimezoneCity);
+  tzSelect(gTimezoneRegion, gTimezoneCity, tzOnchange, tzOnchange);
 
   gDatePicker.addEventListener('input', function datePickerChange() {
     setTime('date');

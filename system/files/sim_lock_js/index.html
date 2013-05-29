@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">62.67</p>
+      <p class="stat">64.26</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">107</p>
+      <p class="stat">137</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">19.77</p>
+      <p class="stat">22.35</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">0.56</p>
+      <p class="stat">0.71</p>
     </div>
   </div>
 </div>
@@ -96,6 +96,9 @@
 'use strict';
 
 var SimLock = {
+  //XXX: A hack to remember ftu state.
+  _ftuEnabled: null,
+
   init: function sl_init() {
     // Do not do anything if we can't have access to MobileConnection API
     var conn = window.navigator.mozMobileConnection;
@@ -112,17 +115,22 @@ var SimLock = {
     window.addEventListener('unlock', this);
 
     // always monitor card state change
-    conn.addEventListener('cardstatechange', this.showIfLocked.bind(this));
+    conn.addEventListener('cardstatechange', this._bypassFTU.bind(this));
+
+    window.addEventListener('skipftu', function() {
+      this._ftuEnabled = false;
+    }.bind(this));
   },
 
   handleEvent: function sl_handleEvent(evt) {
     switch (evt.type) {
       case 'unlock':
-        this.showIfLocked();
+        this._bypassFTU();
         break;
       case 'appwillopen':
-        // if an app needs telephony or sms permission,
-        // we will launch the unlock screen if needed.
+        // If an app needs 'telephony' or 'sms' permissions (i.e. mobile
+        // connection) and the SIM card is locked, the SIM PIN unlock screen
+        // should be launched
 
         var app = Applications.getByManifestURL(
           evt.target.getAttribute('mozapp'));
@@ -134,12 +142,20 @@ var SimLock = {
         if (evt.target.classList.contains('ftu'))
           return;
 
+        // Ignore apps that don't require a mobile connection
         if (!('telephony' in app.manifest.permissions ||
               'sms' in app.manifest.permissions))
           return;
 
-        // Ignore second `appwillopen` event when showIfLocked ends up
-        // eventually opening the app on valid pin code
+        // If the Settings app will open, don't prompt for SIM PIN entry
+        // although it has 'telephony' permission (Bug 861206)
+        var settingsManifestURL =
+          'app://settings.gaiamobile.org/manifest.webapp';
+        if (app.manifestURL == settingsManifestURL)
+          return;
+
+        // Ignore second 'appwillopen' event when showIfLocked eventually opens
+        // the app on valid PIN code
         var origin = evt.target.dataset.frameOrigin;
         if (origin == this._lastOrigin) {
           delete this._lastOrigin;
@@ -147,13 +163,35 @@ var SimLock = {
         }
         this._lastOrigin = origin;
 
-        // if sim is locked, cancel app opening in order to display
-        // it after PIN dialog
+        // If SIM is locked, cancel app opening in order to display
+        // it after the SIM PIN dialog is shown
         if (this.showIfLocked())
           evt.preventDefault();
 
         break;
     }
+  },
+
+  // XXX: This is a hack.
+  // Because FTU tries to disable lockscreen,
+  // and lockscreen fires 'unlock' event immediately.
+  // after the setting value is change and
+  // the device is rebooting.
+  _bypassFTU: function sl__bypassFTU() {
+    if (this._ftuEnabled === false) {
+      this.showIfLocked();
+    } 
+
+    // Furthermore checking ftu.enabled state.
+
+    var showFunc = this.showIfLocked.bind(this);
+
+    window.asyncStorage.getItem('ftu.enabled',
+      function getItem(launchFTU) {
+        if (launchFTU === false) {
+          showFunc();
+        }
+      });
   },
 
   showIfLocked: function sl_showIfLocked() {
@@ -165,26 +203,18 @@ var SimLock = {
       return false;
 
     switch (conn.cardState) {
-      // do nothing in absent and null card states
+      // do nothing in either absent, unknown or null card states
       case null:
       case 'absent':
+      case 'unknown':
         break;
       case 'pukRequired':
       case 'pinRequired':
         SimPinDialog.show('unlock', this.onClose);
         return true;
       case 'networkLocked':
-        // XXXX: After unlocking the SIM the cardState is
-        //       'networkLocked' but it changes inmediately to 'ready'
-        //       if the phone is not SIM-locked. If the cardState
-        //       is still 'networkLocked' after two seconds we unlock
-        //       the network control key lock (network personalization).
-        setTimeout(function checkState() {
-          if (conn.cardState == 'networkLocked') {
-            SimPinDialog.show('unlock', SimLock.onClose);
-          }
-        }, 5000);
-        break;
+        SimPinDialog.show('unlock', SimLock.onClose);
+        return true;
     }
     return false;
   },

@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">79.70</p>
+      <p class="stat">78.64</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">80</p>
+      <p class="stat">28</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">11.38</p>
+      <p class="stat">6.34</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">0.57</p>
+      <p class="stat">0.15</p>
     </div>
   </div>
 </div>
@@ -93,15 +93,13 @@
     <textarea id="file-source" class="span12">'use strict';
 
 var CallHandler = {
-  _call: null,
   _telephony: window.navigator.mozTelephony,
 
   call: function ch_call(number) {
     var sanitizedNumber = number.replace(/-/g, '');
     var telephony = this._telephony;
     if (telephony) {
-      this._call = telephony.dialEmergency(sanitizedNumber);
-      var call = this._call;
+      var call = telephony.dialEmergency(sanitizedNumber);
       if (call) {
         var cb = function clearPhoneView() {
           KeypadManager.updatePhoneNumber('');
@@ -110,65 +108,15 @@ var CallHandler = {
 
         call.ondisconnected = function callEnded() {
           cb();
-          CallScreen.hide();
         };
-
-        CallScreen.number = call.number;
-        CallScreen.show();
       }
     }
-  },
-
-  end: function ch_end() {
-    if (!this._call) {
-      CallScreen.hide();
-      return;
-    }
-
-    this._call.hangUp();
-    this._call = null;
-  },
-
-  toggleSpeaker: function ch_toggleSpeaker() {
-    this._telephony.speakerEnabled = !this._telephony.speakerEnabled;
-  }
-};
-
-var CallScreen = {
-  screen: document.getElementById('call-screen'),
-  numberView: document.getElementById('emergency-number'),
-
-  hangUpButton: document.getElementById('callbar-hang-up'),
-  speakerButton: document.getElementById('speaker'),
-
-  set number(value) {
-    this.numberView.textContent = value;
-  },
-
-  init: function cs_init() {
-    this.hangUpButton.addEventListener('mouseup',
-                                       CallHandler.end.bind(CallHandler));
-    this.speakerButton.addEventListener('click', this.toggleSpeaker.bind(this));
-  },
-
-  show: function cs_show() {
-    this.screen.classList.add('displayed');
-  },
-
-  hide: function cs_hide() {
-    this.screen.classList.remove('displayed');
-  },
-
-  toggleSpeaker: function cs_toggleSpeaker() {
-    this.speakerButton.classList.toggle('speak');
-    CallHandler.toggleSpeaker();
   }
 };
 
 window.addEventListener('load', function onload() {
   window.removeEventListener('load', onload);
   KeypadManager.init();
-  CallScreen.init();
 });</textarea>
   </div>
 </div>

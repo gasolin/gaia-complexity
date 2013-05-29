@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.96</p>
+      <p class="stat">66.50</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">203</p>
+      <p class="stat">217</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">37.33</p>
+      <p class="stat">37.45</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.93</p>
+      <p class="stat">2.04</p>
     </div>
   </div>
 </div>
@@ -157,6 +157,9 @@ HandledCall.prototype.handleEvent = function hc_handle(evt) {
     case 'held':
       this.node.classList.add('held');
       break;
+    case 'busy':
+      this.busy();
+      break;
   }
 };
 
@@ -189,7 +192,7 @@ HandledCall.prototype.updateCallNumber = function hc_updateCallNumber() {
   var node = this.numberNode;
   var additionalInfoNode = this.additionalInfoNode;
 
-  if (!number.length) {
+  if (!number) {
     LazyL10n.get(function localized(_) {
       node.textContent = _('unknown');
     });
@@ -207,11 +210,18 @@ HandledCall.prototype.updateCallNumber = function hc_updateCallNumber() {
 
   var self = this;
   Contacts.findByNumber(number, function lookupContact(contact, matchingTel) {
-    if (contact && contact.name) {
-      node.textContent = contact.name;
+    if (contact) {
+      var primaryInfo = Utils.getPhoneNumberPrimaryInfo(matchingTel, contact);
+      if (primaryInfo) {
+        node.textContent = primaryInfo;
+      } else {
+        LazyL10n.get(function gotL10n(_) {
+          node.textContent = _('unknown');
+        });
+      }
       KeypadManager.formatPhoneNumber('end', true);
       var additionalInfo = Utils.getPhoneNumberAdditionalInfo(matchingTel,
-                                                              contact);
+                                                              contact, number);
       KeypadManager.updateAdditionalContactInfo(additionalInfo);
       if (contact.photo && contact.photo.length > 0) {
         self.photo = contact.photo[0];
@@ -260,6 +270,10 @@ HandledCall.prototype.connected = function hc_connected() {
   this.updateDirection();
   CallScreen.enableKeypad();
   CallScreen.syncSpeakerEnabled();
+};
+
+HandledCall.prototype.busy = function hc_busy() {
+  OnCallHandler.notifyBusyLine();
 };
 
 HandledCall.prototype.disconnected = function hc_disconnected() {

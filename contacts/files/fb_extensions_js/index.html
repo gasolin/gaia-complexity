@@ -45,7 +45,7 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">70.69</p>
+      <p class="stat">70.61</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">34.61</p>
+      <p class="stat">36.42</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.45</p>
+      <p class="stat">2.41</p>
     </div>
   </div>
 </div>
@@ -101,6 +101,7 @@ if (typeof Contacts.extFb === 'undefined') {
 
     var extensionFrame = document.querySelector('#fb-extensions');
     var oauthFrame = document.querySelector('#fb-oauth');
+    oauthFrame.src = '/facebook/fb_oauth.html';
     var currentURI, access_token;
     var canClose = true;
     var closeRequested = false;
@@ -109,7 +110,8 @@ if (typeof Contacts.extFb === 'undefined') {
       canClose = true;
       contactId = cid;
       if (!linked) {
-        load('fb_link.html' + '?contactId=' + contactId, 'proposal');
+        load('fb_link.html' + '?contactId=' + contactId, 'proposal',
+             'facebook');
       } else {
         unlink(contactId);
       }
@@ -122,7 +124,6 @@ if (typeof Contacts.extFb === 'undefined') {
     };
 
     function load(uri, from) {
-      window.addEventListener('message', messageHandler);
       oauthFrame.contentWindow.postMessage({
         type: 'start',
         data: {
@@ -133,8 +134,7 @@ if (typeof Contacts.extFb === 'undefined') {
     }
 
     function unload() {
-      window.removeEventListener('message', messageHandler);
-      extensionFrame.src = null;
+      extensionFrame.src = currentURI = null;
     }
 
     function close(message) {
@@ -273,7 +273,6 @@ if (typeof Contacts.extFb === 'undefined') {
         req.onsuccess = function success() {
           close();
 
-          contacts.List.refresh(contactId);
           if (originalFbContact && !fb.isFbLinked(originalFbContact)) {
             contacts.List.remove(originalFbContact.id);
           }
@@ -319,10 +318,8 @@ if (typeof Contacts.extFb === 'undefined') {
 
       freq.onsuccess = function() {
         Contacts.updateContactDetail(cid);
-        contacts.List.refresh(cid);
         if (freq.result) {
           Contacts.updateContactDetail(cid);
-          contacts.List.refresh(freq.result);
         }
       };
 
@@ -345,6 +342,10 @@ if (typeof Contacts.extFb === 'undefined') {
     // This function can also be executed when other messages arrive
     // That's why we cannot call notifySettings outside the switch block
     function messageHandler(e) {
+      if (!currentURI || e.origin !== fb.CONTACTS_APP_ORIGIN) {
+        return;
+      }
+      
       var data = e.data;
 
       switch (data.type) {
@@ -382,8 +383,6 @@ if (typeof Contacts.extFb === 'undefined') {
         break;
 
         case 'fb_updated':
-          contacts.List.load();
-
           Contacts.navigation.home(function fb_finished() {
             extensionFrame.contentWindow.postMessage({
               type: 'contacts_loaded',
@@ -400,7 +399,6 @@ if (typeof Contacts.extFb === 'undefined') {
           }
           // Check whether there has been changes or not
           if(data.data > 0) {
-            contacts.List.load();
             notifySettings();
           }
         break;
@@ -421,6 +419,8 @@ if (typeof Contacts.extFb === 'undefined') {
         break;
       }
     }
+
+    window.addEventListener('message', messageHandler);
 
   })(document);
 }</textarea>

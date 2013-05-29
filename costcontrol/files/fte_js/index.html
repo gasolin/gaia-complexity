@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">64.82</p>
+      <p class="stat">65.54</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">226</p>
+      <p class="stat">252</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">35.02</p>
+      <p class="stat">35.34</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.02</p>
+      <p class="stat">2.31</p>
     </div>
   </div>
 </div>
@@ -212,6 +212,10 @@
     });
   }
 
+  window.addEventListener('localized', function _onLocalize() {
+    localizeWeekdaySelector(document.getElementById('selectdialog-weekday'));
+  });
+
   // TRACK SETUP
 
   var currentTrack = ['step-1', 'step-2'];
@@ -220,12 +224,13 @@
       currentTrack = ['step-1', 'step-2', 'prepaid-step-2', 'prepaid-step-3'];
       AutoSettings.initialize(ConfigManager, vmanager, '#prepaid-step-2');
       AutoSettings.initialize(ConfigManager, vmanager, '#prepaid-step-3');
-
+      addLowLimitStepConstrains();
       ConfigManager.setOption({
         dataLimitValue: 40,
         dataLimitUnit: 'MB',
         lowLimit: true,
-        lowLimitThreshold: defaultLowLimitThreshold });
+        lowLimitThreshold: defaultLowLimitThreshold
+      });
     } else if (evt.target.value === 'postpaid') {
       currentTrack = ['step-1', 'step-2', 'postpaid-step-2', 'postpaid-step-3'];
       AutoSettings.initialize(ConfigManager, vmanager, '#postpaid-step-2');
@@ -265,8 +270,9 @@
   }
 
   function onNext() {
-    if (step === currentTrack.length - 1)
+    if (step === currentTrack.length - 1) {
       return;
+    }
 
     var currentId = currentTrack[step];
     var currentScreen = document.getElementById(currentId);
@@ -286,8 +292,9 @@
   }
 
   function onBack() {
-    if (step === 0)
+    if (step === 0) {
       return;
+    }
 
     var currentId = currentTrack[step];
     var currentScreen = document.getElementById(currentId);
@@ -317,6 +324,25 @@
         );
       });
     });
+  }
+
+  // Add particular constrains to the page where setting low limit button
+  function addLowLimitStepConstrains() {
+    var lowLimit = document.getElementById('low-limit');
+    lowLimit.addEventListener('click', checkLowLimitStep);
+    var lowLimitInput = document.getElementById('low-limit-input');
+    lowLimitInput.addEventListener('input', checkLowLimitStep);
+  }
+
+  // Check settings and enable / disable done button
+  function checkLowLimitStep() {
+    var next = document.getElementById('low-limit-next-button');
+    var lowLimit = document.getElementById('low-limit');
+    var lowLimitInput = document.getElementById('low-limit-input');
+    var lowLimitError = lowLimit.checked && lowLimitInput.value.trim() === '';
+
+    lowLimitInput.classList[lowLimitError ? 'add' : 'remove']('error');
+    next.disabled = lowLimitError;
   }
 
 }());</textarea>

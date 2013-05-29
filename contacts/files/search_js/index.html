@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.33</p>
+      <p class="stat">65.28</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">401</p>
+      <p class="stat">445</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">52.99</p>
+      <p class="stat">52.83</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">3.29</p>
+      <p class="stat">3.56</p>
     </div>
   </div>
 </div>
@@ -124,27 +124,47 @@ contacts.Search = (function() {
       HARD_LIMIT = 25,
       emptySearch = true,
       remainingPending = true,
-      imgLoader;
+      imgLoader,
+      searchEnabled = false;
 
-  var init = function load(_conctactsListView, _groupFavorites, _clickHandler) {
-    conctactsListView = _conctactsListView;
-
+  var onLoad = function onLoad() {
     searchView = document.getElementById('search-view');
+    searchList = document.getElementById('search-list');
+  };
 
+  onLoad();
+
+  var init = function load(_conctactsListView, _groupFavorites, _clickHandler,
+                           defaultEnabled) {
+    conctactsListView = _conctactsListView;
     favoriteGroup = _groupFavorites;
+
+    if (typeof _clickHandler === 'function') {
+      searchList.addEventListener('click', _clickHandler);
+    }
+
+    if (defaultEnabled)
+      searchEnabled = true;
+  };
+
+  var initialized = false;
+
+  var doInit = function doInit() {
+    if (initialized) {
+      return;
+    }
+
+    initialized = true;
     searchBox = document.getElementById('search-contact');
     var resetButton = searchBox.nextElementSibling;
-    resetButton.addEventListener('mousedown', function() {
+    resetButton.addEventListener('ontouchstart' in window ? 'touchstart' :
+                                 'mousedown', function() {
       searchBox.value = '';
       searchBox.focus();
       resetState();
       window.setTimeout(fillInitialSearchPage, 0);
     });
 
-    searchList = document.getElementById('search-list');
-    if (typeof _clickHandler === 'function') {
-      searchList.addEventListener('click', _clickHandler);
-    }
     searchList.parentNode.addEventListener('touchstart', function() {
       blurList = true;
     });
@@ -160,7 +180,8 @@ contacts.Search = (function() {
     });
 
     imgLoader = new ImageLoader('#groups-list-search', 'li');
-  }
+    imgLoader.setResolver(fb.resolver);
+  };
 
   //Search mode instructions
   var exitSearchMode = function exitSearchMode(evt) {
@@ -296,6 +317,7 @@ contacts.Search = (function() {
     if (!inSearchMode) {
       window.addEventListener('input', onInput);
       searchView.classList.add('insearchmode');
+      doInit();
       fillInitialSearchPage();
       inSearchMode = true;
       emptySearch = true;
@@ -322,7 +344,6 @@ contacts.Search = (function() {
       for (var c = from; c < end && c < contacts.length; c++) {
         var contact = contacts[c].node || contacts[c];
         var contactText = contacts[c].text || getSearchText(contacts[c]);
-
         if (!pattern.test(contactText)) {
           if (contact.dataset.uuid in currentSet) {
             searchList.removeChild(currentSet[contact.dataset.uuid]);
@@ -380,10 +401,25 @@ contacts.Search = (function() {
     }
   }
 
+  var enableSearch = function enableSearch() {
+    if (searchEnabled) {
+      return;
+    }
+
+    searchEnabled = true;
+    // We perform the search when all the info have been loaded and the
+    // user wrote something in the entry field
+    if (searchBox.value.trim()) {
+      invalidateCache();
+      search();
+    }
+  };
+
   var search = function performSearch(searchDoneCb) {
     prevTextToSearch = currentTextToSearch;
 
     currentTextToSearch = utils.text.normalize(searchBox.value.trim());
+    currentTextToSearch = utils.text.escapeRegExp(currentTextToSearch);
     var thisSearchText = new String(currentTextToSearch);
 
     if (thisSearchText.length === 0) {
@@ -392,6 +428,10 @@ contacts.Search = (function() {
     }
     else {
       showProgress();
+      if (!searchEnabled) {
+        resetState();
+        return;
+      }
       emptySearch = false;
       // The remaining results have not been added yet
       remainingPending = true;
@@ -459,6 +499,7 @@ contacts.Search = (function() {
     searchableNodes = null;
     contactNodes = null;
     currentSet = {};
+    searchTextCache = {};
   }
 
   var removeContact = function s_removeContact(id) {
@@ -488,7 +529,10 @@ contacts.Search = (function() {
     'search': search,
     'enterSearchMode': enterSearchMode,
     'exitSearchMode': exitSearchMode,
-    'isInSearchMode': isInSearchMode
+    'isInSearchMode': isInSearchMode,
+    'enableSearch': enableSearch,
+    // The purpose of this method is only for unit tests
+    'load': onLoad
   };
 })();</textarea>
   </div>
