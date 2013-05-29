@@ -1,7 +1,8 @@
 gaia-complexity
 ===============
 
-Show [complexity report](http://jscomplexity.org/complexity)
+Show [complexity report](http://jscomplexity.org/complexity) which includes 
+[lines of code](http://en.wikipedia.org/wiki/Source_lines_of_code), [cyclomatic complexity](http://en.wikipedia.org/wiki/Cyclomatic_complexity), [Halstead complexity measures](http://en.wikipedia.org/wiki/Halstead_complexity_measures) and [the maintainability index](http://www.virtualmachinery.com/sidebar4.htm). 
 
 Get them with
 
