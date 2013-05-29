@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>modal_dialog.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">60.66</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">248</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">44.05</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">2.07</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
+/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
+
+'use strict';
+
+// The modal dialog listen to mozbrowsershowmodalprompt event.
+// Blocking the current app and then show custom modal dialog
+// (alert/confirm/prompt)
+
+var ModalDialog = {
+  // Used for element id access.
+  // e.g., 'modal-dialog-alert-ok'
+  prefix: 'modal-dialog-',
+
+  // DOM
+  elements: {},
+
+  // Get all elements when inited.
+  getAllElements: function md_getAllElements() {
+    var elementsID = ['alert', 'alert-ok', 'alert-message',
+      'prompt', 'prompt-ok', 'prompt-cancel', 'prompt-input', 'prompt-message',
+      'confirm', 'confirm-ok', 'confirm-cancel', 'confirm-message',
+      'custom-prompt', 'custom-prompt-message', 'custom-prompt-buttons',
+      'custom-prompt-checkbox'];
+
+    var toCamelCase = function toCamelCase(str) {
+      return str.replace(/\-(.)/g, function replacer(str, p1) {
+        return p1.toUpperCase();
+      });
+    };
+
+    // Loop and add element with camel style name to Modal Dialog attribute.
+    elementsID.forEach(function createElementRef(name) {
+      this.elements[toCamelCase(name)] =
+      document.getElementById(this.prefix + name);
+    }, this);
+  },
+
+  // Save the events returned by mozbrowsershowmodalprompt for later use.
+  // The events are stored according to webapp origin
+  // e.g., 'http://uitest.gaiamobile.org': evt
+  currentEvents: {},
+
+  init: function md_init() {
+    // Get all elements initially.
+    this.getAllElements();
+    var elements = this.elements;
+    for (var id in elements) {
+      if (elements[id].tagName.toLowerCase() == 'button') {
+        elements[id].addEventListener('click', this);
+      }
+    }
+    elements.customPromptButtons.addEventListener('click', this);
+  },
+
+  // Default event handler
+  handleEvent: function md_handleEvent(evt, origin) {
+    var elements = this.elements;
+    switch (evt.type) {
+      case 'mozbrowsershowmodalprompt':
+        if (this.boundToWindow && evt.target.dataset.frameType != 'window')
+          return;
+        evt.preventDefault();
+        this.currentEvents[origin] = evt;
+
+        // Show modal dialog only if
+        // the frame is currently displayed.
+        this.show(origin);
+        break;
+
+      case 'click':
+        if (evt.currentTarget.nodeName == 'BUTTON' ||
+            evt.currentTarget == elements.customPromptButtons) {
+          evt.preventDefault();
+        }
+        if (evt.currentTarget === elements.confirmCancel ||
+            evt.currentTarget === elements.promptCancel) {
+          this.cancelHandler();
+        } else {
+          this.confirmHandler(evt.target);
+        }
+        break;
+    }
+  },
+
+  // Show relative dialog and set message/input value well
+  show: function md_show(origin) {
+    this.currentOrigin = origin;
+    var evt = this.currentEvents[origin];
+
+    var message = evt.detail.message;
+    var elements = this.elements;
+
+    function escapeHTML(str) {
+      var span = document.createElement('span');
+      span.textContent = str;
+      // Escape space for displaying multiple space in message.
+      span.innerHTML = span.innerHTML.replace(/\n/g, '<br/>');
+      return span.innerHTML;
+    }
+
+    message = escapeHTML(message);
+
+    var type = evt.detail.promptType;
+
+    switch (type) {
+      case 'alert':
+        elements.alertMessage.innerHTML = message;
+        elements.alert.hidden = false;
+        break;
+
+      case 'prompt':
+        elements.prompt.hidden = false;
+        elements.promptInput.value = evt.detail.initialValue;
+        elements.promptMessage.innerHTML = message;
+        elements.promptInput.focus();
+        break;
+
+      case 'custom-prompt':
+        var prompt = evt.detail;
+        elements.customPrompt.hidden = false;
+        elements.customPromptMessage.innerHTML = prompt.message;
+
+        // Display custom list of buttons
+        elements.customPromptButtons.innerHTML = '';
+        for (var i = 0, l = prompt.buttons.length; i < l; i++) {
+          var button = prompt.buttons[i];
+          var domElement = document.createElement('button');
+          domElement.dataset.buttonIndex = i;
+          if (button.messageType === 'builtin') {
+            // List of potential `message` values are defined here:
+            // http://hg.mozilla.org/mozilla-central/annotate/5ce71981e005/dom/browser-element/BrowserElementPromptService.jsm#l157
+            domElement.textContent = navigator.mozL10n.get(button.message);
+          } else if (button.messageType === 'custom') {
+            // For custom button, we assume that the text is already translated
+            domElement.textContent = button.message;
+          } else {
+            console.error('Unexpected button type : ' + button.messageType);
+            return;
+          }
+          elements.customPromptButtons.appendChild(domElement);
+        }
+
+        // Eventualy display a checkbox:
+        var checkbox = elements.customPromptCheckbox;
+        checkbox.hidden = !prompt.showCheckbox;
+        if (prompt.showCheckbox) {
+          if (prompt.checkboxCheckedByDefault) {
+            checkbox.setAttribute('checked', 'true');
+          } else {
+            checkbox.removeAttribute('checked');
+          }
+          // We assume that checkbox custom message is already translated
+          checkbox.nextElementSibling.textContent = prompt.checkboxMessage;
+        }
+        break;
+
+      case 'confirm':
+        elements.confirm.hidden = false;
+        elements.confirmMessage.innerHTML = message;
+        break;
+    }
+  },
+
+  hide: function md_hide() {
+    var evt = this.currentEvents[this.currentOrigin];
+    if (!evt)
+      return;
+    var type = evt.detail.promptType;
+    this.currentOrigin = null;
+  },
+
+  // When user clicks OK button on alert/confirm/prompt
+  confirmHandler: function md_confirmHandler(target) {
+    var elements = this.elements;
+
+    var evt = this.currentEvents[this.currentOrigin];
+    var type = evt.detail.promptType;
+
+    switch (type) {
+      case 'alert':
+        elements.alert.hidden = true;
+        break;
+
+      case 'prompt':
+        evt.detail.returnValue = elements.promptInput.value;
+        elements.prompt.hidden = true;
+        break;
+
+      case 'custom-prompt':
+        var returnValue = {
+          selectedButton: target.dataset.buttonIndex
+        };
+        if (evt.detail.showCheckbox)
+          returnValue.checked = elements.customPromptCheckbox.checked;
+        evt.detail.returnValue = returnValue;
+        elements.customPrompt.hidden = true;
+        break;
+
+      case 'confirm':
+        evt.detail.returnValue = true;
+        elements.confirm.hidden = true;
+        break;
+    }
+
+    if (evt.detail.unblock)
+      evt.detail.unblock();
+
+    delete this.currentEvents[this.currentOrigin];
+  },
+
+  // When user clicks cancel button on confirm/prompt or
+  // when the user try to escape the dialog with the escape key
+  cancelHandler: function md_cancelHandler() {
+    var evt = this.currentEvents[this.currentOrigin];
+    var elements = this.elements;
+    var type = evt.detail.promptType;
+
+    switch (type) {
+      case 'alert':
+        elements.alert.hidden = true;
+        break;
+
+      case 'prompt':
+        /* return null when click cancel */
+        evt.detail.returnValue = null;
+        elements.prompt.hidden = true;
+        break;
+
+      case 'confirm':
+        /* return false when click cancel */
+        evt.detail.returnValue = false;
+        elements.confirm.hidden = true;
+        break;
+    }
+
+    if (evt.detail.unblock)
+      evt.detail.unblock();
+
+    delete this.currentEvents[this.currentOrigin];
+  },
+
+  originHasEvent: function(origin) {
+    return origin in this.currentEvents;
+  },
+
+  clear: function ad_clear(origin) {
+    if (this.currentEvents[origin])
+      delete this.currentEvents[origin];
+  }
+};</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

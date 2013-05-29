@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>fte.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">65.42</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">254</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">35.50</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">2.35</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/*
+ * First time experience is in charge of set up the application.
+ */
+
+(function() {
+
+  'use strict';
+
+  var costcontrol;
+  var hasSim = true;
+
+  // Fallback from some values, just in case they are missed from configuration
+  var DEFAULT_LOW_LIMIT_THRESHOLD = 3;
+  var defaultLowLimitThreshold = DEFAULT_LOW_LIMIT_THRESHOLD;
+  window.addEventListener('DOMContentLoaded', function _onDOMReady() {
+    var mobileConnection = window.navigator.mozMobileConnection;
+    var stepsLeft = 2;
+
+    // No SIM
+    if (!mobileConnection || mobileConnection.cardState === 'absent') {
+      hasSim = false;
+      trySetup();
+
+    // SIM is not ready
+    } else if (mobileConnection.cardState !== 'ready') {
+      debug('SIM not ready:', mobileConnection.cardState);
+      mobileConnection.oniccinfochange = _onDOMReady;
+
+    // SIM is ready
+    } else {
+      mobileConnection.oniccinfochange = undefined;
+      trySetup();
+    }
+
+    CostControl.getInstance(function _onCostControl(instance) {
+      costcontrol = instance;
+      trySetup();
+    });
+
+    function trySetup() {
+      if (!(--stepsLeft)) {
+        setupFTE();
+      }
+    }
+  });
+
+  var wizard, vmanager;
+  var toStep2, step = 0;
+  function setupFTE() {
+    ConfigManager.requestAll(function _onSettings(configuration, settings) {
+      wizard = document.getElementById('firsttime-view');
+      vmanager = new ViewManager();
+
+      // Getting some values from config
+      if (configuration && configuration.default_low_limit_threshold) {
+        defaultLowLimitThreshold = configuration.default_low_limit_threshold;
+      }
+
+      AutoSettings.addType('data-limit', dataLimitConfigurer);
+
+      // Currency is set by config as well
+      if (configuration && configuration.credit &&
+          configuration.credit.currency) {
+
+        document.getElementById('currency').textContent =
+          configuration.credit.currency;
+      }
+
+      var mode = costcontrol.getApplicationMode(settings);
+
+      // Handle welcome screen
+      var selectors = {
+          PREPAID: '.authed-sim',
+          POSTPAID: '.authed-sim',
+          DATA_USAGE_ONLY: '.nonauthed-sim'
+      };
+
+      var selector = hasSim ? selectors[mode] : '.no-sim';
+      wizard.querySelector(selector).setAttribute('aria-hidden', false);
+      if (!hasSim) {
+        wizard.querySelector('p.info').setAttribute('aria-hidden', true);
+      }
+
+      if (mode === 'DATA_USAGE_ONLY') {
+        debug('FTE for non supported SIM');
+        wizard.dataset.steps = '3';
+        reset(['step-1', 'non-vivo-step-1', 'non-vivo-step-2']);
+        AutoSettings.initialize(ConfigManager, vmanager, '#non-vivo-step-1');
+        AutoSettings.initialize(ConfigManager, vmanager, '#non-vivo-step-2');
+
+      } else {
+        wizard.dataset.steps = '4';
+        AutoSettings.initialize(ConfigManager, vmanager, '#step-1');
+
+        // Plantype selection
+        toStep2 = document.getElementById('to-step-2');
+        toStep2.disabled = true;
+
+        document.getElementById('prepaid-plan')
+          .addEventListener('click', selectTrack);
+        document.getElementById('postpaid-plan')
+          .addEventListener('click', selectTrack);
+      }
+
+      // Navigation
+      var next = document.querySelectorAll('[data-navigation=next]');
+      [].forEach.call(next, function cc_eachNext(nextButton) {
+        nextButton.addEventListener('click', onNext);
+      });
+
+      var prev = document.querySelectorAll('[data-navigation=back]');
+      [].forEach.call(prev, function cc_eachPrev(prevButton) {
+        prevButton.addEventListener('click', onBack);
+      });
+
+      var finish = document.querySelectorAll('[data-navigation=finish]');
+      [].forEach.call(finish, function cc_eachFinish(finishButton) {
+        finishButton.addEventListener('click', onFinish);
+      });
+    });
+  }
+
+  window.addEventListener('localized', function _onLocalize() {
+    localizeWeekdaySelector(document.getElementById('pre3-select-weekday'));
+    localizeWeekdaySelector(document.getElementById('post2-select-weekday'));
+    localizeWeekdaySelector(document.getElementById('non2-select-weekday'));
+  });
+
+  // TRACK SETUP
+
+  var currentTrack = ['step-1', 'step-2'];
+  function selectTrack(evt) {
+    if (evt.target.value === 'prepaid') {
+      currentTrack = ['step-1', 'step-2', 'prepaid-step-2', 'prepaid-step-3'];
+      AutoSettings.initialize(ConfigManager, vmanager, '#prepaid-step-2');
+      AutoSettings.initialize(ConfigManager, vmanager, '#prepaid-step-3');
+      addLowLimitStepConstrains();
+      ConfigManager.setOption({
+        dataLimitValue: 40,
+        dataLimitUnit: 'MB',
+        lowLimit: true,
+        lowLimitThreshold: defaultLowLimitThreshold
+      });
+    } else if (evt.target.value === 'postpaid') {
+      currentTrack = ['step-1', 'step-2', 'postpaid-step-2', 'postpaid-step-3'];
+      AutoSettings.initialize(ConfigManager, vmanager, '#postpaid-step-2');
+      AutoSettings.initialize(ConfigManager, vmanager, '#postpaid-step-3');
+      ConfigManager.setOption({ dataLimitValue: 2, dataLimitUnit: 'GB' });
+    }
+
+    ConfigManager.setOption({ plantype: evt.target.value }, function _onSet() {
+      toStep2.disabled = false;
+    });
+  }
+
+  // NAVIGATION
+
+  function reset(track) {
+    // Set wizard progess section
+    wizard.classList.add('total-steps-' + track.length);
+    wizard.classList.remove('step-' + (step + 1));
+    wizard.classList.add('step-1');
+
+    // Reposition screens
+    var currentScreen = document.getElementById(currentTrack[step]);
+    var newStartScreen = document.getElementById(track[0]);
+
+    currentScreen.dataset.viewport = 'left';
+    newStartScreen.dataset.viewport = 'right';
+    delete newStartScreen.dataset.viewport;
+
+    for (var i = 1, id; id = track[i]; i += 1) {
+      var screen = document.getElementById(id);
+      screen.dataset.viewport = 'right';
+    }
+
+    // Reset state
+    step = 0;
+    currentTrack = track;
+  }
+
+  function onNext() {
+    if (step === currentTrack.length - 1) {
+      return;
+    }
+
+    var currentId = currentTrack[step];
+    var currentScreen = document.getElementById(currentId);
+
+    var nextScreenId = currentTrack[step + 1];
+    var nextScreen = document.getElementById(nextScreenId);
+
+    // Enter the next screen
+    delete nextScreen.dataset.viewport;
+    currentScreen.dataset.viewport = 'left';
+
+    // Advance progress bar
+    wizard.classList.remove('step-' + (step + 1));
+    wizard.classList.add('step-' + (step + 2));
+
+    step += 1;
+  }
+
+  function onBack() {
+    if (step === 0) {
+      return;
+    }
+
+    var currentId = currentTrack[step];
+    var currentScreen = document.getElementById(currentId);
+
+    var prevScreenId = currentTrack[step - 1];
+    var prevScreen = document.getElementById(prevScreenId);
+
+    // Enter the previous screen
+    delete prevScreen.dataset.viewport;
+    currentScreen.dataset.viewport = 'right';
+
+    // Back progress bar
+    wizard.classList.remove('step-' + (step + 1));
+    wizard.classList.add('step-' + step);
+
+    step -= 1;
+  }
+
+  function onFinish(evt) {
+    evt.target.disabled = true;
+    ConfigManager.requestSettings(function _onSettings(settings) {
+      ConfigManager.setOption({ fte: false }, function _returnToApp() {
+        updateNextReset(settings.trackingPeriod, settings.resetTime,
+          function _returnToTheApplication() {
+            window.location = 'index.html';
+          }
+        );
+      });
+    });
+  }
+
+  // Add particular constrains to the page where setting low limit button
+  function addLowLimitStepConstrains() {
+    var lowLimit = document.getElementById('low-limit');
+    lowLimit.addEventListener('click', checkLowLimitStep);
+    var lowLimitInput = document.getElementById('low-limit-input');
+    lowLimitInput.addEventListener('input', checkLowLimitStep);
+  }
+
+  // Check settings and enable / disable done button
+  function checkLowLimitStep() {
+    var next = document.getElementById('low-limit-next-button');
+    var lowLimit = document.getElementById('low-limit');
+    var lowLimitInput = document.getElementById('low-limit-input');
+    var lowLimitError = lowLimit.checked && lowLimitInput.value.trim() === '';
+
+    lowLimitInput.classList[lowLimitError ? 'add' : 'remove']('error');
+    next.disabled = lowLimitError;
+  }
+
+}());</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

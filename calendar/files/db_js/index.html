@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>db.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">65.71</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">348</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">44.10</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">2.50</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">(function(window) {
+  var idb = window.indexedDB;
+  const VERSION = 14;
+  var debug = Calendar.debug('database');
+
+  var store = {
+    events: 'events',
+    accounts: 'accounts',
+    calendars: 'calendars',
+    busytimes: 'busytimes',
+    settings: 'settings',
+    alarms: 'alarms',
+    icalComponents: 'icalComponents'
+  };
+
+  Object.freeze(store);
+
+  function Db(name) {
+    this.name = name;
+    this._stores = Object.create(null);
+
+    Calendar.Responder.call(this);
+
+    this._upgradeOperations = [];
+  }
+
+  Db.prototype = {
+
+    __proto__: Calendar.Responder.prototype,
+
+    /**
+     * Database connection
+     */
+    connection: null,
+
+    getStore: function(name) {
+      if (!(name in this._stores)) {
+        try {
+          this._stores[name] = new Calendar.Store[name](this);
+        } catch (e) {
+          console.log('Failed to load store', name, e.stack);
+        }
+      }
+
+      return this._stores[name];
+    },
+
+    load: function(callback) {
+
+      var self = this;
+      function setupDefaults() {
+        if (self.oldVersion < 8) {
+          self._setupDefaults(callback);
+        } else {
+          Calendar.nextTick(callback);
+        }
+      }
+
+      if (this.isOpen) {
+        return setupDefaults();
+      }
+
+      if (!this.isOpen) {
+        this.open(VERSION, function() {
+          setupDefaults();
+        }.bind(this));
+      }
+    },
+
+
+    /**
+     * Opens connection to database.
+     *
+     * @param {Numeric} [version] version of database to open.
+     *                            default to current version.
+     *                            Should _only_ be used in testing.
+     *
+     * @param {Function} [callback] first argument is error, second
+     *                            is result of operation or null
+     *                            in the error case.
+     */
+    open: function(version, callback) {
+      if (typeof(version) === 'function') {
+        callback = version;
+        version = VERSION;
+      }
+
+      var req = idb.open(this.name, version);
+      this.version = version;
+
+      var self = this;
+
+      req.onsuccess = function(event) {
+        self.isOpen = true;
+        self.connection = req.result;
+
+        // if we have pending upgrade operations
+        if (self._upgradeOperations.length) {
+          var pending = self._upgradeOperations.length;
+
+          function next() {
+            if (!(--pending)) {
+              callback(null, self);
+              self.emit('open', self);
+            }
+          }
+
+          var operation;
+          while ((operation = self._upgradeOperations.shift())) {
+            operation.call(self, next);
+          }
+        } else {
+          callback(null, self);
+          self.emit('open', self);
+        }
+      };
+
+      req.onblocked = function(error) {
+        callback(error, null);
+        self.emit('error', error);
+      };
+
+      req.onupgradeneeded = function(event) {
+        self._handleVersionChange(req.result, event);
+      };
+
+      req.onerror = function(error) {
+        //TODO: steal asuth's error handling...
+        callback(error, null);
+        self.emit('error', error);
+      };
+    },
+
+    transaction: function(list, state) {
+      var names;
+      var self = this;
+
+      if (typeof(list) === 'string') {
+        names = [];
+        names.push(this.store[list] || list);
+      } else {
+        names = list.map(function(name) {
+          return self.store[name] || name;
+        });
+      }
+
+      return this.connection.transaction(names, state || 'readonly');
+    },
+
+    _handleVersionChange: function(db, event) {
+      var newVersion = event.newVersion;
+      var curVersion = event.oldVersion;
+      var transaction = event.currentTarget.transaction;
+
+      this.hasUpgraded = true;
+      this.oldVersion = curVersion;
+      this.upgradedVersion = newVersion;
+
+      for (; curVersion < newVersion; curVersion++) {
+        // if version is < 7 then it was from pre-production
+        // db and we can safely discard its information.
+        if (curVersion < 6) {
+          // ensure clean state if this was an old db.
+          var existingNames = db.objectStoreNames;
+          for (var i = 0; i < existingNames.length; i++) {
+            db.deleteObjectStore(existingNames[i]);
+          }
+
+          // version 0-r are not maintained increment to 6
+          curVersion = 6;
+
+          // busytimes has one event, has one calendar
+          var busytimes = db.createObjectStore(
+            store.busytimes,
+            { keyPath: '_id' }
+          );
+
+          busytimes.createIndex(
+            'end',
+            'end.utc',
+            { unique: false, multiEntry: false }
+          );
+
+          busytimes.createIndex(
+            'eventId',
+            'eventId',
+            { unique: false, multiEntry: false }
+          );
+
+          // events -> belongs to calendar
+          var events = db.createObjectStore(
+            store.events,
+            { keyPath: '_id' }
+          );
+
+          events.createIndex(
+            'calendarId',
+            'calendarId',
+            { unique: false, multiEntry: false }
+          );
+
+          events.createIndex(
+            'parentId',
+            'parentId',
+            { unique: false, multiEntry: false }
+          );
+
+          // accounts -> has many calendars
+          db.createObjectStore(
+            store.accounts, { keyPath: '_id', autoIncrement: true }
+          );
+
+          // calendars -> has many events
+          db.createObjectStore(
+            store.calendars, { keyPath: '_id', autoIncrement: true }
+          );
+
+        } else if (curVersion === 7) {
+          db.createObjectStore(store.settings, { keyPath: '_id' });
+        } else if (curVersion === 8) {
+          var alarms = db.createObjectStore(
+            store.alarms, { keyPath: '_id', autoIncrement: true }
+          );
+
+          alarms.createIndex(
+            'trigger',
+            'trigger.utc',
+            { unique: false, multiEntry: false }
+          );
+
+          alarms.createIndex(
+            'busytimeId',
+            'busytimeId',
+            { unique: false, multiEntry: false }
+          );
+       } else if (curVersion === 12) {
+          var icalComponents = db.createObjectStore(
+            store.icalComponents, { keyPath: 'eventId', autoIncrement: false }
+          );
+
+          icalComponents.createIndex(
+            'lastRecurrenceId',
+            'lastRecurrenceId.utc',
+            { unique: false, multiEntry: false }
+          );
+        } else if (curVersion === 13) {
+          var calendarStore = transaction.objectStore(store.calendars);
+          calendarStore.createIndex(
+            'accountId', 'accountId', { unique: false, multiEntry: false }
+          );
+        }
+      }
+    },
+
+    get store() {
+      return store;
+    },
+
+    /**
+     * Shortcut method for connection.close
+     */
+    close: function() {
+      if (this.connection) {
+        this.isOpen = false;
+        this.connection.close();
+        this.connection = null;
+      }
+    },
+
+    clearNonCredentials: function(callback) {
+      var stores = ['events', 'busytimes'];
+      var trans = this.transaction(
+        stores,
+        'readwrite'
+      );
+
+      trans.addEventListener('complete', callback);
+
+      stores.forEach(function(store) {
+        store = trans.objectStore(store);
+        store.clear();
+      });
+    },
+
+    /**
+     * Setup default values for initial calendar load.
+     */
+    _setupDefaults: function(callback) {
+      var calendarStore = this.getStore('Calendar');
+      var accountStore = this.getStore('Account');
+
+      var trans = calendarStore.db.transaction(
+        ['accounts', 'calendars'],
+        'readwrite'
+      );
+
+      if (callback) {
+        trans.addEventListener('error', function(err) {
+          callback(err);
+        });
+
+        trans.addEventListener('complete', function() {
+          callback();
+        });
+      }
+
+      var account = new Calendar.Models.Account(
+        Calendar.Presets.local.options
+      );
+
+      account.preset = 'local';
+
+      account._id = uuid();
+
+      var calendar = {
+        _id: Calendar.Provider.Local.calendarId,
+        accountId: account._id,
+        remote: Calendar.Provider.Local.defaultCalendar()
+      };
+
+      accountStore.persist(account, trans);
+      calendarStore.persist(calendar, trans);
+    },
+
+    deleteDatabase: function(callback) {
+      var req = idb.deleteDatabase(this.name);
+
+      req.onblocked = function(e) {
+        // improve interface
+        callback(new Error('blocked'));
+      };
+
+      req.onsuccess = function(event) {
+        callback(null, event);
+      };
+
+      req.onerror = function(event) {
+        callback(event, null);
+      };
+    }
+
+    /** private db upgrade methods **/
+
+  };
+
+  Calendar.Db = Db;
+
+}(this));</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

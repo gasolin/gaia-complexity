@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>init_logo_handler.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">71.68</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">140</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">25.94</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.00</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">'use strict';
+
+var CustomLogoPath = {
+  poweron: {
+    video: '/resources/power/carrier_power_on.mp4',
+    image: '/resources/power/carrier_power_on.png'
+  },
+  poweroff: {
+    video: '/resources/power/carrier_power_off.mp4',
+    image: '/resources/power/carrier_power_off.png'
+  }
+};
+
+// Function to animate init starting logo
+var InitLogoHandler = {
+  ready: false,
+  animated: false,
+  readyCallBack: null,
+  logoLoader: null,
+
+  get carrierLogo() {
+    delete this.carrierLogo;
+    return (this.carrierLogo = document.getElementById('carrier-logo'));
+  },
+
+  get osLogo() {
+    delete this.osLogo;
+    return (this.osLogo = document.getElementById('os-logo'));
+  },
+
+  init: function ilh_init(logoLoader) {
+    this.logoLoader = logoLoader;
+    logoLoader.onnotfound = this._removeCarrierPowerOn.bind(this);
+    logoLoader.onload = this._appendCarrierPowerOn.bind(this);
+  },
+
+  _removeCarrierPowerOn: function ilh_removeCarrierPowerOn() {
+    var self = this;
+    if (this.carrierLogo) {
+      this.carrierLogo.parentNode.removeChild(self.carrierLogo);
+      this._setReady();
+    } else {
+      var self = this;
+      document.addEventListener('DOMContentLoaded', function() {
+        self.carrierLogo.parentNode.removeChild(self.carrierLogo);
+        self._setReady();
+      });
+    }
+  },
+
+  _appendCarrierPowerOn: function ilh_appendCarrierPowerOn() {
+    if (this.carrierLogo) {
+      this.carrierLogo.appendChild(this.logoLoader.element);
+      this._setReady();
+    } else {
+      var self = this;
+      document.addEventListener('DOMContentLoaded', function() {
+        self.carrierLogo.appendChild(self.logoLoader.element);
+        self._setReady();
+      });
+    }
+  },
+
+  _setReady: function ilh_setReady() {
+    this.ready = true;
+    if (this.readyCallBack) {
+      this.readyCallBack();
+      this.readyCallBack = null;
+    }
+  },
+
+  _waitReady: function ilh_waitReady(callback) {
+    this.readyCallBack = callback;
+  },
+
+  animate: function ilh_animate(callback) {
+    var self = this;
+
+    if (!this.ready) {
+      this._waitReady(this.animate.bind(this, callback));
+      return;
+    }
+
+    if (this.animated)
+      return;
+
+    this.animated = true;
+
+    // No carrier logo - Just animate OS logo.
+    if (!self.logoLoader.found) {
+      self.osLogo.classList.add('hide');
+
+    // Has carrier logo - Animate carrier logo, then OS logo.
+    } else {
+      // CarrierLogo is not transparent until now
+      // to prevent flashing.
+      self.carrierLogo.className = 'transparent';
+
+      var elem = self.logoLoader.element;
+      if (elem.tagName.toLowerCase() == 'video' && !elem.ended) {
+        elem.onended = function() {
+          elem.classList.add('hide');
+          // XXX workaround of bug 831747
+          // Unload the video. This releases the video decoding hardware
+          // so other apps can use it.
+          elem.removeAttribute('src');
+          elem.load();
+        };
+      } else {
+        elem.classList.add('hide');
+        if (elem.tagName.toLowerCase() == 'video') {
+            // XXX workaround of bug 831747
+            // Unload the video. This releases the video decoding hardware
+            // so other apps can use it.
+            elem.removeAttribute('src');
+            elem.load();
+        }
+      }
+
+      self.carrierLogo.addEventListener('transitionend',
+      function transCarrierLogo(evt) {
+        evt.stopPropagation();
+        self.carrierLogo.removeEventListener('transitionend', transCarrierLogo);
+        self.carrierLogo.parentNode.removeChild(self.carrierLogo);
+        self.osLogo.classList.add('hide');
+        self.carrierPowerOnElement = null;
+      });
+    }
+
+    self.osLogo.addEventListener('transitionend', function transOsLogo() {
+      self.osLogo.removeEventListener('transitionend', transOsLogo);
+      self.osLogo.parentNode.removeChild(self.osLogo);
+      if (callback) {
+        callback();
+      }
+    });
+  }
+};
+
+InitLogoHandler.init(new LogoLoader(CustomLogoPath.poweron));</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

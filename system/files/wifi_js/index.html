@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>wifi.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">67.52</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">230</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">26.43</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.45</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
+/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
+
+'use strict';
+
+var Wifi = {
+  wifiWakeLocked: false,
+
+  wifiEnabled: true,
+
+  wifiDisabledByWakelock: false,
+
+  // Without an wifi wake lock, wait for screenOffTimeout milliseconds
+  // to turn wifi off after the conditions are met.
+  // If it's set to 0, wifi will never be turn off.
+  screenOffTimeout: 0,
+
+  // if Wifi is enabled but disconnected, try to scan for networks every
+  // kScanInterval ms.
+  kScanInterval: 20 * 1000,
+
+  _scanTimer: null,
+
+  init: function wf_init() {
+    window.addEventListener('screenchange', this);
+
+    var battery = window.navigator.battery;
+    battery.addEventListener('chargingchange', this);
+
+    if (!window.navigator.mozSettings)
+      return;
+
+    // If wifi is turned off by us and phone got rebooted,
+    // bring wifi back.
+    var name = 'wifi.disabled_by_wakelock';
+    var req = SettingsListener.getSettingsLock().get(name);
+    req.onsuccess = function gotWifiDisabledByWakelock() {
+      if (!req.result[name])
+        return;
+
+      // Re-enable wifi and reset wifi.disabled_by_wakelock
+      // SettingsListener.getSettingsLock() always return invalid lock
+      // in our usage here.
+      // See https://bugzilla.mozilla.org/show_bug.cgi?id=793239
+      var lock = navigator.mozSettings.createLock();
+      lock.set({ 'wifi.enabled': true });
+      lock.set({ 'wifi.disabled_by_wakelock': false });
+    };
+
+    var self = this;
+    var wifiManager = window.navigator.mozWifiManager;
+    // when wifi is really enabled, emit event to notify QuickSettings
+    wifiManager.onenabled = function onWifiEnabled() {
+      var evt = document.createEvent('CustomEvent');
+      evt.initCustomEvent('wifi-enabled',
+        /* canBubble */ true, /* cancelable */ false, null);
+      window.dispatchEvent(evt);
+    };
+
+    // when wifi is really disabled, emit event to notify QuickSettings
+    wifiManager.ondisabled = function onWifiDisabled() {
+      var evt = document.createEvent('CustomEvent');
+      evt.initCustomEvent('wifi-disabled',
+        /* canBubble */ true, /* cancelable */ false, null);
+      window.dispatchEvent(evt);
+    };
+
+    // when wifi status change, emit event to notify StatusBar/UpdateManager
+    wifiManager.onstatuschange = function onWifiDisabled() {
+      var evt = document.createEvent('CustomEvent');
+      evt.initCustomEvent('wifi-statuschange',
+        /* canBubble */ true, /* cancelable */ false, null);
+      window.dispatchEvent(evt);
+    };
+
+    SettingsListener.observe(
+      'wifi.screen_off_timeout', 600000, function(value) {
+        self.screenOffTimeout = value;
+      });
+
+    // Track the wifi.enabled mozSettings value
+    SettingsListener.observe('wifi.enabled', true, function(value) {
+      if (!wifiManager && value) {
+        self.wifiEnabled = false;
+
+        // roll back the setting value to notify the UIs
+        // that wifi interface is not available
+        if (value) {
+          SettingsListener.getSettingsLock().set({
+            'wifi.enabled': false
+          });
+        }
+
+        return;
+      }
+
+      self.wifiEnabled = value;
+
+      clearTimeout(self._scanTimer);
+      if (!value)
+        return;
+
+      // If wifi is enabled but disconnected.
+      // we would need to call getNetworks() continuously
+      // so we could join known wifi network
+      self._scanTimer = setInterval(function wifi_scan() {
+        if (wifiManager.connection.status == 'disconnected')
+          wifiManager.getNetworks();
+      });
+    });
+
+    var power = navigator.mozPower;
+    power.addWakeLockListener(function wifi_handleWakeLock(topic, state) {
+      if (topic !== 'wifi')
+        return;
+
+      self.wifiWakeLocked = (state == 'locked-foreground' ||
+                             state == 'locked-background');
+
+      self.maybeToggleWifi();
+    });
+  },
+
+  handleEvent: function wifi_handleEvent(evt) {
+    this.maybeToggleWifi();
+  },
+
+  // Check the status of screen, wifi wake lock and power source
+  // and turn on/off wifi accordingly
+  maybeToggleWifi: function wifi_maybeToggleWifi() {
+    // Do nothing if we are being disabled.
+    if (!this.screenOffTimeout)
+      return;
+
+    var battery = window.navigator.battery;
+    var wifiManager = window.navigator.mozWifiManager;
+    if (!battery || !wifiManager ||
+        (!this.wifiEnabled && !this.wifiDisabledByWakelock))
+      return;
+
+
+    // Let's quietly turn off wifi if there is no wake lock and
+    // the screen is off and we are not on a power source.
+    if (!ScreenManager.screenEnabled &&
+        !this.wifiWakeLocked && !battery.charging) {
+      // We don't need to do anything if wifi is not enabled currently
+      if (!this.wifiEnabled)
+        return;
+
+      // We still need to turn of wifi even if there is no Alarm API
+      if (!navigator.mozAlarms) {
+        console.warn('Turning off wifi without sleep timer because' +
+          ' Alarm API is not available');
+        this.sleep();
+
+        return;
+      }
+
+      // Set System Message Handler, so we will be notified when alarm goes off.
+      this.setSystemMessageHandler();
+
+      // Start with a timer, only turn off wifi till timeout.
+      var date = new Date(Date.now() + this.screenOffTimeout);
+      var self = this;
+      var req = navigator.mozAlarms.add(date, 'ignoreTimezone', 'wifi-off');
+      req.onsuccess = function wifi_offAlarmSet() {
+        self._alarmId = req.result;
+      };
+      req.onerror = function wifi_offAlarmSetFailed() {
+        console.warn('Fail to set wifi sleep timer on Alarm API. ' +
+          'Turn off wifi immediately.');
+        self.sleep();
+      };
+    }
+    // ... and quietly turn it back on or cancel the timer otherwise
+    else {
+      if (this._alarmId) {
+        navigator.mozAlarms.remove(this._alarmId);
+        this._alarmId = null;
+      }
+
+      // If wifi is enabled but disconnected.
+      // we would need to call getNetworks() so we could join known wifi network
+      if (this.wifiEnabled && wifiManager.connection.status == 'disconnected') {
+        wifiManager.getNetworks();
+      }
+
+      // We don't need to do anything if we didn't disable wifi at first place.
+      if (!this.wifiDisabledByWakelock)
+        return;
+
+      var lock = SettingsListener.getSettingsLock();
+      // turn wifi back on.
+      lock.set({ 'wifi.enabled': true });
+
+      this.wifiDisabledByWakelock = false;
+      lock.set({ 'wifi.disabled_by_wakelock': false });
+    }
+  },
+
+  // Quietly turn off wifi for real, set wifiDisabledByWakelock to true
+  // so we will turn it back on.
+  sleep: function wifi_sleep() {
+    var lock = SettingsListener.getSettingsLock();
+    // Actually turn off the wifi
+    lock.set({ 'wifi.enabled': false });
+
+    // Remember that it was turned off by us.
+    this.wifiDisabledByWakelock = true;
+
+    // Keep this value in disk so if the phone reboots we'll
+    // be able to turn the wifi back on.
+    lock.set({ 'wifi.disabled_by_wakelock': true });
+  },
+
+  // Register for handling system message,
+  // this cannot be done during |init()| because of bug 797803
+  setSystemMessageHandler: function wifi_setSystemMessageHandler() {
+    if (this._systemMessageHandlerRegistered)
+      return;
+
+    this._systemMessageHandlerRegistered = true;
+    var self = this;
+    navigator.mozSetMessageHandler('alarm', function gotAlarm(message) {
+      if (message.data !== 'wifi-off')
+        return;
+
+      self.sleep();
+    });
+  }
+};
+
+Wifi.init();</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

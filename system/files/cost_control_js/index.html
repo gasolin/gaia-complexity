@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>cost_control.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">68.76</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">124</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">21.06</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">0.89</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/* -*- Mode: js; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
+/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
+
+(function() {
+
+  'use strict';
+
+  var host = document.location.host;
+  var domain = host.replace(/(^[\w\d]+\.)?([\w\d]+\.[a-z]+)/, '$2');
+  var protocol = document.location.protocol + '//';
+  var origin = protocol + 'costcontrol.' + domain;
+
+  var widgetContainer = document.getElementById('cost-control-widget');
+
+  var widgetFrame;
+  function _ensureWidget() {
+    if (!Applications.ready)
+      return;
+
+    if (!Applications.getByManifestURL(origin + '/manifest.webapp'))
+      return;
+
+    // Check widget is there
+    widgetFrame = widgetContainer.querySelector('iframe');
+    if (widgetFrame && !widgetFrame.dataset.killed)
+      return;
+
+    // Create the widget
+    if (!widgetFrame) {
+      widgetFrame = document.createElement('iframe');
+      widgetFrame.addEventListener('mozbrowsererror', _onError);
+      widgetFrame.addEventListener('mozbrowserclose', _onError);
+    }
+
+    widgetFrame.dataset.frameType = 'widget';
+    widgetFrame.dataset.frameOrigin = origin;
+    delete widgetFrame.dataset.killed;
+
+    widgetFrame.setAttribute('mozbrowser', true);
+    widgetFrame.setAttribute('remote', 'true');
+    widgetFrame.setAttribute('mozapp', origin + '/manifest.webapp');
+
+    widgetFrame.src = origin + '/widget.html';
+    widgetContainer.appendChild(widgetFrame);
+
+    _attachNetworkEvents();
+    _adjustWidgetPosition();
+  }
+
+  function _onError(e) {
+    e.target.dataset.killed = true;
+  }
+
+  function _attachNetworkEvents() {
+    window.removeEventListener('moznetworkupload', _onNetworkActivity);
+    window.removeEventListener('moznetworkdownload', _onNetworkActivity);
+    window.addEventListener('moznetworkupload', _onNetworkActivity);
+    window.addEventListener('moznetworkdownload', _onNetworkActivity);
+  }
+
+  var hashMark = 0;
+  var activityCounter = 0;
+  var ACTIVITY_THRESHOLD = 250;
+  function _onNetworkActivity() {
+    activityCounter++;
+    if (activityCounter === ACTIVITY_THRESHOLD) {
+      activityCounter = 0;
+      window.removeEventListener('moznetworkupload', _onNetworkActivity);
+      window.removeEventListener('moznetworkdownload', _onNetworkActivity);
+      widgetFrame.addEventListener('mozbrowserlocationchange', _onUpdateDone);
+      widgetFrame.src = origin + '/widget.html#update#' + hashMark;
+      hashMark = 1 - hashMark; // toogle between 0 and 1
+    }
+  }
+
+  function _onUpdateDone(evt) {
+    if (evt.detail.split('#')[1] === 'updateDone') {
+      widgetFrame.removeEventListener('mozbrowserlocationchange',
+                                      _onUpdateDone);
+      _attachNetworkEvents();
+    }
+  }
+
+  function _showWidget() {
+    _ensureWidget();
+    widgetFrame.setVisible(true);
+  }
+
+  function _hideWidget() {
+    if (widgetFrame) {
+      widgetFrame.setVisible(false);
+    }
+  }
+
+  function _adjustWidgetPosition() {
+    if (!widgetFrame)
+      return;
+
+    // TODO: Remove this when weird bug #809031 (Bugzilla) is solved
+    // See cost_control.css as well to remove the last rule
+    var offsetY = document.getElementById('notification-bar').clientHeight;
+    offsetY +=
+      document.getElementById('notifications-container').clientHeight;
+    widgetFrame.style.transform = 'translate(0, ' + offsetY + 'px)';
+  }
+
+  // Listen to utilitytray show
+  window.addEventListener('utilitytrayshow', _showWidget);
+  window.addEventListener('utilitytrayhide', _hideWidget);
+
+  window.addEventListener('applicationready', function _onReady() {
+    asyncStorage.getItem('ftu.enabled', function _onValue(enabled) {
+      if (enabled !== false) {
+        window.addEventListener('ftudone', function ftudone(e) {
+          window.removeEventListener('ftudone', ftudone);
+          _ensureWidget();
+          widgetFrame.setVisible(false);
+        });
+      } else {
+        _ensureWidget();
+        widgetFrame.setVisible(false);
+      }
+    });
+  });
+
+  window.addEventListener('resize', _adjustWidgetPosition);
+}());</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

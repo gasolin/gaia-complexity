@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>utils.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">66.07</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">352</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">67.66</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">3.60</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">'use strict';
+
+function escapeHTML(str, escapeQuotes) {
+  var span = document.createElement('span');
+  span.textContent = str;
+
+  if (escapeQuotes)
+    return span.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
+  return span.innerHTML;
+}
+
+function summarizeDaysOfWeek(bitStr) {
+  var _ = navigator.mozL10n.get;
+
+  if (bitStr == '')
+    return _('never');
+
+  // Format bits: 0123456(0000000)
+  // Case: Everyday:  1111111
+  // Case: Weekdays:  1111100
+  // Case: Weekends:  0000011
+  // Case: Never:     0000000
+  // Case: Specific:  other case  (Mon, Tue, Thu)
+
+  var summary = '';
+  switch (bitStr) {
+  case '1111111':
+    summary = _('everyday');
+    break;
+  case '1111100':
+    summary = _('weekdays');
+    break;
+  case '0000011':
+    summary = _('weekends');
+    break;
+  case '0000000':
+    summary = _('never');
+    break;
+  default:
+    var weekdays = [];
+    for (var i = 0; i < bitStr.length; i++) {
+      if (bitStr.substr(i, 1) == '1') {
+        // Note: here, Monday is the first day of the week
+        // whereas in JS Date(), it's Sunday -- hence the (+1) here.
+        weekdays.push(_('weekday-' + ((i + 1) % 7) + '-short'));
+      }
+    }
+    summary = weekdays.join('<span class="comma">,</span> ');
+  }
+  return summary;
+}
+
+function is12hFormat() {
+  var localeTimeFormat = navigator.mozL10n.get('dateTimeFormat_%X');
+  var is12h = (localeTimeFormat.indexOf('%p') >= 0);
+  return is12h;
+}
+
+function getLocaleTime(d) {
+  var f = new navigator.mozL10n.DateTimeFormat();
+  var is12h = is12hFormat();
+  return {
+    t: f.localeFormat(d, (is12h ? '%I:%M' : '%H:%M')).replace(/^0/, ''),
+    p: is12h ? f.localeFormat(d, '%p') : ''
+  };
+}
+
+function isAlarmPassToday(hour, minute) { // check alarm has passed or not
+  var now = new Date();
+  if (hour > now.getHours() ||
+      (hour == now.getHours() && minute > now.getMinutes())) {
+    return false;
+  }
+  return true;
+}
+
+function getNextAlarmFireTime(alarm) { // get the next alarm fire time
+  var repeat = alarm.repeat;
+  var hour = alarm.hour;
+  var minute = alarm.minute;
+  var now = new Date();
+  var nextAlarmFireTime = new Date();
+  var diffDays = 0; // calculate the diff days from now
+  if (repeat == '0000000') { // one time only and alarm within 24 hours
+    if (isAlarmPassToday(hour, minute)) // if alarm has passed already
+      diffDays = 1; // alarm tomorrow
+  } else { // find out the first alarm day from the repeat info.
+    var weekDayFormatRepeat =
+      repeat.slice(-1).concat(repeat.slice(0, repeat.length - 1));
+    var weekDayOfToday = now.getDay();
+    var index = 0;
+    for (var i = 0; i < weekDayFormatRepeat.length; i++) {
+      index = (i + weekDayOfToday) % 7;
+      if (weekDayFormatRepeat.charAt(index) == '1') {
+        if (diffDays == 0) {
+          if (!isAlarmPassToday(hour, minute)) // if alarm has passed already
+            break;
+
+          diffDays++;
+          continue;
+        }
+        break;
+      }
+      diffDays++;
+    }
+  }
+
+  nextAlarmFireTime.setDate(nextAlarmFireTime.getDate() + diffDays);
+  nextAlarmFireTime.setHours(hour);
+  nextAlarmFireTime.setMinutes(minute);
+  nextAlarmFireTime.setSeconds(0, 0);
+
+  return nextAlarmFireTime;
+}
+
+function changeSelectByValue(selectElement, value) {
+  var options = selectElement.options;
+  for (var i = 0; i < options.length; i++) {
+    if (options[i].value == value) {
+      if (selectElement.selectedIndex != i) {
+        selectElement.selectedIndex = i;
+      }
+      break;
+    }
+  }
+}
+
+function getSelectedValue(selectElement) {
+  return selectElement.options[selectElement.selectedIndex].value;
+}
+
+var ValuePicker = (function() {
+
+  //
+  // Constructor
+  //
+  function VP(e, unitStyle) {
+    this.element = e;
+    this._valueDisplayedText = unitStyle.valueDisplayedText;
+    this._unitClassName = unitStyle.className;
+    this._lower = 0;
+    this._upper = unitStyle.valueDisplayedText.length - 1;
+    this._range = unitStyle.valueDisplayedText.length;
+    this._currentIndex = 0;
+    this.init();
+  }
+
+  //
+  // Public methods
+  //
+  VP.prototype.getSelectedIndex = function() {
+    var selectedIndex = this._currentIndex;
+    return selectedIndex;
+  };
+
+  VP.prototype.getSelectedDisplayedText = function() {
+    var displayedText = this._valueDisplayedText[this._currentIndex];
+    return displayedText;
+  };
+
+  VP.prototype.setSelectedIndex = function(tunedIndex, ignorePicker) {
+    if ((tunedIndex % 1) > 0.5) {
+      tunedIndex = Math.floor(tunedIndex) + 1;
+    } else {
+      tunedIndex = Math.floor(tunedIndex);
+    }
+
+    if (tunedIndex < this._lower) {
+      tunedIndex = this._lower;
+    }
+
+    if (tunedIndex > this._upper) {
+      tunedIndex = this._upper;
+    }
+
+    this._currentIndex = tunedIndex;
+    this.updateUI(tunedIndex, ignorePicker);
+
+    return tunedIndex;
+  };
+
+  VP.prototype.setSelectedIndexByDisplayedText = function(displayedText) {
+    var newIndex = this._valueDisplayedText.indexOf(displayedText);
+    if (newIndex != -1) {
+      this._currentIndex = newIndex;
+      this.updateUI(newIndex);
+    }
+  };
+
+  //
+  // Internal methods
+  //
+  VP.prototype.init = function() {
+    this.initUI();
+    this.setSelectedIndex(0); // Default Index is zero
+    this.mousedownHandler = vp_mousedown.bind(this);
+    this.mousemoveHandler = vp_mousemove.bind(this);
+    this.mouseupHandler = vp_mouseup.bind(this);
+    this.transitionendHandler = vp_transitionend.bind(this);
+    this.addEventListeners();
+  };
+
+  VP.prototype.initUI = function() {
+    var lower = this._lower;
+    var upper = this._upper;
+    var unitCount = this._valueDisplayedText.length;
+    for (var i = 0; i < unitCount; ++i) {
+      this.addPickerUnit(i);
+    }
+    // cache the size of picker
+    this._pickerUnits = this.element.children;
+    this._pickerUnitsHeight = this._pickerUnits[0].clientHeight;
+    this._pickerHeight = this.element.clientHeight;
+    this._space = this._pickerHeight / this._range;
+  };
+
+  VP.prototype.addPickerUnit = function(index) {
+    var html = this._valueDisplayedText[index];
+    var unit = document.createElement('div');
+    unit.className = this._unitClassName;
+    unit.innerHTML = html;
+    this.element.appendChild(unit);
+  };
+
+  VP.prototype.updateUI = function(index, ignorePicker) {
+    this.resetUI();
+    if (true !== ignorePicker) {
+      this.element.style.top =
+            (this._lower - index) * this._space + 'px';
+    }
+  };
+
+  VP.prototype.addEventListeners = function() {
+    this.element.addEventListener('mousedown', this.mousedownHandler, false);
+  };
+
+  VP.prototype.removeEventListeners = function() {
+    this.element.removeEventListener('mouseup', this.mouseupHandler, false);
+    this.element.removeEventListener('mousemove', this.mousemoveHandler, false);
+  };
+
+  VP.prototype.resetUI = function() {
+    var actives = this.element.querySelectorAll('.active');
+    for (var i = 0; i < actives.length; i++) {
+      actives[i].classList.remove('active');
+    }
+    this._pickerUnits[this._currentIndex].classList.add('active');
+  };
+
+  function cloneEvent(evt) {
+    if ('touches' in evt) {
+      evt = evt.touches[0];
+    }
+    return { x: evt.pageX, y: evt.pageY,
+             timestamp: MouseEventShim.getEventTimestamp(evt) };
+  }
+
+  //
+  // Tuneable parameters
+  //
+  var SPEED_THRESHOLD = 0.1;
+  var currentEvent, startEvent, currentSpeed;
+  var tunedIndex = 0;
+
+  function toFixed(value) {
+    return parseFloat(value.toFixed(1));
+  }
+
+  function calcSpeed() {
+    var movingSpace = startEvent.y - currentEvent.y;
+    var deltaTime = currentEvent.timestamp - startEvent.timestamp;
+    var speed = movingSpace / deltaTime;
+    currentSpeed = parseFloat(speed.toFixed(2));
+  }
+
+  function calcTargetIndex(space) {
+    return tunedIndex - getMovingSpace() / space;
+  }
+
+  // If the user swap really slow, narrow down the moving space
+  // So the user can fine tune value.
+  function getMovingSpace() {
+    var movingSpace = currentEvent.y - startEvent.y;
+    var reValue = Math.abs(currentSpeed) > SPEED_THRESHOLD ?
+                                movingSpace : movingSpace / 4;
+    return reValue;
+  }
+
+  function vp_transitionend() {
+    this.element.classList.remove('animation-on');
+    this.element.removeEventListener('transitionend',
+                                     this.transitionendHandler);
+  }
+
+  function vp_mousemove(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    currentEvent = cloneEvent(event);
+
+    calcSpeed();
+
+    // move selected index
+    this.element.style.top = parseFloat(this.element.style.top) +
+                              getMovingSpace() + 'px';
+
+    tunedIndex = calcTargetIndex(this._space);
+    var roundedIndex = Math.round(tunedIndex * 10) / 10;
+
+    if (roundedIndex != this._currentIndex) {
+      this.setSelectedIndex(toFixed(roundedIndex), true);
+    }
+
+    startEvent = currentEvent;
+  }
+
+  function vp_mouseup(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.removeEventListeners();
+
+    // Add animation back
+    this.element.addEventListener('transitionend', this.transitionendHandler);
+    this.element.classList.add('animation-on');
+
+    // Add momentum if speed is higher than a given threshold.
+    if (Math.abs(currentSpeed) > SPEED_THRESHOLD) {
+      var direction = currentSpeed > 0 ? 1 : -1;
+      tunedIndex += Math.min(Math.abs(currentSpeed) * 5, 5) * direction;
+    }
+    tunedIndex = this.setSelectedIndex(toFixed(tunedIndex));
+    currentSpeed = 0;
+  }
+
+  function vp_mousedown(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.target.setCapture(true);
+    MouseEventShim.setCapture();
+
+    // Stop animation
+    this.element.classList.remove('animation-on');
+
+    startEvent = currentEvent = cloneEvent(event);
+    tunedIndex = this._currentIndex;
+
+    this.removeEventListeners();
+    this.element.addEventListener('mousemove', this.mousemoveHandler, false);
+    this.element.addEventListener('mouseup', this.mouseupHandler, false);
+  }
+
+  return VP;
+}());</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

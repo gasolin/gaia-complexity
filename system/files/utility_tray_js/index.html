@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>utility_tray.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">61.67</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">153</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">40.94</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.26</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
+/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
+
+'use strict';
+
+var UtilityTray = {
+  shown: false,
+
+  active: false,
+
+  overlay: document.getElementById('utility-tray'),
+
+  statusbar: document.getElementById('statusbar'),
+
+  screen: document.getElementById('screen'),
+
+  init: function ut_init() {
+    var touchEvents = ['touchstart', 'touchmove', 'touchend'];
+
+    // XXX: Always use Mouse2Touch here.
+    // We cannot reliably detect touch support normally
+    // by evaluate (document instanceof DocumentTouch) on Desktop B2G.
+    touchEvents.forEach(function bindEvents(name) {
+      // window.addEventListener(name, this);
+      Mouse2Touch.addEventHandler(window, name, this);
+    }, this);
+
+    window.addEventListener('screenchange', this);
+    window.addEventListener('home', this);
+    window.addEventListener('attentionscreenshow', this);
+
+    this.overlay.addEventListener('transitionend', this);
+  },
+
+  handleEvent: function ut_handleEvent(evt) {
+    switch (evt.type) {
+      case 'attentionscreenshow':
+      case 'home':
+        if (this.shown) {
+          this.hide();
+        }
+        break;
+
+      case 'screenchange':
+        if (this.shown && !evt.detail.screenEnabled)
+          this.hide(true);
+
+        break;
+
+      case 'touchstart':
+        if (LockScreen.locked)
+          return;
+        if (evt.target !== this.overlay &&
+            evt.target !== this.statusbar)
+          return;
+
+        this.active = true;
+        // XXX: required for Mouse2Touch fake events to function
+        evt.target.setCapture(true);
+
+        this.onTouchStart(evt.touches[0]);
+        break;
+
+      case 'touchmove':
+      if (!this.active)
+        return;
+
+        this.onTouchMove(evt.touches[0]);
+        break;
+
+      case 'touchend':
+        if (!this.active)
+          return;
+
+        this.active = false;
+        // XXX: required for Mouse2Touch fake events to function
+        document.releaseCapture();
+
+        this.onTouchEnd(evt.changedTouches[0]);
+        break;
+
+      case 'transitionend':
+        if (!this.shown)
+          this.screen.classList.remove('utility-tray');
+        break;
+    }
+  },
+
+  onTouchStart: function ut_onTouchStart(touch) {
+    this.startY = touch.pageY;
+
+    this.screen.classList.add('utility-tray');
+    this.onTouchMove({ pageY: touch.pageY + this.statusbar.offsetHeight });
+  },
+
+  onTouchMove: function ut_onTouchMove(touch) {
+    var screenHeight = this.overlay.getBoundingClientRect().height;
+    var y = touch.pageY;
+    if (y > this.lastY)
+      this.opening = true;
+    else if (y < this.lastY)
+      this.opening = false;
+    this.lastY = y;
+    var dy = -(this.startY - y);
+    if (this.shown)
+      dy += screenHeight;
+    dy = Math.min(screenHeight, dy);
+
+    var style = this.overlay.style;
+    style.MozTransition = '';
+    style.MozTransform = 'translateY(' + dy + 'px)';
+  },
+
+  onTouchEnd: function ut_onTouchEnd(touch) {
+    this.opening ? this.show() : this.hide();
+  },
+
+  hide: function ut_hide(instant) {
+    var alreadyHidden = !this.shown;
+    var style = this.overlay.style;
+    style.MozTransition = instant ? '' : '-moz-transform 0.2s linear';
+    style.MozTransform = 'translateY(0)';
+    this.shown = false;
+    this.lastY = undefined;
+    this.startY = undefined;
+
+    // If the transition has not started yet there won't be any transitionend
+    // event so let's not wait in order to remove the utility-tray class.
+    if (instant || style.MozTransform == 'translateY(0px)') {
+      this.screen.classList.remove('utility-tray');
+    }
+
+    if (!alreadyHidden) {
+      var evt = document.createEvent('CustomEvent');
+      evt.initCustomEvent('utilitytrayhide', true, true, null);
+      window.dispatchEvent(evt);
+    }
+  },
+
+  show: function ut_show(dy) {
+    var alreadyShown = this.shown;
+    var style = this.overlay.style;
+    style.MozTransition = '-moz-transform 0.2s linear';
+    style.MozTransform = 'translateY(100%)';
+    this.shown = true;
+    this.screen.classList.add('utility-tray');
+
+    if (!alreadyShown) {
+      var evt = document.createEvent('CustomEvent');
+      evt.initCustomEvent('utilitytrayshow', true, true, null);
+      window.dispatchEvent(evt);
+    }
+  }
+};
+
+UtilityTray.init();</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

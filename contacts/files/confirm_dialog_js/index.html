@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>confirm_dialog.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">61.06</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">183</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">31.55</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.18</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">'use strict';
+
+var ConfirmDialog = (function() {
+  var isAnimationPlaying = false;
+  var isShown = false;
+  var doc = (parent.location === window.location) ?
+      document : parent.document;
+  var screen = doc.getElementById('confirmation-message');
+  var titleNode = screen.querySelector('h1');
+  var messageNode = screen.querySelector('p');
+  var action1Node = screen.querySelector('button:nth-of-type(1)');
+  var action1Callback;
+  var action2Node = screen.querySelector('button:nth-of-type(2)');
+  var action2Callback;
+  var oldzIndex;
+
+  var callBackAndPreventDefault = function callBackAndPreventDefault(ev) {
+    if (ev.target === action1Node) {
+      action1Callback();
+      ev.preventDefault();
+      return false;
+    } else if (ev.target === action2Node) {
+      action2Callback();
+      ev.preventDefault();
+      return false;
+    }
+  };
+
+  var _hide = function _hide() {
+      // Reset the 'confirmation-message' element and its children to their
+      // initial values and hide it.
+      if (!isShown) {
+        return;
+      }
+
+      titleNode.textContent = '';
+      titleNode.className = '';
+      messageNode.textContent = '';
+      messageNode.className = '';
+      action1Node.textContent = '';
+      action1Node.className = '';
+      action1Node.onclick = null;
+      action2Node.textContent = '';
+      action2Node.className = '';
+      action2Node.onclick = null;
+      screen.classList.remove('fadeIn');
+      screen.classList.add('fadeOut');
+      isAnimationPlaying = true;
+      screen.addEventListener('animationend', function cd_fadeOut(ev) {
+        isAnimationPlaying = false;
+        screen.removeEventListener('animationend', cd_fadeOut);
+        screen.classList.add('no-opacity');
+        screen.classList.add('hide');
+        isShown = false;
+      });
+    };
+
+  /**
+    * Method that shows the dialog
+    * @param  {String} title the title of the dialog. null or empty for
+    *                        no title.
+    * @param  {String} msg message for the dialog.
+    * @param  {Object} action1 {title, isDanger, callback} object.
+    * @param  {Object} action2 {title, isDanger, callback} object.
+    */
+  var _show = function _show(title, msg, action1, action2, options) {
+    if (options && options.zIndex) {
+      oldzIndex = screen.style.zIndex;
+      screen.style.zIndex = options.zIndex;
+    }
+    else {
+      oldzIndex = null;
+    }
+    if (title) {
+      titleNode.textContent = title;
+    } else {
+      titleNode.classList.add('hide');
+    }
+    if (msg) {
+      messageNode.textContent = msg;
+    } else {
+      messageNode.classList.add('hide');
+    }
+    if (action1) {
+      if (action1.title) {
+        action1Node.textContent = action1.title;
+      }
+      if (action1.isDanger) {
+        action1Node.classList.add('danger');
+      }
+      if (action1.isRecommend) {
+        action1Node.classList.add('recommend');
+      }
+      if (action1.callback) {
+        action1Callback = action1.callback;
+        action1Node.onclick = callBackAndPreventDefault;
+      }
+      if (!action2) {
+        action2Node.classList.add('hide');
+        action1Node.classList.add('full');
+      }
+    }
+    if (action2) {
+      if (action2.title) {
+        action2Node.textContent = action2.title;
+      }
+      if (action2.isDanger) {
+        action2Node.classList.add('danger');
+      }
+      if (action2.isRecommend) {
+        action2Node.classList.add('recommend');
+      }
+      if (action2.callback) {
+        action2Callback = action2.callback;
+        action2Node.onclick = callBackAndPreventDefault;
+      }
+      if (!action1) {
+        action1Node.classList.add('hide');
+        action2Node.classList.add('full');
+      }
+    }
+    if (isShown) {
+      return;
+    }
+
+    screen.classList.remove('hide');
+    screen.classList.remove('fadeOut');
+    screen.classList.add('fadeIn');
+    isAnimationPlaying = true;
+    screen.addEventListener('animationend', function cd_fadeIn(ev) {
+      isAnimationPlaying = false;
+      screen.removeEventListener('animationend', cd_fadeIn);
+      screen.classList.remove('no-opacity');
+    });
+    isShown = true;
+  };
+
+  return {
+    hide: function dialog_hide() {
+      // Reset the 'confirmation-message' element and its children to their
+      // initial values and hide it.
+      if (oldzIndex) {
+        screen.style.zIndex = oldzIndex;
+        oldzIndex = null;
+      }
+
+      if (!isAnimationPlaying) {
+        _hide();
+        return;
+      }
+
+      screen.addEventListener('animationend',
+        function cd_hideWhenFinished(ev) {
+          screen.removeEventListener('animationend', cd_hideWhenFinished);
+          _hide();
+        }
+      );
+    },
+
+    /**
+    * Method that shows the dialog
+    * @param  {String} title the title of the dialog. null or empty for
+    *                        no title.
+    * @param  {String} msg message for the dialog.
+    * @param  {Object} action1 {title, isDanger, callback} object.
+    * @param  {Object} action2 {title, isDanger, callback} object.
+    */
+    show: function dialog_show(title, msg, action1, action2, options) {
+      if (!isAnimationPlaying) {
+        _show(title, msg, action1, action2, options);
+
+        return;
+      }
+
+      screen.addEventListener('animationend',
+        function cd_showWhenFinished(ev) {
+          screen.removeEventListener('animationend', cd_showWhenFinished);
+          _show(title, msg, action1, action2, options);
+        }
+      );
+    }
+  };
+}());</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

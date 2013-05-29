@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>ftu_launcher.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">70.04</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">132</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">22.47</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">0.77</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">'use strict';
+/* This module deals with FTU stuff.
+   FTU is known as First Time Usage,
+   which is the first app the users would use, to configure their phone. */
+
+var FtuLauncher = {
+
+  /* The application object of ftu got from Application module */
+  _ftu: null,
+
+  /* The manifest URL of FTU */
+  _ftuManifestURL: '',
+
+  /* The url of FTU */
+  _ftuURL: '',
+
+  /* Store that if FTU is currently running */
+  _isRunningFirstTime: false,
+
+  isFtuRunning: function fl_isFtuRunning() {
+    return this._isRunningFirstTime;
+  },
+
+  getFtuOrigin: function fl_getFtuOrigin() {
+    return this._ftuURL;
+  },
+
+  init: function fl_init() {
+    // We have to block home/holdhome event if FTU is first time running.
+    // Note: FTU could be launched from Settings app too.
+    // We don't want to block home/holdhome in that case.
+    window.addEventListener('home', this);
+    window.addEventListener('holdhome', this);
+
+    // Listen to appterminated event
+    window.addEventListener('appterminated', this);
+
+    // Avoid race condition that
+    // lockscreen is locked after FTU inited.
+    window.addEventListener('lock', this);
+
+    // Monitor appopen event
+    // to unlock lockscreen if we are running FTU at first time
+    window.addEventListener('appopen', this);
+  },
+
+  handleEvent: function fl_init(evt) {
+    switch (evt.type) {
+      case 'appopen':
+        if (evt.detail.origin == this._ftuURL && this._isRunningFirstTime) {
+          LockScreen.unlock(true);
+        }
+        break;
+
+      case 'home':
+      case 'holdhome':
+        if (this._isRunningFirstTime) {
+          evt.stopImmediatePropagation();
+        }
+        break;
+
+      case 'appterminated':
+        if (evt.detail.origin == this._ftuURL) {
+          this.close();
+        }
+        break;
+
+      case 'lock':
+        if (this._isRunningFirstTime)
+          LockScreen.unlock(true);
+        break;
+    }
+  },
+
+  close: function fl_close() {
+    this._isRunningFirstTime = false;
+    window.asyncStorage.setItem('ftu.enabled', false);
+    // Done with FTU, letting everyone know
+    var evt = document.createEvent('CustomEvent');
+    evt.initCustomEvent('ftudone',
+      /* canBubble */ true, /* cancelable */ false, {});
+    window.dispatchEvent(evt);
+  },
+
+  skip: function fl_skip() {
+    this._isRunningFirstTime = false;
+    var evt = document.createEvent('CustomEvent');
+    evt.initCustomEvent('ftuskip',
+      /* canBubble */ true, /* cancelable */ false, {});
+    window.dispatchEvent(evt);
+  },
+
+  // Check if the FTU was executed or not, if not, get a
+  // reference to the app and launch it.
+  // Used by Bootstrap module.
+  retrieve: function fl_retrieve() {
+    var self = this;
+    window.asyncStorage.getItem('ftu.enabled', function getItem(launchFTU) {
+      if (launchFTU === false) {
+        self.skip();
+        return;
+      }
+      var lock = navigator.mozSettings.createLock();
+      var req = lock.get('ftu.manifestURL');
+      req.onsuccess = function() {
+        self._ftuManifestURL = this.result['ftu.manifestURL'];
+        if (!self._ftuManifestURL) {
+          dump('FTU manifest cannot be found skipping.\n');
+          self.skip();
+          return;
+        }
+        self._ftu = Applications.getByManifestURL(self._ftuManifestURL);
+        if (!self._ftu) {
+          dump('Opps, bogus FTU manifest.\n');
+          self.skip();
+          return;
+        }
+        self._ftuURL =
+          self._ftu.origin + self._ftu.manifest.entry_points['ftu'].launch_path;
+        self._isRunningFirstTime = true;
+        // Open FTU
+        self._ftu.launch('ftu');
+      };
+      req.onerror = function() {
+        dump('Couldn\'t get the ftu manifestURL.\n');
+        self.skip();
+      };
+    });
+  }
+};
+
+FtuLauncher.init();</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

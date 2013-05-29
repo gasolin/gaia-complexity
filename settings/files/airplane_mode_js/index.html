@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>airplane_mode.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">69.01</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">174</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">25.20</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">0.84</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/* -*- Mode: js; js-indent-level: 2; indent-tabs-mode: nil -*- */
+/**
+ * This file manages airplane mode interaction within the settings app.
+ * The airplane mode button is disabled when the user taps it.
+ * We then determine the number of components that need to change,
+ * and fire off an event only when all components are ready.
+ */
+
+'use strict';
+
+var AirplaneMode = {
+
+  /**
+   * Counter for operstions before radiosafe event
+   * Updated when we toggle radio mode
+   * @private
+   */
+  _ops: 0,
+
+  /**
+   * Whether or not we are firing the event for airplane mode
+   * @private
+   */
+  _doNotify: false,
+
+  element: document.querySelector('input[name="ril.radio.disabled"]'),
+
+  /**
+   * Enable the radio state
+   */
+  enableRadioSwitch: function() {
+    this.element.disabled = false;
+  },
+
+  /**
+   * Notifies apps that components are in a stable state
+   * This waits until all components are enabled after changing airplane mode
+   * @param {String} the setting name.
+   */
+  notify: function(name) {
+    if (!this._doNotify)
+      return;
+
+    this._ops--;
+    if (this._ops === 0) {
+      this._doNotify = false;
+      this.enableRadioSwitch();
+    }
+  },
+
+  /**
+   * Called when the user interacts with the airplane_mode switch
+   */
+  handleEvent: function(e) {
+    this.element.disabled = true;
+  },
+
+  init: function apm_init() {
+    var mobileConnection = getMobileConnection();
+    var wifiManager = WifiHelper.getWifiManager();
+
+    var settings = Settings.mozSettings;
+    if (!settings)
+      return;
+
+    var self = this;
+
+    // Disable airplane mode when we interact with it
+    this.element.addEventListener('change', this);
+
+    var mobileDataEnabled = false;
+    settings.addObserver('ril.data.enabled', function(e) {
+      mobileDataEnabled = e.settingValue;
+      self.notify('ril.data.enabled');
+    });
+
+    var bluetoothEnabled = false;
+    var wifiEnabled = false;
+    var geolocationEnabled = false;
+    settings.addObserver('geolocation.enabled', function(e) {
+      geolocationEnabled = e.settingValue;
+      self.notify('geolocation.enabled');
+    });
+
+    // when wifi is really enabled, notify if needed
+    window.addEventListener('wifi-enabled', function() {
+      wifiEnabled = true;
+      self.notify('wifi.enabled');
+    });
+
+    // when wifi is really disabled, notify if needed
+    window.addEventListener('wifi-disabled', function() {
+      wifiEnabled = false;
+      self.notify('wifi.enabled');
+    });
+
+    if (window.gBluetooth) {
+      // when bluetooth is really enabled, notify if needed
+      window.addEventListener('bluetooth-adapter-added', function() {
+        bluetoothEnabled = true;
+        self.notify('bluetooth.enabled');
+      });
+
+      // when bluetooth is really disabled, notify if needed
+      window.addEventListener('bluetooth-disabled', function() {
+        bluetoothEnabled = false;
+        self.notify('bluetooth.enabled');
+      });
+    }
+
+    var restoreMobileData = false;
+    var restoreBluetooth = false;
+    var restoreWifi = false;
+    var restoreGeolocation = false;
+
+    settings.addObserver('ril.radio.disabled', function(e) {
+      // Reset notification params
+      self._ops = 0;
+      self._doNotify = true;
+
+      if (e.settingValue) {
+        if (mobileConnection) {
+          restoreMobileData = mobileDataEnabled;
+          if (mobileDataEnabled)
+            self._ops++;
+        }
+
+        // Bluetooth.
+        if (window.gBluetooth) {
+          restoreBluetooth = bluetoothEnabled;
+          if (bluetoothEnabled)
+            self._ops++;
+        }
+
+        // Wifi.
+        if (wifiManager) {
+          restoreWifi = wifiEnabled;
+          if (wifiEnabled)
+            self._ops++;
+        }
+
+        // Geolocation
+        restoreGeolocation = geolocationEnabled;
+        if (geolocationEnabled)
+          self._ops++;
+
+      } else {
+        // Don't count mobile data if it's already on
+        if (mobileConnection && !mobileDataEnabled && restoreMobileData)
+          self._ops++;
+
+        // Don't count Bluetooth if it's already on
+        if (window.gBluetooth && !gBluetooth.enabled && restoreBluetooth)
+          self._ops++;
+
+        // Don't count Wifi if it's already on
+        if (wifiManager && !wifiManager.enabled && restoreWifi)
+          self._ops++;
+
+        // Don't count Geolocation if it's already on
+        if (!geolocationEnabled && restoreGeolocation)
+          self._ops++;
+      }
+
+      // If we have zero operations to perform, enable the radio switch
+      if (self._ops === 0)
+        self.enableRadioSwitch();
+    });
+  }
+};
+
+// starting when we get a chance
+navigator.mozL10n.ready(function loadWhenIdle() {
+  var idleObserver = {
+    time: 5,
+    onidle: function() {
+      AirplaneMode.init();
+      navigator.removeIdleObserver(idleObserver);
+    }
+  };
+  navigator.addIdleObserver(idleObserver);
+});</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

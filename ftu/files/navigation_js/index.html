@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>navigation.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">61.60</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">290</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">44.20</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">2.53</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">'use strict';
+/*
+  Steps of the First Time Usage App
+*/
+var steps = {
+  1: {
+    onlyForward: true,
+    hash: '#languages',
+    requireSIM: false
+  },
+  2: {
+    onlyForward: false,
+    hash: '#data_3g',
+    requireSIM: true
+  },
+  3: {
+    onlyForward: false,
+    hash: '#wifi',
+    requireSIM: false
+  },
+  4: {
+    onlyForward: false,
+    hash: '#date_and_time',
+    requireSIM: false
+  },
+  5: {
+    onlyForward: false,
+    hash: '#import_contacts',
+    requireSIM: false
+  },
+  6: {
+    onlyForward: false,
+    hash: '#welcome_browser',
+    requireSIM: false
+  },
+  7: {
+    onlyForward: false,
+    hash: '#browser_privacy',
+    requireSIM: false
+  }
+};
+
+// Retrieve number of steps for navigation
+var numSteps = Object.keys(steps).length;
+var _;
+
+var Navigation = {
+  currentStep: 1,
+  previousStep: 1,
+  externalUrlLoaderSelector: '#external-url-loader',
+
+  init: function n_init() {
+    _ = navigator.mozL10n.get;
+    var forward = document.getElementById('forward');
+    var back = document.getElementById('back');
+    forward.addEventListener('click', this.forward.bind(this));
+    back.addEventListener('click', this.back.bind(this));
+    window.addEventListener('hashchange', this);
+    UIManager.activationScreen.addEventListener('click',
+        this.handleExternalLinksClick.bind(this));
+
+    var browserFrame = document.createElement('iframe');
+    browserFrame.setAttribute('mozbrowser', 'true');
+    browserFrame.classList.add('external');
+
+    var container = document.querySelector(this.externalUrlLoaderSelector);
+    container.appendChild(browserFrame);
+
+    this.externalIframe = browserFrame;
+
+    // this will be called by setTimeout, so it's easier if it's already bound
+    this.backFromIframe = this.backFromIframe.bind(this);
+  },
+
+  backFromIframe: function n_backFromIframe() {
+    if (window.location.hash === this.externalUrlLoaderSelector) {
+      window.history.back();
+      // iframes are modifying history as well
+      setTimeout(this.backFromIframe, 0);
+    }
+  },
+
+  back: function n_back(event) {
+    var currentStep = steps[this.currentStep];
+    var actualHash = window.location.hash;
+    if (actualHash != currentStep.hash) {
+      if (actualHash === this.externalUrlLoaderSelector) {
+        this.externalIframe.src = 'about:blank';
+        this.backFromIframe();
+      } else {
+        window.history.back();
+      }
+    } else {
+      var self = this;
+      var goToStep = function() {
+        self.previousStep = self.currentStep;
+        self.currentStep--;
+        if (self.currentStep > 0) {
+          self.manageStep();
+        }
+      };
+      goToStep();
+    }
+  },
+
+  forward: function n_forward(event) {
+    var self = this;
+    var goToStepForward = function() {
+      self.previousStep = self.currentStep;
+      self.currentStep++;
+      if (self.currentStep > numSteps) {
+        // Try to send Newsletter here
+        UIManager.sendNewsletter(function newsletterSent(result) {
+          if (result) { // sending process ok, we advance
+            UIManager.activationScreen.classList.remove('show');
+            UIManager.finishScreen.classList.add('show');
+            Tutorial.init();
+          } else { // error on sending, we stay where we are
+            self.currentStep--;
+          }
+        });
+        return;
+      }
+      self.manageStep();
+    };
+    goToStepForward();
+  },
+
+  handleExternalLinksClick: function n_handleExternalLinksClick(e) {
+    var link = e.target;
+    if (! link.mozMatchesSelector('a.external')) {
+      return;
+    }
+
+    e.preventDefault();
+    var href = link.href,
+        title = link.getAttribute('title') || link.textContent;
+
+    if (navigator.onLine) {
+      this.displayExternalLink(href, title);
+    } else {
+      UIManager.displayOfflineDialog(href, title);
+    }
+  },
+
+  displayExternalLink: function n_displayExternalLink(href, title) {
+    this.externalIframe.src = href;
+    document.location.hash = this.externalUrlLoaderSelector;
+
+    if (title) {
+      // title is already localized
+      UIManager.mainTitle.innerHTML = title;
+    }
+  },
+
+  getProgressBarClassName: function n_getProgressBarClassName() {
+    // Manage step state (dynamically change)
+    var className = 'step-state step-';
+    if (this.skipped && this.currentStep > 2) {
+      className += (this.currentStep - 1) + ' less-steps';
+    } else {
+      className += this.currentStep;
+    }
+
+    return className;
+  },
+
+  handleEvent: function n_handleEvent(event) {
+    var actualHash = window.location.hash;
+    var className = this.getProgressBarClassName();
+
+    switch (actualHash) {
+      case '#languages':
+        UIManager.mainTitle.innerHTML = _('language');
+        break;
+      case '#data_3g':
+        UIManager.mainTitle.innerHTML = _('3g');
+        DataMobile.
+          getStatus(UIManager.updateDataConnectionStatus.bind(UIManager));
+        break;
+      case '#wifi':
+        UIManager.mainTitle.innerHTML = _('selectNetwork');
+        UIManager.activationScreen.classList.remove('no-options');
+        if (UIManager.navBar.classList.contains('secondary-menu')) {
+          UIManager.navBar.classList.remove('secondary-menu');
+          return;
+        }
+        // Avoid refresh when connecting
+        WifiManager.scan(WifiUI.renderNetworks);
+        break;
+      case '#date_and_time':
+        UIManager.mainTitle.innerHTML = _('dateAndTime');
+        break;
+      case '#import_contacts':
+        UIManager.mainTitle.innerHTML = _('importContacts3');
+        // Enabling or disabling SIM import depending on card status
+        SimManager.checkSIMButton();
+
+        // Enabling or disabling SD import depending on card status
+        SdManager.checkSDButton();
+
+        // If we have 3G or Wifi activate FB import
+        var fbState;
+        if (!WifiManager.api) {
+          // Desktop
+          ImportIntegration.checkImport('enabled');
+          return;
+        }
+
+        fbState = window.navigator.onLine ? 'enabled' : 'disabled';
+        ImportIntegration.checkImport(fbState);
+        break;
+      case '#welcome_browser':
+        UIManager.mainTitle.innerHTML = _('aboutBrowser');
+        break;
+      case '#browser_privacy':
+        UIManager.mainTitle.innerHTML = _('aboutBrowser');
+        break;
+      case '#about-your-rights':
+      case '#about-your-privacy':
+      case '#sharing-performance-data':
+        UIManager.mainTitle.innerHTML = _('aboutBrowser');
+      case this.externalUrlLoaderSelector:
+        // override the className here
+        className = 'hidden';
+        UIManager.navBar.classList.add('back-only');
+        break;
+    }
+
+    UIManager.progressBar.className = className;
+
+    // Managing options button
+    if (this.currentStep != 3) { //wifi
+      UIManager.activationScreen.classList.add('no-options');
+    }
+
+    // Managing nav buttons when coming back from out-of-steps (privacy)
+    if (this.currentStep <= numSteps &&
+        steps[this.currentStep].hash === actualHash) {
+      UIManager.navBar.classList.remove('back-only');
+    }
+  },
+
+  skipStep: function n_skipStep() {
+    this.currentStep = this.currentStep +
+                      (this.currentStep - this.previousStep);
+    if (this.currentStep < 1) {
+      this.previousStep = this.currentStep = 1;
+    }
+    if (this.currentStep > numSteps) {
+      this.previousStep = this.currentStep = numSteps;
+    }
+    this.skipped = true;
+    this.manageStep();
+  },
+
+  manageStep: function n_manageStep() {
+    var self = this;
+    // Retrieve future location
+    var futureLocation = steps[self.currentStep];
+    // There is some locations which need a 'loading'
+    if (futureLocation.hash === '#wifi') {
+      utils.overlay.show(_('scanningNetworks'), 'spinner');
+    }
+    // Navigation bar management
+    if (steps[this.currentStep].onlyForward) {
+      UIManager.navBar.classList.add('forward-only');
+    } else {
+      UIManager.navBar.classList.remove('forward-only');
+    }
+    // Substitute button content on last step
+    var nextButton = document.getElementById('forward');
+    if (this.currentStep === numSteps) {
+      nextButton.firstChild.textContent = _('done');
+    } else {
+      nextButton.firstChild.textContent = _('navbar-next');
+    }
+    // Change hash to the right location
+    window.location.hash = futureLocation.hash;
+    // SIM card management
+    if (futureLocation.requireSIM) {
+      SimManager.handleCardState(function check_cardState(response) {
+        self.skipped = false;
+        if (!response) {
+          self.skipStep();
+        }
+      });
+    }
+  }
+};</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

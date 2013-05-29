@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>sim_manager.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">61.07</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">404</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">66.30</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">4.53</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">'use strict';
+
+var SimManager = {
+  // XXX: For handling the intermediate 'networkLocked' after unlock
+  //      the SIM card.
+  _unlocked: false,
+
+  init: function sm_init() {
+    this.mobConn = window.navigator.mozMobileConnection;
+    if (!this.mobConn)
+      return;
+
+    this.mobConn.addEventListener('icccardlockerror',
+                                  this.handleUnlockError.bind(this));
+    this.mobConn.addEventListener('cardstatechange',
+                                  this.handleCardState.bind(this));
+
+    this.alreadyImported = false;
+
+    Object.defineProperty(this,
+                          'retryCount', {
+                            get: function() {
+                              return this.mobConn.retryCount;
+                            }
+                          });
+  },
+
+  handleUnlockError: function sm_handleUnlockError(data) {
+    var l10nArgs = {n: data.retryCount};
+    switch (data.lockType) {
+      case 'pin':
+        UIManager.pinInput.value = '';
+        UIManager.fakePinInput.value = '';
+        UIManager.pinInput.classList.add('onerror');
+        UIManager.pinError.textContent = _('pinError');
+        UIManager.pinError.classList.remove('hidden');
+        UIManager.pinError.textContent = _('pinAttemptMsg2', l10nArgs);
+        UIManager.pinRetriesLeft.textContent = _('inputCodeRetriesLeft',
+                                                 l10nArgs);
+        if (data.retryCount == 1) {
+          UIManager.pinError.textContent += ' ' + _('pinLastChanceMsg');
+        }
+        break;
+      case 'puk':
+        UIManager.pukInput.value = '';
+        UIManager.fakePukInput.value = '';
+        UIManager.pukInput.classList.add('onerror');
+        UIManager.pukError.textContent = _('pukError');
+        UIManager.pukError.classList.remove('hidden');
+        UIManager.pukInfo.classList.add('hidden');
+        UIManager.pukError.textContent = _('pukAttemptMsg2', l10nArgs);
+        UIManager.pukRetriesLeft.textContent = _('inputCodeRetriesLeft',
+                                                 l10nArgs);
+        if (data.retryCount == 1) {
+          UIManager.pukError.textContent += _('pukLastChanceMsg');
+        }
+        // TODO what if counter gets to 0 ??
+        break;
+      case 'nck':
+      case 'cck':
+      case 'spck':
+        UIManager.xckInput.value = '';
+        UIManager.fakeXckInput.value = '';
+        UIManager.xckInput.classList.add('onerror');
+        UIManager.xckError.textContent = _('nckError');
+        UIManager.xckError.classList.remove('hidden');
+        UIManager.xckInfo.classList.add('hidden');
+        UIManager.xckError.textContent = _('nckAttemptMsg2', l10nArgs);
+        UIManager.xckRetriesLeft.textContent = _('inputCodeRetriesLeft',
+                                                 l10nArgs);
+        if (data.retryCount == 1) {
+          UIManager.xckError.textContent += _('nckLastChanceMsg');
+        }
+        break;
+    }
+  },
+
+  available: function sm_available() {
+    if (!this.mobConn)
+      return false;
+    return (this.mobConn.cardState === 'ready');
+  },
+
+ /**
+  * Possible values:
+  *   null,
+  *   'absent',
+  *   'unknown',
+  *   'pinRequired',
+  *   'pukRequired',
+  *   'networkLocked',
+  *   'corporateLocked',
+  *   'serviceProviderLocked',
+  *   'ready'.
+  */
+  handleCardState: function sm_handleCardState(callback) {
+    SimManager.checkSIMButton();
+    this.accessCallback = (typeof callback === 'function') ? callback : null;
+    switch (this.mobConn.cardState) {
+      case 'pinRequired':
+        this.showPinScreen();
+        break;
+      case 'pukRequired':
+        this.showPukScreen();
+        break;
+      case 'networkLocked':
+      case 'corporateLocked':
+      case 'serviceProviderLocked':
+        this.showXckScreen();
+        break;
+      default:
+        if (this.accessCallback) {
+          this.accessCallback(this.mobConn.cardState === 'ready');
+        }
+        break;
+    }
+  },
+
+  checkSIMButton: function sm_checkSIMButton() {
+    var simOption = UIManager.simImportButton;
+    // If there is an unlocked SIM we activate import from SIM
+    if (!SimManager.alreadyImported && SimManager.available()) {
+      simOption.removeAttribute('disabled');
+      UIManager.noSim.classList.add('hidden');
+    } else {
+      simOption.setAttribute('disabled', 'disabled');
+      if (!SimManager.alreadyImported) {
+        UIManager.noSim.classList.remove('hidden');
+      }
+    }
+  },
+
+  showPinScreen: function sm_showScreen() {
+    if (this._unlocked)
+      return;
+
+    if (!this.retryCount || this.retryCount === 'undefined') {
+      UIManager.pinRetriesLeft.classList.add('hidden');
+    } else {
+      var l10nArgs = {n: this.retryCount};
+      UIManager.pinRetriesLeft.textContent = _('inputCodeRetriesLeft',
+                                               l10nArgs);
+      UIManager.pinRetriesLeft.classList.remove('hidden');
+    }
+    UIManager.activationScreen.classList.remove('show');
+    UIManager.unlockSimScreen.classList.add('show');
+    UIManager.pincodeScreen.classList.add('show');
+    UIManager.xckcodeScreen.classList.remove('show');
+    UIManager.fakePinInput.focus();
+  },
+
+  showPukScreen: function sm_showPukScreen() {
+    if (this._unlocked)
+      return;
+
+    if (!this.retryCount) {
+      UIManager.pukRetriesLeft.classList.add('hidden');
+    } else {
+      var l10nArgs = {n: this.retryCount};
+      UIManager.pukRetriesLeft.textContent = _('inputCodeRetriesLeft',
+                                               l10nArgs);
+      UIManager.pukRetriesLeft.classList.remove('hidden');
+    }
+    UIManager.unlockSimScreen.classList.add('show');
+    UIManager.activationScreen.classList.remove('show');
+    UIManager.pincodeScreen.classList.remove('show');
+    UIManager.pukcodeScreen.classList.add('show');
+    UIManager.xckcodeScreen.classList.remove('show');
+    UIManager.unlockSimHeader.textContent = _('pukcode');
+    UIManager.fakePukInput.focus();
+  },
+
+  showXckScreen: function sm_showXckScreen() {
+    if (this._unlocked)
+      return;
+
+    if (!this.retryCount) {
+      UIManager.xckRetriesLeft.classList.add('hidden');
+    } else {
+      var l10nArgs = {n: this.retryCount};
+      UIManager.xckRetriesLeft.textContent = _('inputCodeRetriesLeft',
+                                               l10nArgs);
+      UIManager.xckRetriesLeft.classList.remove('hidden');
+    }
+    UIManager.unlockSimScreen.classList.add('show');
+    UIManager.activationScreen.classList.remove('show');
+    UIManager.pincodeScreen.classList.remove('show');
+    UIManager.pukcodeScreen.classList.remove('show');
+    UIManager.xckcodeScreen.classList.add('show');
+
+    switch (this.mobConn.cardState) {
+      case 'networkLocked':
+        UIManager.unlockSimHeader.textContent = _('nckcode');
+        UIManager.xckLabel.textContent = _('type_nck');
+        break;
+      case 'corporateLocked':
+        UIManager.unlockSimHeader.textContent = _('cckcode');
+        UIManager.xckLabel.textContent = _('type_cck');
+        break;
+      case 'serviceProviderLocked':
+        UIManager.unlockSimHeader.textContent = _('spckcode');
+        UIManager.xckLabel.textContent = _('type_spck');
+        break;
+    }
+    UIManager.fakeXckInput.focus();
+  },
+
+  hideScreen: function sm_hideScreen() {
+    UIManager.unlockSimScreen.classList.remove('show');
+    UIManager.pincodeScreen.classList.remove('show');
+    UIManager.pukcodeScreen.classList.remove('show');
+    UIManager.xckcodeScreen.classList.remove('show');
+    UIManager.activationScreen.classList.add('show');
+  },
+
+  skip: function sm_skip() {
+    this.hideScreen();
+    if (this.accessCallback) {
+      this.accessCallback(false);
+    }
+  },
+
+  unlock: function sm_unlock() {
+    this._unlocked = false;
+
+    switch (this.mobConn.cardState) {
+      case 'pinRequired':
+        this.unlockPin();
+        break;
+      case 'pukRequired':
+        this.unlockPuk();
+        break;
+      case 'networkLocked':
+      case 'corporateLocked':
+      case 'serviceProviderLocked':
+        this.unlockXck();
+        break;
+    }
+  },
+
+  unlockPin: function sm_unlockPin() {
+    var pin = UIManager.pinInput.value;
+    if (pin.length < 4 || pin.length > 8) {
+      UIManager.pinError.textContent = _('pinValidation');
+      UIManager.pinInput.classList.add('onerror');
+      UIManager.pinError.classList.remove('hidden');
+      return;
+    } else {
+      UIManager.pinInput.classList.remove('onerror');
+      UIManager.pinError.classList.add('hidden');
+    }
+
+    // Unlock SIM
+    var options = {lockType: 'pin', pin: pin };
+    var req = this.mobConn.unlockCardLock(options);
+    req.onsuccess = (function sm_unlockSuccess() {
+      this._unlocked = true;
+      this.hideScreen();
+    }).bind(this);
+  },
+
+  clearFields: function sm_clearFields() {
+    UIManager.pukInput.classList.remove('onerror');
+    UIManager.pukError.classList.add('hidden');
+
+    UIManager.newpinInput.classList.remove('onerror');
+    UIManager.newpinError.classList.add('hidden');
+
+    UIManager.confirmNewpinInput.classList.remove('onerror');
+    UIManager.confirmNewpinError.classList.add('hidden');
+  },
+
+  unlockPuk: function sm_unlockPuk() {
+    this.clearFields();
+    var pukCode = UIManager.pukInput.value;
+    if (pukCode.length !== 8) {
+      UIManager.pukError.textContent = _('pukValidation');
+      UIManager.pukError.classList.remove('hidden');
+      UIManager.pukInfo.classList.add('hidden');
+      UIManager.pukInput.classList.add('onerror');
+      UIManager.pukError.focus();
+      return;
+    }
+    var newpinCode = UIManager.newpinInput.value;
+    var confirmNewpin = UIManager.confirmNewpinInput.value;
+    if (newpinCode.length < 4 || newpinCode.length > 8) {
+      UIManager.newpinError.textContent = _('pinValidation');
+      UIManager.newpinError.classList.remove('hidden');
+      UIManager.newpinInput.classList.add('onerror');
+      UIManager.newpinError.focus();
+      return;
+    }
+    if (newpinCode != confirmNewpin) {
+      UIManager.confirmNewpinError.textContent = _('newpinConfirmation');
+      UIManager.confirmNewpinError.classList.remove('hidden');
+      UIManager.newpinInput.classList.add('onerror');
+      UIManager.confirmNewpinInput.classList.add('onerror');
+      UIManager.confirmNewpinError.focus();
+      return;
+    }
+
+    // Unlock SIM with PUK and new PIN
+    var options = {lockType: 'puk', puk: pukCode, newPin: newpinCode };
+    var req = this.mobConn.unlockCardLock(options);
+    req.onsuccess = (function sm_unlockSuccess() {
+      this._unlocked = true;
+      this.hideScreen();
+    }).bind(this);
+  },
+
+  unlockXck: function sm_unlockXck() {
+    var xck = UIManager.xckInput.value;
+    var lockType;
+    switch (this.mobConn.cardState) {
+      case 'networkLocked':
+        lockType = 'nck';
+        break;
+      case 'corporateLocked':
+        lockType = 'cck';
+        break;
+      case 'serviceProviderLocked':
+        lockType = 'spck';
+        break;
+    }
+    if (xck.length < 8 || xck.length > 16) {
+      UIManager.xckInput.classList.add('onerror');
+      UIManager.xckError.classList.remove('hidden');
+      UIManager.xckError.textContent = _(lockType + 'Validation');
+      return;
+    } else {
+      UIManager.pinInput.classList.remove('onerror');
+      UIManager.pinError.classList.add('hidden');
+    }
+
+    // Unlock SIM
+    var options = {lockType: lockType, pin: xck };
+    var req = this.mobConn.unlockCardLock(options);
+    req.onsuccess = (function sm_unlockSuccess() {
+      this._unlocked = true;
+      this.hideScreen();
+    }).bind(this);
+  },
+
+  importContacts: function sm_importContacts() {
+    // Delay for showing feedback to the user after importing
+    var DELAY_FEEDBACK = 300;
+    UIManager.navBar.setAttribute('aria-disabled', 'true');
+    var progress = utils.overlay.show(_('simContacts-reading'),
+                                      'activityBar');
+
+    var importButton = UIManager.simImportButton;
+    importButton.setAttribute('disabled', 'disabled');
+
+    var importer = new SimContactsImporter();
+    var importedContacts = 0;
+
+    importer.onread = function sim_import_read(n) {
+      progress.setClass('progressBar');
+      progress.setHeaderMsg(_('simContacts-importing'));
+      progress.setTotal(n);
+    };
+
+    importer.onimported = function imported_contact() {
+      importedContacts++;
+      progress.update();
+    };
+
+    importer.onfinish = function sim_import_finish() {
+      window.setTimeout(function do_sim_import_finish() {
+        SimManager.alreadyImported = true;
+        UIManager.navBar.removeAttribute('aria-disabled');
+        utils.overlay.hide();
+        utils.status.show(_('simContacts-imported3', {n: importedContacts}));
+      }, DELAY_FEEDBACK);
+    };
+
+    importer.onerror = function sim_import_error() {
+      UIManager.navBar.removeAttribute('aria-disabled');
+      utils.overlay.hide();
+      // Just in case the user decides to do so later
+      importButton.removeAttribute('disabled');
+
+      // Showing error message allowing user to retry
+      var cancel = {
+        title: _('cancel'),
+        callback: function() {
+          ConfirmDialog.hide();
+        }
+      };
+      var retry = {
+        title: _('retry'),
+        isRecommend: true,
+        callback: function() {
+          ConfirmDialog.hide();
+          // And now the action is reproduced one more time
+          importButton.click();
+        }
+      };
+      ConfirmDialog.show(null, _('simContacts-error'), cancel, retry);
+    }; // importer.onerror
+
+    importer.start();
+  }
+};</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

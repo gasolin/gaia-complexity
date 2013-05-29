@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>crash_reporter.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">73.41</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">148</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">18.40</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.07</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/* -*- Mode: js; js-indent-level: 2; indent-tabs-mode: nil -*- */
+/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
+
+'use strict';
+
+// This file calls getElementById without waiting for an onload event, so it
+// must have a defer attribute or be included at the end of the <body>.
+
+var CrashReporter = (function() {
+  var _ = navigator.mozL10n.get;
+  var settings = navigator.mozSettings;
+  var screen = document.getElementById('screen');
+
+  // The name of the app that just crashed.
+  var crashedAppName = '';
+
+  // Whether or not to show a "Report" button in the banner.
+  var showReportButton = false;
+
+  // Only show the "Report" button if the user hasn't set a preference to
+  // always/never report crashes.
+  SettingsListener.observe('app.reportCrashes', 'ask',
+      function handleCrashSetting(value) {
+    showReportButton = (value != 'always' && value != 'never');
+  });
+
+  // This function should only ever be called once.
+  function showDialog(crashID, isChrome) {
+    var title = isChrome ? _('crash-dialog-os2') :
+      _('crash-dialog-app', { name: crashedAppName });
+    document.getElementById('crash-dialog-title').textContent = title;
+
+    // "Don't Send Report" button in dialog
+    var noButton = document.getElementById('dont-send-report');
+    noButton.addEventListener('click', function onNoButtonClick() {
+      settings.createLock().set({'app.reportCrashes': 'never'});
+      removeDialog();
+    });
+
+    // "Send Report" button in dialog
+    var yesButton = document.getElementById('send-report');
+    yesButton.addEventListener('click', function onYesButtonClick() {
+      submitCrash(crashID);
+      if (checkbox.checked) {
+        settings.createLock().set({'app.reportCrashes': 'always'});
+      }
+      removeDialog();
+    });
+
+    var checkbox = document.getElementById('always-send');
+    checkbox.addEventListener('click', function onCheckboxClick() {
+      // Disable the "Don't Send Report" button if the "Always send..."
+      // checkbox is checked
+      noButton.disabled = this.checked;
+    });
+
+    // "What's in a crash report?" link
+    var crashInfoLink = document.getElementById('crash-info-link');
+    crashInfoLink.addEventListener('click', function onLearnMoreClick() {
+      var dialog = document.getElementById('crash-dialog');
+      document.getElementById('crash-reports-done').
+               addEventListener('click', function onDoneClick() {
+        this.removeEventListener('click', onDoneClick);
+        dialog.classList.remove('learn-more');
+      });
+      dialog.classList.add('learn-more');
+    });
+
+    screen.classList.add('crash-dialog');
+  }
+
+  // We can get rid of the dialog after it is shown once.
+  function removeDialog() {
+    screen.classList.remove('crash-dialog');
+    var dialog = document.getElementById('crash-dialog');
+    dialog.parentNode.removeChild(dialog);
+  }
+
+  function showBanner(crashID, isChrome) {
+    var message = isChrome ? _('crash-banner-os2') :
+      _('crash-banner-app', { name: crashedAppName });
+
+    var button = null;
+    if (showReportButton) {
+      button = {
+        label: _('crash-banner-report'),
+        callback: function reportCrash() {
+          submitCrash(crashID);
+        },
+        dismiss: function dismissCrash() {
+          deleteCrash(crashID);
+        }
+      };
+    }
+
+    SystemBanner.show(message, button);
+  }
+
+  function deleteCrash(crashID) {
+    var event = document.createEvent('CustomEvent');
+    event.initCustomEvent('mozContentEvent', true, true, {
+      type: 'delete-crash',
+      crashID: crashID
+    });
+    window.dispatchEvent(event);
+  }
+
+  function submitCrash(crashID) {
+    var event = document.createEvent('CustomEvent');
+    event.initCustomEvent('mozContentEvent', true, true, {
+      type: 'submit-crash',
+      crashID: crashID
+    });
+    window.dispatchEvent(event);
+  }
+
+  // - Show a dialog only the first time there's a crash to report.
+  // - On subsequent crashes, show a banner letting the user know there was a
+  //   crash.
+  // - If the user hasn't set a pref, add a "Report" button to the banner.
+  function handleCrash(crashID, isChrome) {
+    // Check to see if we should show a dialog.
+    var dialogReq = settings.createLock().get('crashReporter.dialogShown');
+    dialogReq.onsuccess = function dialogShownSuccess() {
+      var dialogShown = dialogReq.result['crashReporter.dialogShown'];
+      if (!dialogShown) {
+        settings.createLock().set({'crashReporter.dialogShown': true});
+        showDialog(crashID, isChrome);
+      } else {
+        showBanner(crashID, isChrome);
+      }
+    };
+  }
+
+  // We depend on window_manager.js calling this function before
+  // we get a 'handle-crash' event from shell.js
+  function setAppName(name) {
+    crashedAppName = name;
+  }
+
+  // We will be notified of system crashes from shell.js
+  window.addEventListener('mozChromeEvent', function handleChromeEvent(e) {
+    if (e.detail.type == 'handle-crash') {
+      handleCrash(e.detail.crashID, e.detail.chrome);
+    }
+  });
+
+  return {
+    setAppName: setAppName
+  };
+})();</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

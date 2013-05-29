@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>icon_retriever.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">70.20</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">123</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">31.82</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">0.79</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">'use strict';
+
+var IconRetriever = (function() {
+
+  // List of requests
+  var requests;
+
+  // List of requests waiting for network
+  var pendingsRequests;
+
+  function retrieve(request) {
+    var xhr = new XMLHttpRequest({
+      mozAnon: true,
+      mozSystem: true
+    });
+
+    var icon = request.icon.descriptor.icon;
+
+    xhr.open('GET', icon, true);
+    xhr.responseType = 'blob';
+
+    try {
+      xhr.send(null);
+    } catch (evt) {
+      console.error('Got an exception when trying to load icon "' + icon +
+            ' +" falling back to cached icon. Exception is: ' + evt.message);
+      setTimeout(function() {
+        postError(request);
+      });
+      return;
+    }
+
+    xhr.onload = function onload(evt) {
+      var status = xhr.status;
+      if (status !== 0 && status !== 200) {
+        console.error('Got HTTP status ' + status + ' trying to load icon ' +
+                      icon);
+        postError(request, false);
+        return;
+      }
+
+      postSuccess(request, xhr.response);
+    }; // onload
+
+    xhr.ontimeout = xhr.onerror = function onerror(evt) {
+      console.error(evt.type, ' while HTTP GET: ', icon);
+      postError(request, true);
+    }; // ontimeout & onerror
+  }
+
+  function postSuccess(request, response) {
+    var uid = request.uid;
+    if (typeof requests[uid].success === 'function') {
+      requests[uid].success.call(request.icon, response);
+    }
+
+    remove(request);
+  }
+
+  function postError(request, retry) {
+    var uid = request.uid;
+    if (typeof requests[uid].error === 'function') {
+      requests[uid].error.call(request.icon);
+    }
+
+    if (retry) {
+      pendingsRequests[uid] = requests[uid];
+    } else {
+      // We aren't going to get this icon anymore before rebooting
+      remove(request);
+    }
+  }
+
+  function remove(request) {
+    var uid = request.uid;
+    delete requests[uid];
+    delete pendingsRequests[uid];
+  }
+
+  function online() {
+    // Try again pending operations
+    for (var uid in pendingsRequests) {
+      retrieve(pendingsRequests[uid]);
+    }
+  }
+
+  var HTTP_PROTOCOL = 'http';
+
+  function canBeDispatched(request) {
+    // We can continue if the device is onLine or the icon is local (app, data
+    // protocols)
+    return (window.navigator.onLine ||
+            request.icon.descriptor.icon.slice(0, HTTP_PROTOCOL.length) !==
+            HTTP_PROTOCOL);
+  }
+
+  return {
+    init: function IconRetriever_init() {
+      requests = Object.create(null);
+      pendingsRequests = Object.create(null);
+      window.addEventListener('online', online);
+    },
+
+    get: function IconRetriever_get(request) {
+      var uid = request.uid = request.icon.getUID();
+
+      var pendingRequest = requests[uid];
+      if (pendingRequest &&
+          pendingRequest.icon.descriptor.icon == request.icon.descriptor.icon) {
+        // Still working or pending, returning...
+        return;
+      }
+
+      requests[uid] = request;
+      if (canBeDispatched(request)) {
+        retrieve(request);
+      } else {
+        pendingsRequests[uid] = request;
+      }
+    }
+  };
+
+}());</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

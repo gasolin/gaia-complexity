@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>dock.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">67.28</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">277</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">50.69</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.84</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">'use strict';
+
+var DockManager = (function() {
+
+  var container, dock;
+
+  var MAX_NUM_ICONS = 7;
+  var maxNumAppInViewPort = 4, maxOffsetLeft;
+
+  var windowWidth = window.innerWidth;
+  var duration = 300;
+
+  var initialOffsetLeft, initialOffsetRight, numApps, cellWidth;
+  var isPanning = false, startEvent, currentX, deltaX, tapThreshold;
+
+  var isTouch = 'ontouchstart' in window;
+  var touchstart = isTouch ? 'touchstart' : 'mousedown';
+  var touchmove = isTouch ? 'touchmove' : 'mousemove';
+  var touchend = isTouch ? 'touchend' : 'mouseup';
+
+  var getX = (function getXWrapper() {
+    return isTouch ? function(e) { return e.touches[0].pageX } :
+                     function(e) { return e.pageX };
+  })();
+
+  function addActive(target) {
+    if ('isIcon' in target.dataset) {
+      target.classList.add('active');
+      removeActive = function _removeActive() {
+        target.classList.remove('active');
+      };
+    } else {
+      removeActive = function() {};
+    }
+  }
+
+  var removeActive = function() {};
+
+  function handleEvent(evt) {
+    switch (evt.type) {
+      case touchstart:
+        evt.stopPropagation();
+        initialOffsetLeft = dock.getLeft();
+        initialOffsetRight = dock.getRight();
+        numApps = dock.getNumIcons();
+        startEvent = isTouch ? evt.touches[0] : evt;
+        attachEvents();
+        addActive(evt.target);
+        break;
+
+      case touchmove:
+        deltaX = getX(evt) - startEvent.pageX;
+        if (!isPanning) {
+          if (Math.abs(deltaX) < tapThreshold) {
+            return;
+          } else {
+            isPanning = true;
+            document.body.dataset.transitioning = 'true';
+          }
+        }
+
+        // Dock is fixed for 4 or less apps
+        if (numApps <= maxNumAppInViewPort) {
+          return;
+        }
+
+        if (deltaX < 0) {
+          // Go forward
+          if (initialOffsetRight === windowWidth) {
+            return;
+          }
+
+          if (initialOffsetRight + deltaX < windowWidth) {
+            deltaX = windowWidth - initialOffsetRight;
+          }
+        } else {
+          // Go back
+          if (initialOffsetLeft === 0) {
+            return;
+          }
+
+          if (initialOffsetLeft + deltaX > 0) {
+            deltaX = -initialOffsetLeft;
+          }
+        }
+
+        dock.moveBy(initialOffsetLeft + deltaX);
+        break;
+
+      case touchend:
+        releaseEvents();
+
+        if (!isPanning) {
+          dock.tap(evt.target);
+        } else {
+          isPanning = false;
+          onTouchEnd(deltaX);
+        }
+
+        removeActive();
+
+        break;
+
+      case 'contextmenu':
+        if (isPanning) {
+          evt.stopImmediatePropagation();
+          return;
+        }
+
+        if (GridManager.pageHelper.getCurrentPageNumber() >
+            GridManager.landingPage) {
+
+          Homescreen.setMode('edit');
+          removeActive();
+
+          if ('isIcon' in evt.target.dataset) {
+            DragDropManager.start(evt, {
+              'x': startEvent.pageX,
+              'y': startEvent.pageY
+            });
+          }
+        }
+        break;
+    }
+  }
+
+  function goNextSet() {
+    calculateDimentions(dock.getNumIcons());
+
+    if (dock.getLeft() <= maxOffsetLeft) {
+      return;
+    }
+
+    dock.moveByWithDuration(maxOffsetLeft, duration);
+  }
+
+  function goPreviousSet() {
+    calculateDimentions(dock.getNumIcons());
+
+    if (dock.getLeft() >= 0) {
+      return;
+    }
+
+    dock.moveByWithDuration(0, duration);
+  }
+
+  function onTouchEnd(scrollX) {
+    if (dock.getNumIcons() <= maxNumAppInViewPort ||
+          dock.getLeft() === 0 || dock.getRight() === windowWidth) {
+      // No animation
+      delete document.body.dataset.transitioning;
+      return;
+    }
+
+    dock.moveByWithEffect(scrollX > 0 ? 0 : maxOffsetLeft, duration);
+    container.addEventListener('transitionend', function transEnd(e) {
+      container.removeEventListener('transitionend', transEnd);
+      delete document.body.dataset.transitioning;
+    });
+  }
+
+  function releaseEvents() {
+    container.removeEventListener('contextmenu', handleEvent);
+    window.removeEventListener(touchmove, handleEvent);
+    window.removeEventListener(touchend, handleEvent);
+  }
+
+  function attachEvents() {
+    container.addEventListener('contextmenu', handleEvent);
+    window.addEventListener(touchmove, handleEvent);
+    window.addEventListener(touchend, handleEvent);
+  }
+
+  function rePosition(numApps) {
+    if (numApps > maxNumAppInViewPort && dock.getLeft() < 0 &&
+          dock.getRight() > windowWidth) {
+      // The dock takes up the screen width.
+      return;
+    }
+
+    // We are going to place the dock in the middle of the screen
+    document.body.dataset.transitioning = 'true';
+    dock.moveByWithDuration(maxOffsetLeft / 2, .5);
+    container.addEventListener('transitionend', function transEnd(e) {
+      container.removeEventListener('transitionend', transEnd);
+      delete document.body.dataset.transitioning;
+    });
+  }
+
+  function calculateDimentions(numIcons) {
+    if (numIcons <= maxNumAppInViewPort) {
+      container.classList.remove('scrollable');
+    } else {
+      container.classList.add('scrollable');
+    }
+
+    cellWidth = numIcons ? dock.getFirstIcon().getWidth() : 0;
+    maxOffsetLeft = windowWidth - numIcons * cellWidth;
+  }
+
+  return {
+    /*
+     * Initializes the dock
+     *
+     * @param {DOMElement} containerEl
+     *                     The HTML element that contains the dock.
+     *
+     * @param {Dock} page
+     *               The dock page object.
+     */
+    init: function dm_init(containerEl, page, pTapThreshold) {
+      tapThreshold = pTapThreshold;
+      container = containerEl;
+      container.addEventListener(touchstart, handleEvent);
+      dock = this.page = page;
+
+      var numIcons = dock.getNumIcons();
+      if (numIcons > maxNumAppInViewPort) {
+        container.classList.add('scrollable');
+      }
+
+      calculateDimentions(numIcons);
+
+      if (numIcons <= maxNumAppInViewPort) {
+        dock.moveBy(maxOffsetLeft / 2);
+      }
+    },
+
+    onDragStop: function dm_onDragStop() {
+      container.addEventListener(touchstart, handleEvent);
+      var numApps = dock.getNumIcons();
+      calculateDimentions(numApps);
+      rePosition(numApps);
+    },
+
+    onDragStart: function dm_onDragStart() {
+      releaseEvents();
+      container.removeEventListener(touchstart, handleEvent);
+    },
+
+    /*
+     * Exports the page
+     */
+    page: null,
+
+    /*
+     * Update display after removing an app.
+     */
+    afterRemovingApp: function dm_afterRemovingApp() {
+      maxOffsetLeft = windowWidth - dock.getNumIcons() * cellWidth;
+      var numApps = dock.getNumIcons();
+      if (numApps > maxNumAppInViewPort && dock.getRight() >= windowWidth) {
+        return;
+      }
+      calculateDimentions(numApps);
+      rePosition(numApps);
+    },
+
+    isFull: function dm_isFull() {
+      return dock.getNumIcons() === MAX_NUM_ICONS;
+    },
+
+    goNextSet: goNextSet,
+
+    goPreviousSet: goPreviousSet,
+
+    calculateDimentions: calculateDimentions,
+
+    get cellWidth() {
+      return cellWidth;
+    },
+
+    get maxOffsetLeft() {
+      return maxOffsetLeft;
+    }
+  };
+}());</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

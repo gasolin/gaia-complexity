@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>window.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">72.86</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">160</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">22.71</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.44</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
+/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
+
+'use strict';
+
+(function(window) {
+
+  var _ = navigator.mozL10n.get;
+
+  var ENABLE_LOG = false;
+
+  // Use mutation observer to monitor appWindow status change
+  window.AppLog = function AppLog(app) {
+    // select the target node
+    var target = app.frame;
+
+    // create an observer instance
+    var observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        console.log(mutation.target.id,
+                    mutation.target.className,
+                    mutation.attributeName);
+      });
+    });
+
+    // configuration of the observer:
+    var config = { attributes: true };
+
+    // pass in the target node, as well as the observer options
+    observer.observe(target, config);
+  };
+
+  window.AppError = function AppError(app) {
+    var self = this;
+    this.app = app;
+    this.app.frame.addEventListener('mozbrowsererror', function(evt) {
+      if (evt.detail.type != 'other')
+        return;
+
+      console.warn(
+        'app of [' + self.app.origin + '] got a mozbrowsererror event.');
+
+      if (self.injected) {
+        self.update();
+      } else {
+        self.render();
+      }
+      self.show();
+      self.injected = true;
+    });
+    return this;
+  };
+
+  AppError.className = 'appError';
+
+  AppError.prototype.hide = function() {
+    this.element.classList.remove('visible');
+  };
+
+  AppError.prototype.show = function() {
+    this.element.classList.add('visible');
+  };
+
+  AppError.prototype.render = function() {
+    this.app.frame.insertAdjacentHTML('beforeend', this.view());
+    this.closeButton =
+      this.app.frame.querySelector('.' + AppError.className + ' .close');
+    this.reloadButton =
+      this.app.frame.querySelector('.' + AppError.className + ' .reload');
+    this.titleElement =
+      this.app.frame.querySelector('.' + AppError.className + ' .title');
+    this.messageElement =
+      this.app.frame.querySelector('.' + AppError.className + ' .message');
+    this.element = this.app.frame.querySelector('.' + AppError.className);
+    var self = this;
+    this.closeButton.onclick = function() {
+      self.app.kill();
+    };
+
+    this.reloadButton.onclick = function() {
+      self.hide();
+      self.app.reload();
+    };
+  };
+
+  AppError.prototype.update = function() {
+    this.titleElement.textContent = this.getTitle();
+    this.messageElement.textContent = this.getMessage();
+  };
+
+  AppError.prototype.id = function() {
+    return AppError.className + '-' + this.app.frame.id;
+  };
+
+  AppError.prototype.getTitle = function() {
+    if (AirplaneMode.enabled) {
+      return _('airplane-is-on');
+    } else if (!navigator.onLine) {
+      return _('network-connection-unavailable');
+    } else {
+      return _('error-title', { name: this.app.name });
+    }
+  };
+
+  AppError.prototype.getMessage = function() {
+    if (AirplaneMode.enabled) {
+      return _('airplane-is-turned-on', { name: this.app.name });
+    } else if (!navigator.onLine) {
+      return _('network-error', { name: this.app.name });
+    } else {
+      return _('error-message', { name: this.app.name });
+    }
+  };
+
+  AppError.prototype.view = function() {
+    return '<div id="' + this.id() + '" class="' +
+        AppError.className + ' visible" role="dialog">' +
+      '<div class="modal-dialog-message-container inner">' +
+        '<h3 data-l10n-id="error-title" class="title">' +
+          this.getTitle() + '</h3>' +
+        '<p>' +
+         '<span data-l10n-id="error-message" class="message">' +
+            this.getMessage() + '</span>' +
+        '</p>' +
+      '</div>' +
+      '<menu data-items="2">' +
+        '<button class="close" data-l10n-id="try-again">' +
+          _('close') + '</button>' +
+        '<button class="reload" data-l10n-id="try-again">' +
+          _('try-again') + '</button>' +
+      '</menu>' +
+    '</div>';
+  };
+
+  window.AppWindow = function AppWindow(configuration) {
+    for (var key in configuration) {
+      this[key] = configuration[key];
+    }
+
+    // We keep the appError object here for the purpose that
+    // we may need to export the error state of AppWindow instance
+    // to the other module in the future.
+    this.appError = new AppError(this);
+    if (ENABLE_LOG)
+      this.appLog = new AppLog(this);
+
+    return this;
+  };
+
+  AppWindow.prototype.reload = function() {
+    this.iframe.reload(true);
+  };
+
+  AppWindow.prototype.kill = function() {
+    // XXX: A workaround because a AppWindow instance shouldn't reference
+    // Window Manager directly here.
+    // In the future we should make every app maintain and execute the events
+    // in itself like resize, setVisibility...
+    // And Window Manager is in charge of cross app management.
+    WindowManager.kill(this.origin);
+  };
+
+}(this));</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

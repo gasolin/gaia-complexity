@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>compose.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">64.42</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">402</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">55.36</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">3.46</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/* -*- Mode: js; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
+/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
+
+'use strict';
+
+/**
+ * Handle UI specifics of message composition. Namely,
+ * resetting (auto manages placeholder text), getting
+ * message content, and message size
+ */
+var Compose = (function() {
+  var placeholderClass = 'placeholder';
+
+  var slice = Array.prototype.slice;
+  var attachments = new WeakMap();
+
+  // will be defined in init
+  var dom = {
+    form: null,
+    message: null,
+    sendButton: null,
+    attachButton: null
+  };
+
+  var handlers = {
+    input: [],
+    type: []
+  };
+
+  var state = {
+    empty: true,
+    maxLength: null,
+    size: null,
+
+    // 'sms' or 'mms'
+    type: 'sms'
+  };
+
+  // handler for 'input' in contentEditable
+  function composeCheck(e) {
+
+    var textLength = dom.message.textContent.length;
+    var empty = !textLength;
+    var hasFrames = !!dom.message.querySelector('iframe');
+
+    if (empty) {
+      var brs = dom.message.getElementsByTagName('br');
+      // firefox will keep an extra <br> in there
+      if (brs.length > 1 || hasFrames) {
+        empty = false;
+      }
+    }
+
+    var placeholding = dom.message.classList.contains(placeholderClass);
+    if (placeholding && !empty) {
+      dom.message.classList.remove(placeholderClass);
+      compose.disable(false);
+      state.empty = false;
+    }
+    if (!placeholding && empty) {
+      dom.message.classList.add(placeholderClass);
+      compose.disable(true);
+      state.empty = true;
+    }
+
+    trigger('input', e);
+
+    if (hasFrames && state.type == 'sms') {
+      compose.type = 'mms';
+    }
+
+    if (!hasFrames && state.type == 'mms') {
+      // this operation is cancelable
+      compose.type = 'sms';
+    }
+
+  }
+
+  function composeKeyEvents(e) {
+    // if locking and no-backspace pressed, cancel
+    if (compose.lock && e.which !== 8) {
+      e.preventDefault();
+    } else {
+      // trigger a recompute of size on the keypresses
+      state.size = null;
+      compose.lock = false;
+    }
+  }
+
+  function trigger(type) {
+    var fns = handlers[type];
+    var args = slice.call(arguments, 1);
+
+    if (fns && fns.length) {
+      for (var i = 0; i < fns.length; i++) {
+        fns[i].apply(this, args);
+      }
+    }
+  }
+
+
+  function insert(item) {
+    var fragment = document.createDocumentFragment();
+
+    // trigger recalc on insert
+    state.size = null;
+
+    if (item.render) { // it's an Attachment
+      var node = item.render();
+      attachments.set(node, item);
+      fragment.appendChild(node);
+    } else if (item.nodeName === 'IFRAME') {
+      // this iframe is generated by us
+      fragment.appendChild(item);
+    } else if (typeof item === 'string') {
+      var container = document.createElement('div');
+      container.innerHTML = item;
+      [].forEach.call(container.childNodes, function(node) {
+        if (node.nodeName === 'BR') {
+          fragment.appendChild(document.createElement('br'));
+        }
+        else if (node.nodeType === Node.TEXT_NODE) {
+          fragment.appendChild(node);
+        }
+      });
+    }
+
+    return fragment;
+  }
+
+  var compose = {
+    init: function composeInit(formId) {
+      dom.form = document.getElementById(formId);
+      dom.message = dom.form.querySelector('[contenteditable]');
+      dom.sendButton = document.getElementById('messages-send-button');
+      dom.attachButton = document.getElementById('messages-attach-button');
+      dom.optionsMenu = document.getElementById('attachment-options-menu');
+
+      // update the placeholder after input
+      dom.message.addEventListener('input', composeCheck);
+
+      // we need to bind to keydown & keypress because of #870120
+      dom.message.addEventListener('keydown', composeKeyEvents);
+      dom.message.addEventListener('keypress', composeKeyEvents);
+
+      dom.message.addEventListener('click',
+        this.onAttachmentClick.bind(this));
+
+      dom.optionsMenu.addEventListener('click',
+        this.onAttachmentMenuClick.bind(this));
+
+      dom.attachButton.addEventListener('click',
+        this.onAttachClick.bind(this));
+
+      this.clear();
+
+      return this;
+    },
+
+    on: function(type, handler) {
+      if (handlers[type]) {
+        handlers[type].push(handler);
+      }
+      return this;
+    },
+    off: function(type, handler) {
+      if (handlers[type]) {
+        var index = handlers[type].indexOf(handler);
+        if (index !== -1) {
+          handlers[type].splice(index, 1);
+        }
+      }
+      return this;
+    },
+
+    getContent: function() {
+      var content = [];
+      var lastContent = 0;
+      var node;
+      var i;
+
+      for (node = dom.message.firstChild; node; node = node.nextSibling) {
+        // hunt for an attachment in the WeakMap and append it
+        var attachment = attachments.get(node);
+        if (attachment) {
+          lastContent = content.push(attachment);
+          continue;
+        }
+
+        var last = content.length - 1;
+        var text = node.textContent;
+        if (node.nodeName == 'BR') {
+          if (node === dom.message.lastChild) {
+            continue;
+          }
+          text = '\n';
+        }
+
+        // append (if possible) text to the last entry
+        if (text.length && typeof content[last] === 'string') {
+          content[last] += text;
+        } else {
+          // push even if text.length === 0, there could be a <br>
+          content.push(text);
+        }
+
+        // keep track of the last populated line
+        if (text.length > 0) {
+          lastContent = content.length;
+        }
+      }
+
+      return content;
+    },
+
+    getText: function() {
+      var out = this.getContent().filter(function(elem) {
+        return (typeof elem === 'string');
+      });
+      return out.join('');
+    },
+
+    isEmpty: function() {
+      return state.empty;
+    },
+
+    /** Stop further input because the max size is exceded
+     */
+    lock: false,
+
+    disable: function(state) {
+      dom.sendButton.disabled = state;
+      return this;
+    },
+
+    /** Writes node to composition element
+     * @param {mixed} item Html, DOMNode, or attachment to add
+     *                     to composition element.
+     * @param {Boolean} position True to append, false to prepend or
+     *                           undefined/null for auto (at cursor).
+     */
+
+    prepend: function(item) {
+      var fragment = insert(item);
+
+      // If the first element is a <br>, it needs to stay first
+      // insert after it but before everyting else
+      if (dom.message.firstChild && dom.message.firstChild.nodeName === 'BR') {
+        dom.message.insertBefore(fragment, dom.message.childNodes[1]);
+      } else {
+        dom.message.insertBefore(fragment, dom.message.childNodes[0]);
+      }
+
+      composeCheck();
+      return this;
+    },
+
+    append: function(item) {
+      var fragment = insert(item);
+
+      if (document.activeElement === dom.message) {
+        var range = window.getSelection().getRangeAt(0);
+        var firstNodes = fragment.firstChild;
+        range.deleteContents();
+        range.insertNode(fragment);
+        dom.message.focus();
+        range.setStartAfter(firstNodes);
+      } else {
+        dom.message.insertBefore(fragment, dom.message.lastChild);
+      }
+      composeCheck();
+      return this;
+    },
+
+    clear: function() {
+      dom.message.innerHTML = '<br>';
+      state.full = false;
+      state.size = 0;
+      composeCheck();
+      return this;
+    },
+
+    onAttachClick: function thui_onAttachClick(event) {
+      var request = this.requestAttachment();
+      request.onsuccess = this.append.bind(this);
+      composeCheck(event);
+    },
+
+    onAttachmentClick: function thui_onAttachmentClick(event) {
+      if (event.target.className === 'attachment') {
+        this.currentAttachmentDOM = event.target;
+        this.currentAttachment = attachments.get(event.target);
+        AttachmentMenu.open(this.currentAttachment);
+      }
+    },
+
+    onAttachmentMenuClick: function thui_onAttachmentMenuClick(event) {
+      event.preventDefault();
+      switch (event.target.id) {
+        case 'attachment-options-view':
+          this.currentAttachment.view();
+          break;
+        case 'attachment-options-remove':
+          attachments.delete(this.currentAttachmentDOM);
+          dom.message.removeChild(this.currentAttachmentDOM);
+          composeCheck({type: 'input'});
+          AttachmentMenu.close();
+          break;
+        case 'attachment-options-replace':
+          var request = this.requestAttachment();
+          request.onsuccess = (function replaceAttachmentWith(newAttachment) {
+            var el = newAttachment.render();
+            attachments.set(el, newAttachment);
+            dom.message.insertBefore(el, this.currentAttachmentDOM);
+            dom.message.removeChild(this.currentAttachmentDOM);
+            composeCheck({type: 'input'});
+            AttachmentMenu.close();
+          }).bind(this);
+          break;
+        case 'attachment-options-cancel':
+          AttachmentMenu.close();
+          break;
+      }
+    },
+
+    /** Initiates a 'pick' MozActivity allowing the user to create an
+     * attachment
+     * @return {Object} requestProxy A proxy for the underlying DOMRequest API.
+     *                               An "onsuccess" and/or "onerror" callback
+     *                               method may optionally be defined on this
+     *                               object.
+     */
+    requestAttachment: function() {
+      // Mimick the DOMRequest API
+      var requestProxy = {};
+      var activity = new MozActivity({
+        name: 'pick',
+        data: {
+          // TODO: Extend this array with elements 'audio/*' and 'video/*'
+          type: ['image/*']
+        }
+      });
+
+      activity.onsuccess = function() {
+        var result = activity.result;
+        if (typeof requestProxy.onsuccess === 'function') {
+          requestProxy.onsuccess(new Attachment(result.blob, result.name));
+        }
+      };
+
+      activity.onerror = function() {
+        if (typeof requestProxy.onerror === 'function') {
+          requestProxy.onerror();
+        }
+      };
+
+      return requestProxy;
+    }
+
+  };
+
+  Object.defineProperty(compose, 'type', {
+    get: function composeGetType() {
+      return state.type;
+    },
+    set: function composeSetType(value) {
+      // reject invalid types
+      if (!(value === 'sms' || value === 'mms')) {
+        return state.type;
+      }
+      if (value !== state.type) {
+        var event = new CustomEvent('type', {
+          cancelable: true
+        });
+        // store the old value in case of cancel
+        var oldValue = state.type;
+        state.type = value;
+        trigger('type', event);
+        if (event.defaultPrevented) {
+          state.type = oldValue;
+        } else {
+          dom.form.dataset.messageType = state.type;
+        }
+      }
+      return state.type;
+    }
+  });
+
+  Object.defineProperty(compose, 'size', {
+    get: function composeGetSize() {
+      if (state.size !== null) {
+        return state.size;
+      }
+      return state.size = this.getContent().reduce(function(sum, content) {
+        if (typeof content === 'string') {
+          return sum + content.length;
+        } else {
+          return sum + content.size;
+        }
+      }, 0);
+    }
+  });
+
+  return compose;
+}());</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

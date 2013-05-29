@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Plato - JavaScript Introspection</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <script>
+    var __options = {"flags":{"complexity":{"logicalor":true,"switchcase":true,"forin":false,"trycatch":false,"newmi":true},"jshint":{"options":{},"globals":{}}}}
+  </script>
+
+  <link href="assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="assets/css/plato.css" rel="stylesheet">
+  <link href="assets/css/plato-overview.css" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li class="active">
+        <a href="index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>JavaScript Source Analysis</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <h1 class="span12">Summary</h1>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Total/Average Lines <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code" data-original-title="SLOC"></i></h2>
+      <p class="stat">13376 / 230</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Average Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">68.14</p>
+    </div>
+  </div>
+</div>
+<div class="container historical">
+  <div class="row">
+    <div class="span6">
+      <div id="chart_historical_sloc" class="chart js-chart"></div>
+    </div>
+    <div class="span6">
+      <div id="chart_historical_maint" class="chart js-chart"></div>
+    </div>
+  </div>
+</div>
+
+
+<div class="container overview">
+  <div class="row">
+    <h2 class="span12">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+    <div class="span12"><div id='chart_maintainability' class='chart js-chart'></div></div>
+  </div>
+  <div class="row">
+    <h2 class="span12">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code" data-original-title="SLOC"></i></h2>
+    <div class="span12"><div id='chart_sloc' class='chart js-chart'></div></div>
+  </div>
+  <div class="row">
+    <h2 class="span12">Estimated errors in implementation <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+    <div class="span12"><div id='chart_bugs' class='chart js-chart'></div></div>
+  </div>
+  
+  <div class="row">
+    <h2 class="span12">Lint errors</h2>
+    <div class="span12"><div id='chart_lint' class='chart js-chart'></div></div>
+  </div>
+  
+</div>
+
+<div class="container">
+  <div class="row">
+    <h1 class="span12">Files</h1>
+  </div>
+  <div class="row">
+    <ul class="file-list list-unstyled">
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/accessibility_js/index.html">accessibility.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="6"
+              data-sloc="16"
+              data-bugs="0.12"
+              data-complexity="2"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/activities_js/index.html">activities.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="9"
+              data-sloc="83"
+              data-bugs="0.56"
+              data-complexity="4"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/airplane_mode_js/index.html">airplane_mode.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="15"
+              data-sloc="144"
+              data-bugs="0.68"
+              data-complexity="14"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/app_install_manager_js/index.html">app_install_manager.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="49"
+              data-sloc="451"
+              data-bugs="4.89"
+              data-complexity="37"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/applications_js/index.html">applications.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="13"
+              data-sloc="96"
+              data-bugs="0.61"
+              data-complexity="4"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/attention_screen_js/index.html">attention_screen.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="45"
+              data-sloc="325"
+              data-bugs="2.73"
+              data-complexity="29"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/authentication_dialog_js/index.html">authentication_dialog.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="19"
+              data-sloc="175"
+              data-bugs="1.53"
+              data-complexity="18"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/battery_manager_js/index.html">battery_manager.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="22"
+              data-sloc="302"
+              data-bugs="2.15"
+              data-complexity="25"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/bluetooth_js/index.html">bluetooth.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="21"
+              data-sloc="154"
+              data-bugs="0.88"
+              data-complexity="14"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/bluetooth_transfer_js/index.html">bluetooth_transfer.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="51"
+              data-sloc="467"
+              data-bugs="4.52"
+              data-complexity="29"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/bootstrap_js/index.html">bootstrap.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="27"
+              data-sloc="79"
+              data-bugs="0.45"
+              data-complexity="4"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/browser_frame_js/index.html">browser_frame.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="6"
+              data-sloc="55"
+              data-bugs="0.21"
+              data-complexity="3"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/call_forwarding_js/index.html">call_forwarding.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="6"
+              data-sloc="84"
+              data-bugs="0.56"
+              data-complexity="11"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/captive_portal_js/index.html">captive_portal.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="23"
+              data-sloc="111"
+              data-bugs="1.02"
+              data-complexity="12"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/cards_view_js/index.html">cards_view.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="51"
+              data-sloc="871"
+              data-bugs="7.70"
+              data-complexity="92"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/context_menu_js/index.html">context_menu.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="4"
+              data-sloc="22"
+              data-bugs="0.12"
+              data-complexity="2"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/cost_control_js/index.html">cost_control.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="0"
+              data-sloc="124"
+              data-bugs="0.89"
+              data-complexity="10"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/crash_reporter_js/index.html">crash_reporter.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="19"
+              data-sloc="148"
+              data-bugs="1.07"
+              data-complexity="7"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/entry_sheet_js/index.html">entry_sheet.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="26"
+              data-sloc="106"
+              data-bugs="0.83"
+              data-complexity="3"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/ftu_launcher_js/index.html">ftu_launcher.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="20"
+              data-sloc="132"
+              data-bugs="0.77"
+              data-complexity="13"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/gridview_js/index.html">gridview.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="7"
+              data-sloc="36"
+              data-bugs="0.25"
+              data-complexity="5"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/hardware_buttons_js/index.html">hardware_buttons.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="21"
+              data-sloc="267"
+              data-bugs="1.38"
+              data-complexity="47"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/icc_cache_js/index.html">icc_cache.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="15"
+              data-sloc="97"
+              data-bugs="0.67"
+              data-complexity="9"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/identity_js/index.html">identity.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="23"
+              data-sloc="103"
+              data-bugs="0.74"
+              data-complexity="12"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/init_logo_handler_js/index.html">init_logo_handler.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="11"
+              data-sloc="140"
+              data-bugs="1.00"
+              data-complexity="10"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/keyboard_manager_js/index.html">keyboard_manager.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="14"
+              data-sloc="110"
+              data-bugs="0.67"
+              data-complexity="6"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/list_menu_js/index.html">list_menu.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="24"
+              data-sloc="179"
+              data-bugs="1.60"
+              data-complexity="21"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/lockscreen_js/index.html">lockscreen.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="51"
+              data-sloc="1028"
+              data-bugs="9.32"
+              data-complexity="116"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/logo_loader_js/index.html">logo_loader.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="14"
+              data-sloc="71"
+              data-bugs="0.47"
+              data-complexity="5"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/modal_dialog_js/index.html">modal_dialog.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="28"
+              data-sloc="470"
+              data-bugs="4.41"
+              data-complexity="62"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/mouse2touch_js/index.html">mouse2touch.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="3"
+              data-sloc="67"
+              data-bugs="0.31"
+              data-complexity="6"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/notifications_js/index.html">notifications.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="51"
+              data-sloc="409"
+              data-bugs="4.12"
+              data-complexity="36"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/payment_js/index.html">payment.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="20"
+              data-sloc="146"
+              data-bugs="1.26"
+              data-complexity="14"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/permission_manager_js/index.html">permission_manager.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="24"
+              data-sloc="218"
+              data-bugs="1.49"
+              data-complexity="18"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/popup_manager_js/index.html">popup_manager.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="42"
+              data-sloc="320"
+              data-bugs="3.25"
+              data-complexity="36"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/quick_settings_js/index.html">quick_settings.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="40"
+              data-sloc="291"
+              data-bugs="2.40"
+              data-complexity="36"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/remote_debugger_js/index.html">remote_debugger.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="6"
+              data-sloc="38"
+              data-bugs="0.20"
+              data-complexity="2"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/screen_manager_js/index.html">screen_manager.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="51"
+              data-sloc="557"
+              data-bugs="3.42"
+              data-complexity="56"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/screenshot_js/index.html">screenshot.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="1"
+              data-sloc="107"
+              data-bugs="0.78"
+              data-complexity="9"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/sim_lock_js/index.html">sim_lock.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="12"
+              data-sloc="121"
+              data-bugs="0.63"
+              data-complexity="26"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/simcard_dialog_js/index.html">simcard_dialog.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="28"
+              data-sloc="370"
+              data-bugs="4.01"
+              data-complexity="45"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/sleep_menu_js/index.html">sleep_menu.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="36"
+              data-sloc="310"
+              data-bugs="2.26"
+              data-complexity="25"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/sound_manager_js/index.html">sound_manager.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="51"
+              data-sloc="556"
+              data-bugs="3.83"
+              data-complexity="66"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/source_view_js/index.html">source_view.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="13"
+              data-sloc="64"
+              data-bugs="0.43"
+              data-complexity="7"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/statusbar_js/index.html">statusbar.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="51"
+              data-sloc="809"
+              data-bugs="8.06"
+              data-complexity="87"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/storage_js/index.html">storage.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="0"
+              data-sloc="60"
+              data-bugs="0.41"
+              data-complexity="7"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/storage_watcher_js/index.html">storage_watcher.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="10"
+              data-sloc="146"
+              data-bugs="1.15"
+              data-complexity="14"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/system_banner_js/index.html">system_banner.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="2"
+              data-sloc="47"
+              data-bugs="0.28"
+              data-complexity="4"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/system_dialog_js/index.html">system_dialog.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="16"
+              data-sloc="111"
+              data-bugs="0.62"
+              data-complexity="11"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/trusted_ui_js/index.html">trusted_ui.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="42"
+              data-sloc="378"
+              data-bugs="3.54"
+              data-complexity="46"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/ttlview_js/index.html">ttlview.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="15"
+              data-sloc="77"
+              data-bugs="0.58"
+              data-complexity="11"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/updatable_js/index.html">updatable.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="41"
+              data-sloc="275"
+              data-bugs="2.31"
+              data-complexity="20"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/update_manager_js/index.html">update_manager.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="51"
+              data-sloc="618"
+              data-bugs="6.30"
+              data-complexity="57"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/utility_tray_js/index.html">utility_tray.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="16"
+              data-sloc="153"
+              data-bugs="1.26"
+              data-complexity="24"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/voicemail_js/index.html">voicemail.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="0"
+              data-sloc="88"
+              data-bugs="0.64"
+              data-complexity="11"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/wifi_js/index.html">wifi.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="30"
+              data-sloc="230"
+              data-bugs="1.45"
+              data-complexity="21"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/window_js/index.html">window.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="31"
+              data-sloc="160"
+              data-bugs="1.44"
+              data-complexity="8"
+          ></span>
+      </li>
+      
+      <li class="span12">
+        <span class="fade-left fadeout visible-desktop"></span>
+        <span class="span4 file"><a class="file-link" href="./files/wrapper_js/index.html">wrapper.js</a></span>
+        <span class="span8 file-chart js-file-chart"
+              data-lint="30"
+              data-sloc="204"
+              data-bugs="1.59"
+              data-complexity="24"
+          ></span>
+      </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/javascript" src="assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="assets/scripts/plato-overview.js"></script>
+</body>
+</html>

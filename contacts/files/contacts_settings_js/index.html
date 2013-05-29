@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>contacts_settings.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">71.73</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">610</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">36.80</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">5.31</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">'use strict';
+
+var contacts = window.contacts || {};
+
+/***
+ This class handles all the activity regarding
+ the settings screen for contacts
+ **/
+contacts.Settings = (function() {
+
+  var orderCheckBox,
+    orderByLastName,
+    simImportLink,
+    sdImportLink,
+    importLiveButton,
+    importGmailButton,
+    fbImportOption,
+    fbImportCheck,
+    fbUpdateButton,
+    fbOfflineMsg,
+    noSimMsg,
+    noSdMsg,
+    fbTotalsMsg,
+    fbPwdRenewMsg,
+    fbImportedValue,
+    newOrderByLastName = null,
+    ORDER_KEY = 'order.lastname',
+    PENDING_LOGOUT_KEY = 'pendingLogout';
+
+  // Initialise the settings screen (components, listeners ...)
+  var init = function initialize() {
+    // To listen to card state changes is needed for enabling import from SIM
+    var mobileConn = navigator.mozMobileConnection;
+    mobileConn.oncardstatechange = Contacts.cardStateChanged;
+    fb.init(function onFbInit() {
+      initContainers();
+    });
+  };
+
+  // Get the different values that we will show in the app
+  var getData = function getData() {
+    var order = document.cookie ? JSON.parse(document.cookie).order : false;
+    orderByLastName = order;
+    newOrderByLastName = null;
+    updateOrderingUI();
+
+    if (fb.isEnabled) {
+      fb.utils.getImportChecked(checkFbImported);
+    }
+  };
+
+  var updateOrderingUI = function updateOrderingUI() {
+    var value = newOrderByLastName === null ? orderByLastName :
+      newOrderByLastName;
+    orderCheckBox.checked = value;
+  };
+
+  // Initialises variables and listener for the UI
+  var initContainers = function initContainers() {
+    var orderItem = document.getElementById('settingsOrder');
+    orderCheckBox = orderItem.querySelector('[name="order.lastname"]');
+    orderItem.addEventListener('click', onOrderingChange.bind(this));
+
+    simImportLink = document.querySelector('[data-l10n-id="importSim2"]');
+    simImportLink.addEventListener('click', function onSimImportHandler() {
+      window.setTimeout(onSimImport, 0);
+    });
+
+    noSimMsg = document.querySelector('#no-sim');
+
+    sdImportLink = document.querySelector('[data-l10n-id="importSd"]');
+    sdImportLink.addEventListener('click', function onSimImportHandler() {
+      window.setTimeout(onSdImport, 0);
+    });
+    noSdMsg = document.querySelector('#no-sd');
+
+    // Gmail & Hotmail import
+    importLiveButton = document.querySelector('[data-l10n-id="importOutlook"]');
+    importGmailButton = document.querySelector('[data-l10n-id="importGmail"]');
+
+    importLiveButton.onclick = Contacts.extServices.importLive;
+    importGmailButton.onclick = Contacts.extServices.importGmail;
+
+    if (fb.isEnabled) {
+      fbImportOption = document.querySelector('#settingsFb');
+      document.querySelector('#settingsFb > .fb-item').onclick = onFbEnable;
+
+      fbImportCheck = document.querySelector('[name="fb.imported"]');
+
+      fbUpdateButton = document.querySelector('#import-fb');
+      fbOfflineMsg = document.querySelector('#no-connection');
+      fbUpdateButton.onclick = Contacts.extServices.importFB;
+      fbTotalsMsg = document.querySelector('#fb-totals');
+      fbPwdRenewMsg = document.querySelector('#renew-pwd-msg');
+
+      document.addEventListener('fb_changed', function onFbChanged(evt) {
+        // We just received an event saying something might be changed
+        fbGetTotals(false);
+      });
+
+      document.addEventListener('fb_token_ready', function onTokenReady(evt) {
+        // We just received an event saying we imported the contacts
+        fb.utils.getImportChecked(checkFbImported);
+      });
+
+      document.addEventListener('fb_token_error', function() {
+        fbImportedValue = 'renew-pwd';
+        fbImportOption.dataset.state = fbImportedValue;
+      });
+    }
+    else {
+      document.querySelector('#settings-article').dataset.state = 'fb-disabled';
+    }
+  };
+
+  var checkSIMCard = function checkSIMCard() {
+    var conn = window.navigator.mozMobileConnection;
+
+    if (!conn) {
+      enableSIMImport(false);
+      return;
+    }
+
+    enableSIMImport(conn.cardState);
+  };
+
+  // Disables/Enables the actions over the sim import functionality
+  var enableSIMImport = function enableSIMImport(cardState) {
+    var enable = (cardState === 'ready');
+    var importSim = document.getElementById('settingsSIM').firstElementChild;
+    if (enable) {
+      importSim.removeAttribute('disabled');
+      noSimMsg.classList.add('hide');
+    }
+    else {
+      importSim.setAttribute('disabled', 'disabled');
+      noSimMsg.classList.remove('hide');
+    }
+  };
+
+  /**
+   * Disables/Enables the actions over the sdcard import functionality
+   * @param {Boolean} cardState Whether storage import should be enabled or not.
+   */
+  var enableStorageImport = function enableStorageImport(cardState) {
+    var importStorage = document.getElementById('settingsStorage');
+    var importStorageButton = importStorage.firstElementChild;
+
+    if (cardState) {
+      importStorage.classList.add('importService');
+      importStorageButton.removeAttribute('disabled');
+      noSdMsg.classList.add('hide');
+    }
+    else {
+      importStorage.classList.remove('importService');
+      importStorageButton.setAttribute('disabled', 'disabled');
+      noSdMsg.classList.remove('hide');
+    }
+  };
+
+  // Callback that will modify the ui depending if we imported or not
+  // contacts from FB
+  var checkFbImported = function checkFbImportedCb(value) {
+    fbImportedValue = value;
+    // Changing the state thus the CSS will select the correct values
+    fbImportOption.dataset.state = fbImportedValue;
+
+    if (fbImportedValue === 'logged-in') {
+      fbSetEnabledState();
+    }
+    else if (fbImportedValue === 'logged-out') {
+      fbSetDisabledState();
+      fbTotalsMsg.textContent = _('notEnabledYet');
+    }
+    else if (fbImportedValue === 'renew-pwd') {
+      fbSetEnabledState();
+    }
+  };
+
+  function fbSetEnabledState() {
+    fbGetTotals();
+
+    fbImportCheck.checked = true;
+  }
+
+  function fbSetDisabledState() {
+    fbImportCheck.checked = false;
+  }
+
+  // Get total number of contacts imported from fb
+  var fbGetTotals = function fbGetTotals(requestRemoteData) {
+    var req = fb.utils.getNumFbContacts();
+
+    req.onsuccess = function() {
+      var friendsOnDevice = req.result;
+
+      var callbackListener = {
+        'local': function localContacts(number) {
+          fbUpdateTotals(friendsOnDevice, number);
+        },
+        'remote': function remoteContacts(number) {
+          fbUpdateTotals(friendsOnDevice, number);
+        }
+      };
+
+      // Do not ask for remote data if not necessary
+      if (requestRemoteData === false) {
+        callbackListener.remote = null;
+      }
+
+      fb.utils.numFbFriendsData(callbackListener);
+    };
+
+    req.onerror = function() {
+      console.error('Could not get number of local contacts');
+    };
+  };
+
+  var fbUpdateTotals = function fbUpdateTotals(imported, total) {
+    // If the total is not available then an empty string is showed
+    var theTotal = total || '';
+
+    var totalsMsgContent = _('facebook-import-msg', {
+      'imported': imported,
+      'total': theTotal
+    });
+
+    // This is to support the case of a long literal, particularly
+    // when 0 or 1 friends are imported
+    var msgPart1 = totalsMsgContent;
+    var msgPart2 = null;
+    if (imported <= 1) {
+      var position = totalsMsgContent.indexOf('(');
+      if (position != -1) {
+        msgPart1 = totalsMsgContent.substring(0, position - 1);
+        msgPart2 = totalsMsgContent.substring(position);
+      }
+    }
+    fbTotalsMsg.innerHTML = '';
+    fbTotalsMsg.appendChild(document.createTextNode(msgPart1));
+    if (msgPart2) {
+      var span = document.createElement('span');
+      span.textContent = msgPart2;
+      fbTotalsMsg.appendChild(span);
+    }
+  };
+
+  var onFbImport = function onFbImportClick(evt) {
+    Contacts.extServices.importFB();
+  };
+
+  var onFbEnable = function onFbEnable(evt) {
+    var WAIT_UNCHECK = 400;
+
+    evt.preventDefault();
+    evt.stopPropagation();
+
+    if (fbImportedValue === 'logged-out') {
+      fbImportCheck.checked = true;
+      // For starting we wait for the switch transition to give feedback
+      window.addEventListener('transitionend', function transendCheck(e) {
+        if (e.target.id === 'span-check-fb') {
+          window.removeEventListener('transitionend', transendCheck);
+          onFbImport();
+          // We need to uncheck just in case the user closes the window
+          // without logging in (we don't have any mechanism to know that fact)
+          window.setTimeout(function() {
+            fbImportCheck.checked = false;
+          }, WAIT_UNCHECK);
+        }
+      });
+    }
+    else {
+      fbImportCheck.checked = false;
+      // For starting we wait for the switch transition to give feedback
+      window.addEventListener('transitionend', function fb_remove_all(e) {
+        if (e.target.id === 'span-check-fb') {
+          window.removeEventListener('transitionend', fb_remove_all);
+          var msg = _('cleanFbConfirmMsg');
+          var yesObject = {
+            title: _('remove'),
+            isDanger: true,
+            callback: function() {
+              ConfirmDialog.hide();
+              doFbUnlink();
+            }
+          };
+
+          var noObject = {
+            title: _('cancel'),
+            callback: function onCancel() {
+              fbImportCheck.checked = true;
+              ConfirmDialog.hide();
+            }
+          };
+
+          ConfirmDialog.show(null, msg, noObject, yesObject);
+        }
+      });
+    }
+  };
+
+  function resetWait(wakeLock) {
+    Contacts.hideOverlay();
+    if (wakeLock) {
+      wakeLock.unlock();
+    }
+  }
+
+  function doFbUnlink() {
+    var progressBar = Contacts.showOverlay(_('cleaningFbData'), 'progressBar');
+    var wakeLock = navigator.requestWakeLock('cpu');
+
+    var req = fb.utils.clearFbData();
+
+    req.onsuccess = function() {
+      var cleaner = req.result;
+      progressBar.setTotal(cleaner.lcontacts.length);
+      cleaner.onsuccess = function() {
+        Contacts.showOverlay(_('loggingOutFb'), 'activityBar');
+        var logoutReq = fb.utils.logout();
+
+        logoutReq.onsuccess = function() {
+          checkFbImported('logged-out');
+          // And it is needed to clear any previously set alarm
+          window.asyncStorage.getItem(fb.utils.ALARM_ID_KEY, function(data) {
+            if (data) {
+              navigator.mozAlarms.remove(Number(data));
+            }
+            window.asyncStorage.removeItem(fb.utils.ALARM_ID_KEY);
+          });
+
+          window.asyncStorage.removeItem(fb.utils.LAST_UPDATED_KEY);
+          window.asyncStorage.removeItem(fb.utils.CACHE_FRIENDS_KEY);
+
+          resetWait(wakeLock);
+        };
+
+        logoutReq.onerror = function(e) {
+          resetWait(wakeLock);
+          window.console.error('Contacts: Error while FB logout: ',
+            e.target.error);
+        };
+      };
+
+      cleaner.oncleaned = function(num) {
+        progressBar.update();
+      };
+
+      cleaner.onerror = function(contactid, error) {
+        window.console.error('Contacts: Error while FB cleaning contact: ',
+          contactid, 'Error: ', error.name);
+        // Wait state is not resetted because the cleaning process will continue
+      };
+    };
+
+    req.onerror = function(e) {
+      window.console.error('Error while starting the cleaning operations',
+        req.error.name);
+      resetWait(wakeLock);
+    };
+  }
+
+  // Listens for any change in the ordering preferences
+  var onOrderingChange = function onOrderingChange(evt) {
+    newOrderByLastName = !orderCheckBox.checked;
+    document.cookie = JSON.stringify({order: newOrderByLastName});
+    updateOrderingUI();
+  };
+
+  // Import contacts from SIM card and updates ui
+  var onSimImport = function onSimImport(evt) {
+    var progress = Contacts.showOverlay(_('simContacts-reading'),
+      'activityBar');
+
+    var wakeLock = navigator.requestWakeLock('cpu');
+
+    var importer = new SimContactsImporter();
+    var totalContactsToImport;
+    var importedContacts = 0;
+    // Delay for showing feedback to the user after importing
+    var DELAY_FEEDBACK = 200;
+
+    importer.onread = function import_read(n) {
+      totalContactsToImport = n;
+      progress.setClass('progressBar');
+      progress.setHeaderMsg(_('simContacts-importing'));
+      progress.setTotal(totalContactsToImport);
+    };
+
+    importer.onfinish = function import_finish() {
+      window.setTimeout(function onfinish_import() {
+        resetWait(wakeLock);
+        Contacts.navigation.home();
+        Contacts.showStatus(_('simContacts-imported3',
+          {n: importedContacts}));
+      }, DELAY_FEEDBACK);
+    };
+
+    importer.onimported = function imported_contact() {
+      importedContacts++;
+      progress.update();
+    };
+
+    importer.onerror = function import_error() {
+      var cancel = {
+        title: _('cancel'),
+        callback: function() {
+          ConfirmDialog.hide();
+        }
+      };
+      var retry = {
+        title: _('retry'),
+        isRecommend: true,
+        callback: function() {
+          ConfirmDialog.hide();
+          // And now the action is reproduced one more time
+          simImportLink.click();
+        }
+      };
+      ConfirmDialog.show(null, _('simContacts-error'), cancel, retry);
+      Contacts.hideOverlay();
+    };
+
+    importer.start();
+  };
+
+  var onSdImport = function onSdImport() {
+    var progress = Contacts.showOverlay(_('sdContacts-reading'), 'activityBar');
+    var wakeLock = navigator.requestWakeLock('cpu');
+
+    var importedContacts = 0;
+    // Delay for showing feedback to the user after importing
+    var DELAY_FEEDBACK = 200;
+
+    utils.sdcard.retrieveFiles([
+      'text/vcard',
+      'text/x-vcard',
+      'text/directory;profile=vCard',
+      'text/directory'
+    ], ['vcf', 'vcard'], function(err, fileArray) {
+      if (err)
+        return import_error(err);
+
+      if (fileArray.length)
+        utils.sdcard.getTextFromFiles(fileArray, '', onFiles);
+      else
+        import_error('No contacts were found.');
+    });
+
+    function onFiles(err, text) {
+      if (err)
+        return import_error(err);
+
+      var importer = new VCFReader(text);
+      if (!text || !importer)
+        return import_error('No contacts were found.');
+
+      importer.onread = import_read;
+      importer.onimported = imported_contact;
+      importer.onerror = import_error;
+
+      importer.process(function import_finish() {
+        window.setTimeout(function onfinish_import() {
+          resetWait(wakeLock);
+          Contacts.navigation.home();
+          Contacts.showStatus(_('sdContacts-imported3', {
+            n: importedContacts
+          }));
+        }, DELAY_FEEDBACK);
+      });
+    }
+
+    function import_read(n) {
+      progress.setClass('progressBar');
+      progress.setHeaderMsg(_('sdContacts-importing'));
+      progress.setTotal(n);
+    }
+
+    function imported_contact() {
+      importedContacts++;
+      progress.update();
+    }
+
+    function import_error(e) {
+      var cancel = {
+        title: _('cancel'),
+        callback: function() {
+          ConfirmDialog.hide();
+        }
+      };
+
+      var retry = {
+        title: _('retry'),
+        isRecommend: true,
+        callback: function() {
+          ConfirmDialog.hide();
+          // And now the action is reproduced one more time
+          sdImportLink.click();
+        }
+      };
+      ConfirmDialog.show(null, _('sdContacts-error'), cancel, retry);
+      Contacts.hideOverlay();
+    }
+  };
+
+  // Dismiss settings window and execute operations if values got modified
+  var close = function close() {
+    if (newOrderByLastName != null &&
+      newOrderByLastName != orderByLastName && contacts.List) {
+      contacts.List.setOrderByLastName(newOrderByLastName);
+      contacts.List.load();
+      orderByLastName = newOrderByLastName;
+    }
+
+    Contacts.goBack();
+  };
+
+  var checkOnline = function() {
+    // Perform pending automatic logouts
+    window.setTimeout(automaticLogout, 0);
+
+    // Facebook settings
+    if (fb.isEnabled) {
+      if (navigator.onLine === true) {
+        fbImportOption.querySelector('li').removeAttribute('aria-disabled');
+        fbUpdateButton.classList.remove('hide');
+        fbOfflineMsg.classList.add('hide');
+      } else {
+        fbImportOption.querySelector('li.fb-item').setAttribute('aria-disabled',
+          'true');
+        fbUpdateButton.classList.add('hide');
+        fbOfflineMsg.classList.remove('hide');
+      }
+    }
+
+    // Other import services settings
+    if (navigator.onLine === false) {
+      importGmailButton.setAttribute('disabled', 'disabled');
+      importLiveButton.setAttribute('disabled', 'disabled');
+    }
+    else {
+      importGmailButton.removeAttribute('disabled');
+      importLiveButton.removeAttribute('disabled');
+    }
+  };
+
+  function saveStatus(data) {
+    window.asyncStorage.setItem(PENDING_LOGOUT_KEY, data);
+  }
+
+  function automaticLogout() {
+    if (navigator.offLine === true) {
+      return;
+    }
+
+    LazyLoader.load(['/contacts/js/utilities/http_rest.js'], function() {
+      window.asyncStorage.getItem(PENDING_LOGOUT_KEY, function(data) {
+        if (!data) {
+          return;
+        }
+        var services = Object.keys(data);
+        var numResponses = 0;
+
+        services.forEach(function(service) {
+          var url = data[service];
+
+          var callbacks = {
+            success: function logout_success() {
+              numResponses++;
+              window.console.log('Successfully logged out: ', service);
+              delete data[service];
+              if (numResponses === services.length) {
+                saveStatus(data);
+              }
+            },
+            error: function logout_error() {
+              numResponses++;
+              if (numResponses === services.length) {
+                saveStatus(data);
+              }
+            },
+            timeout: function logout_timeout() {
+              numResponses++;
+              if (numResponses === services.length) {
+                saveStatus(data);
+              }
+            }
+          };
+          Rest.get(url, callbacks);
+        });
+      });
+    });
+  }
+
+  var refresh = function refresh() {
+    getData();
+    checkOnline();
+    checkSIMCard();
+    enableStorageImport(utils.sdcard.checkStorageCard());
+  };
+
+  return {
+    'init': init,
+    'close': close,
+    'refresh': refresh,
+    'onLineChanged': checkOnline,
+    'cardStateChanged': checkSIMCard
+  };
+})();</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

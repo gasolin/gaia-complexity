@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>widget.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">63.36</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">421</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">40.27</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">4.07</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/*
+ * The widget is in charge of show balance, telephony data and data usage
+ * statistics depending on the SIM inserted.
+ *
+ * It has three areas of drawing: balance, telephony and data usage.
+ * The update is done by demand when the widget is shown or in reaction of
+ * a balance update or timeout.
+ */
+
+var Widget = (function() {
+
+  'use strict';
+
+  var costcontrol;
+  function onReady() {
+    var mobileConnection = window.navigator.mozMobileConnection;
+    var cardState = checkCardState();
+    var iccid = mobileConnection.iccInfo.iccid;
+
+    // SIM not ready
+    if (cardState !== 'ready') {
+      debug('SIM not ready:', mobileConnection.cardState);
+      mobileConnection.oncardstatechange = onReady;
+
+    // SIM is ready, but ICC info is not ready yet
+    } else if (!Common.isValidICCID(iccid)) {
+      debug('ICC info not ready yet');
+      mobileConnection.oniccinfochange = onReady;
+
+    // All ready
+    } else {
+      debug('SIM ready. ICCID:', iccid);
+      mobileConnection.oncardstatechange = undefined;
+      mobileConnection.oniccinfochange = undefined;
+      startWidget();
+    }
+  };
+
+  // Check the card status. Return 'ready' if all OK or take actions for
+  // special situations such as 'pin/puk locked' or 'absent'.
+  function checkCardState() {
+    var mobileConnection = window.navigator.mozMobileConnection;
+    var state, cardState;
+    state = cardState = mobileConnection.cardState;
+
+    // SIM is absent
+    if (cardState === 'absent') {
+      debug('There is no SIM');
+      showSimError('no-sim2');
+
+    // SIM is locked
+    } else if (
+      cardState === 'pinRequired' ||
+      cardState === 'pukRequired'
+    ) {
+      showSimError('sim-locked');
+      state = 'locked';
+    }
+
+    return state;
+  }
+
+  function startWidget() {
+    function _onNoICCID() {
+      console.error('checkSIMChange() failed. Impossible to ensure consistent' +
+                    'data. Aborting start up.');
+      showSimError('no-sim2');
+    }
+
+    Common.checkSIMChange(function _onSIMChecked() {
+      CostControl.getInstance(function _onCostControlReady(instance) {
+        costcontrol = instance;
+        setupWidget();
+      });
+    }, _onNoICCID);
+  }
+
+  window.addEventListener('localized', function _onLocalize() {
+    if (initialized) {
+      updateUI();
+    }
+  });
+
+  var initialized, widget, leftPanel, rightPanel, fte, views = {};
+  function setupWidget() {
+    // HTML entities
+    widget = document.getElementById('cost-control');
+    leftPanel = document.getElementById('left-panel');
+    rightPanel = document.getElementById('right-panel');
+    fte = document.getElementById('fte-view');
+    views.dataUsage = document.getElementById('datausage-view');
+    views.limitedDataUsage = document.getElementById('datausage-limit-view');
+    views.telephony = document.getElementById('telephony-view');
+    views.balance = document.getElementById('balance-view');
+
+    // Use observers to handle not on-demand updates
+    ConfigManager.observe('lastBalance', onBalance, true);
+    ConfigManager.observe('waitingForBalance', onErrors, true);
+    ConfigManager.observe('errors', onErrors, true);
+    ConfigManager.observe('lastDataReset', onReset, true);
+    ConfigManager.observe('lastTelephonyReset', onReset, true);
+
+    // Update UI when visible
+    document.addEventListener('mozvisibilitychange',
+      function _onVisibilityChange(evt) {
+        if (!document.mozHidden && initialized &&
+            checkCardState() === 'ready') {
+          updateUI();
+        }
+      }
+    );
+
+    // Update data usage on network activity
+    window.addEventListener('hashchange', function _onHashChange() {
+      if (window.location.hash.split('#')[1] === 'update') {
+        updateUI(true); // update only data usage
+      }
+    });
+
+    // Open application with the proper view
+    views.balance.addEventListener('click',
+      function _openCCBalance() {
+        var activity = new MozActivity({ name: 'costcontrol/balance' });
+      }
+    );
+    views.telephony.addEventListener('click',
+      function _openCCTelephony() {
+        var activity = new MozActivity({ name: 'costcontrol/telephony' });
+      }
+    );
+    rightPanel.addEventListener('click',
+      function _openCCDataUsage() {
+        var activity = new MozActivity({ name: 'costcontrol/data_usage' });
+      }
+    );
+
+    initialized = true;
+    updateUI();
+  }
+
+  // BALANCE ACTIONS
+
+  // On balance update received
+  function onBalance(balance, old, key, settings) {
+    debug('Balance received:', balance);
+    setBalanceMode('default');
+    updateBalance(balance, settings.lowLimit && settings.lowLimitThreshold);
+    debug('Balance updated!');
+  }
+
+  // On balance update fail
+  function onErrors(errors, old, key, settings) {
+    if (!errors['BALANCE_TIMEOUT']) {
+      return;
+    }
+    debug('Balance timeout!');
+
+    setBalanceMode('warning');
+    errors['BALANCE_TIMEOUT'] = false;
+    ConfigManager.setOption({errors: errors});
+  }
+
+  // On reset telephony or data usage
+  function onReset(value, old, key, settings) {
+    updateUI();
+  }
+
+  // USER INTERFACE
+
+  // Reuse fte panel to display errors
+  function showSimError(status) {
+    var fte = document.getElementById('fte-view');
+    var leftPanel = document.getElementById('left-panel');
+    var rightPanel = document.getElementById('right-panel');
+
+    fte.setAttribute('aria-hidden', false);
+    leftPanel.setAttribute('aria-hidden', true);
+    rightPanel.setAttribute('aria-hidden', true);
+
+    var className = 'widget-' + status;
+    document.getElementById('fte-icon').classList.add(className);
+    fte.querySelector('p:first-child').textContent = _(className + '-heading');
+    fte.querySelector('p:last-child').textContent = _(className + '-meta');
+  }
+
+  function setupFte(provider, mode) {
+
+    fte.setAttribute('aria-hidden', false);
+    leftPanel.setAttribute('aria-hidden', true);
+    rightPanel.setAttribute('aria-hidden', true);
+
+    fte.addEventListener('click', function launchFte() {
+      fte.removeEventListener('click', launchFte);
+      var activity = new MozActivity({ name: 'costcontrol/balance' });
+    });
+
+    var keyLookup = {
+        PREPAID: 'widget-authed-sim',
+        POSTPAID: 'widget-authed-sim',
+        DATA_USAGE_ONLY: 'widget-nonauthed-sim'
+    };
+    var simKey = keyLookup[mode];
+
+    document.getElementById('fte-icon').className = 'icon ' + simKey;
+    fte.querySelector('p:first-child').textContent = _(simKey + '-heading',
+                                                     { provider: provider });
+    fte.querySelector('p:last-child').textContent = _(simKey + '-meta');
+  }
+
+  var hashMark = 0;
+  function updateUI(updateOnlyDataUsage) {
+    ConfigManager.requestAll(function _onInfo(configuration, settings) {
+      var mode = costcontrol.getApplicationMode(settings);
+      debug('Widget UI mode:', mode);
+
+      var isPrepaid = (mode === 'PREPAID');
+      var isDataUsageOnly = (mode === 'DATA_USAGE_ONLY');
+
+      // Show fte mode widget
+      if (settings.fte) {
+        setupFte(configuration.provider, mode);
+        debug('Widget in FTE mode');
+        return;
+      }
+
+      // Layout
+      fte.setAttribute('aria-hidden', true);
+      leftPanel.setAttribute('aria-hidden', false);
+      rightPanel.setAttribute('aria-hidden', false);
+
+      var isLimited = settings.dataLimit;
+      views.dataUsage.setAttribute('aria-hidden', isLimited);
+      views.limitedDataUsage.setAttribute('aria-hidden', !isLimited);
+
+      // Always data usage
+      leftPanel.setAttribute('aria-hidden', isDataUsageOnly);
+
+      // And the other view if applies...
+      if (isDataUsageOnly) {
+        widget.classList.add('full');
+
+      } else {
+        widget.classList.remove('full');
+        views.balance.setAttribute('aria-hidden', !isPrepaid);
+        views.telephony.setAttribute('aria-hidden', isPrepaid);
+      }
+
+      // Content for data statistics
+      var requestObj = { type: 'datausage' };
+      costcontrol.request(requestObj, function _onDataStatistics(result) {
+        debug(result);
+        var stats = result.data;
+        var data = roundData(stats.mobile.total);
+        if (isLimited) {
+
+          // UI elements
+          var leftTag = views.limitedDataUsage.querySelector('dt.start');
+          var leftValue = views.limitedDataUsage.querySelector('dd.start');
+          var rightTag = views.limitedDataUsage.querySelector('dt.end');
+          var rightValue = views.limitedDataUsage.querySelector('dd.end');
+          var progress = views.limitedDataUsage.querySelector('progress');
+
+          // Progress bar
+          var current = stats.mobile.total;
+          var limit = getDataLimit(settings);
+          debug(limit);
+          progress.setAttribute('value', Math.min(current, limit));
+          progress.setAttribute('max', Math.max(current, limit));
+
+          // State
+          views.limitedDataUsage.classList.remove('nearby-limit');
+          views.limitedDataUsage.classList.remove('reached-limit');
+
+          // Limit trespassed
+          var limitTresspased = (current > limit);
+          if (limitTresspased) {
+            views.limitedDataUsage.classList.add('reached-limit');
+
+          //  Warning percentage of the limit reached
+          } else if (current >= limit * costcontrol.getDataUsageWarning()) {
+            views.limitedDataUsage.classList.add('nearby-limit');
+          }
+
+          // Texts
+          var currentText = roundData(current);
+          currentText = _('magnitude', {
+            value: currentText[0],
+            unit: currentText[1]
+          });
+          var limitText = roundData(limit);
+          limitText = _('magnitude', {
+            value: limitText[0],
+            unit: limitText[1]
+          });
+          leftTag.textContent = limitTresspased ? _('limit-passed') : _('used');
+          leftValue.textContent = limitTresspased ? limitText : currentText;
+          rightTag.textContent = limitTresspased ? _('used') : _('limit');
+          rightValue.textContent = limitTresspased ? currentText : limitText;
+
+        } else {
+          // Texts
+          document.getElementById('mobile-usage-value').textContent =
+            _('magnitude', { value: data[0], unit: data[1] });
+          var meta = views.dataUsage.querySelector('.meta');
+          meta.innerHTML = '';
+          meta.appendChild(formatTimeHTML(stats.timestamp));
+        }
+        checkDataUsageNotification(settings, stats.mobile.total,
+          // inform driver in system we are finished to update the widget
+          function _done() {
+            debug('Data usage notification checked!');
+            hashMark = 1 - hashMark; // toogle between 0 and 1
+            window.location.hash = '#updateDone#' + hashMark;
+          }
+        );
+      });
+
+      // Content for balance or telephony
+      if (!isDataUsageOnly && !updateOnlyDataUsage) {
+        if (mode === 'PREPAID') {
+          updateBalance(settings.lastBalance,
+                        settings.lowLimit && settings.lowLimitThreshold);
+
+          requestObj = { type: 'balance' };
+          costcontrol.request(requestObj, function _onRequest(result) {
+            debug(result);
+            var status = result.status;
+            var balance = result.data;
+            setBalanceMode(status === 'error' ? 'warning' : 'updating');
+            updateBalance(balance,
+                          settings.lowLimit && settings.lowLimitThreshold);
+          });
+
+        } else if (mode === 'POSTPAID') {
+          requestObj = { type: 'telephony' };
+          costcontrol.request(requestObj, function _onRequest(result) {
+            var activity = result.data;
+            document.getElementById('telephony-calltime').textContent =
+              _('magnitude', {
+                value: computeTelephonyMinutes(activity),
+                unit: 'min'
+              }
+            );
+            document.getElementById('telephony-smscount').textContent =
+              _('magnitude', {
+                value: activity.smscount,
+                unit: 'SMS'
+              }
+            );
+            var meta = views.telephony.querySelector('.meta');
+            meta.innerHTML = '';
+            meta.appendChild(formatTimeHTML(activity.timestamp));
+          });
+        }
+      }
+    });
+  }
+
+  // Update the balance in balance view
+  function updateBalance(balance, limit) {
+
+    // Balance not available
+    if (balance === null) {
+      debug('Balance not available.');
+      document.getElementById('balance-credit')
+        .textContent = _('not-available');
+      views.balance.querySelector('.meta').innerHTML = '';
+      return;
+    }
+
+    // Balance available
+    document.getElementById('balance-credit').textContent = _('currency', {
+      value: balance.balance,
+      currency: ConfigManager.configuration.credit.currency
+    });
+
+    // Timestamp
+    var meta = views.balance.querySelector('.meta');
+    if (views.balance.classList.contains('updating')) {
+      meta.textContent = _('updating-ellipsis');
+    } else {
+      meta.innerHTML = '';
+      meta.appendChild(formatTimeHTML(balance.timestamp));
+    }
+
+    // Limits: reaching zero / low limit
+    if (balance.balance === 0) {
+      views.balance.classList.add('no-credit');
+
+    } else {
+      views.balance.classList.remove('no-credit');
+
+      if (limit && balance.balance < limit) {
+        views.balance.classList.add('low-credit');
+      } else {
+        views.balance.classList.remove('low-credit');
+      }
+    }
+  }
+
+
+  // Set warning / updating modes
+  var lastBalanceMode;
+  function setBalanceMode(mode) {
+    if (mode === lastBalanceMode) {
+      return;
+    }
+
+    lastBalanceMode = mode;
+    views.balance.classList.remove('updating');
+    views.balance.classList.remove('warning');
+
+    if (mode === 'warning') {
+      views.balance.classList.add('warning');
+    }
+
+    if (mode === 'updating') {
+      views.balance.classList.add('updating');
+    }
+  }
+
+  return {
+    init: function() {
+      Common.waitForDOMAndMessageHandler(window, onReady);
+    }
+  };
+
+}());
+
+Widget.init();</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

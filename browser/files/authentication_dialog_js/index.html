@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>authentication_dialog.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">71.22</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">132</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">27.24</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">0.99</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
+/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
+
+'use strict';
+
+var AuthenticationDialog = {
+
+  _confirmed: {},
+
+  // Get all elements when inited.
+  getAllElements: function ad_getAllElements() {
+
+    var toCamelCase = function toCamelCase(str) {
+      return str.replace(/\-(.)/g, function replacer(str, p1) {
+        return p1.toUpperCase();
+      });
+    };
+
+    var elementIDs = [
+      'http-authentication-dialog', 'http-authentication-username',
+      'http-authentication-password', 'http-authentication-message',
+      'http-authentication-ok', 'http-authentication-cancel'];
+
+    // Loop and add element with camel style name to Modal Dialog attribute.
+    elementIDs.forEach(function createElementRef(name) {
+      this[toCamelCase(name)] = document.getElementById(name);
+    }, this);
+  },
+
+  currentEvents: {},
+
+  init: function ad_init(bindToWindow) {
+    // Get all elements initially.
+    this.getAllElements();
+    var elements = this.elements;
+
+    this.boundToWindow = bindToWindow || false;
+
+    this.httpAuthenticationOk.addEventListener('click', this);
+    this.httpAuthenticationCancel.addEventListener('click', this);
+  },
+
+  // Default event handler
+  handleEvent: function ad_handleEvent(evt, origin) {
+    switch (evt.type) {
+      case 'mozbrowserusernameandpasswordrequired':
+        evt.preventDefault();
+
+        this.currentEvents[origin] = evt;
+
+        // Show authentication dialog only if
+        // the frame is currently displayed.
+        this.show(origin);
+        break;
+
+      case 'click':
+        if (evt.currentTarget === this.httpAuthenticationCancel) {
+          this.cancelHandler();
+        } else {
+          this.confirmHandler();
+        }
+        break;
+    }
+  },
+
+  // Show dialog and set message
+  show: function ad_show(origin) {
+    this.currentOrigin = origin;
+    var evt = this.currentEvents[origin];
+
+    var message = evt.detail.message;
+    this.httpAuthenticationDialog.classList.remove('hidden');
+
+    var _ = navigator.mozL10n.get;
+
+    // XXX: We don't have a better way to detect login failed.
+    if (this._confirmed[origin]) {
+      message = _('the-username-or-password-is-incorrect');
+      this.httpAuthenticationMessage.classList.add('error');
+    } else {
+      var l10nArgs = { host: evt.detail.host };
+      message = _('http-authentication-message', l10nArgs);
+      this.httpAuthenticationMessage.classList.remove('error');
+    }
+    this.httpAuthenticationMessage.textContent = message;
+
+    this.httpAuthenticationUsername.value = '';
+    this.httpAuthenticationPassword.value = '';
+    this.httpAuthenticationUsername.focus();
+  },
+
+  hide: function ad_hide() {
+    var evt = this.currentEvents[this.currentOrigin];
+    if (!evt)
+      return;
+    this.httpAuthenticationDialog.classList.add('hidden');
+    this.currentOrigin = null;
+  },
+
+  // When user clicks OK button on authentication dialog
+  confirmHandler: function ad_confirmHandler() {
+    var evt = this.currentEvents[this.currentOrigin];
+    evt.detail.authenticate(this.httpAuthenticationUsername.value,
+      this.httpAuthenticationPassword.value);
+    this.httpAuthenticationDialog.classList.add('hidden');
+
+    // To remember we had ever logged in.
+    this._confirmed[this.currentOrigin] = true;
+
+    delete this.currentEvents[this.currentOrigin];
+  },
+
+  // When user clicks cancel button on authentication dialog or
+  // when the user try to escape the dialog with the escape key
+  cancelHandler: function ad_cancelHandler() {
+    var evt = this.currentEvents[this.currentOrigin];
+
+    evt.detail.cancel();
+
+    if (this._confirmed[this.currentOrigin])
+      delete this._confirmed[this.currentOrigin];
+
+    delete this.currentEvents[this.currentOrigin];
+    this.httpAuthenticationDialog.classList.add('hidden');
+  },
+
+  originHasEvent: function(origin) {
+    return origin in this.currentEvents;
+  },
+
+  clear: function ad_clear(origin) {
+    if (this.currentEvents[origin])
+      delete this.currentEvents[origin];
+  }
+};</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>storage_watcher.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">67.13</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">146</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">35.50</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.15</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
+/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
+
+/**
+ * DeviceStorageWatcher listens for nsIDOMDeviceStorage.onchange events
+ * notifying about low device storage situations (see Bug 861921). When a
+ * 'onchange' event containing a 'low-disk-space' reason is received, we show a
+ * banner for a few seconds and pin a notification in the notifications center.
+ * When the reason of the 'onchange' event is 'available-disk-space', we remove
+ * the pinned notification, if one exists.
+ */
+
+'use strict';
+
+var DeviceStorageWatcher = {
+
+  init: function dsw_init() {
+    this._lowDeviceStorage = false;
+
+    this._ = navigator.mozL10n.get;
+
+    this._appStorage = navigator.getDeviceStorage('apps');
+    this._appStorage.addEventListener('change', this);
+
+    this._container = document.getElementById('storage-watcher-container');
+    this._container.onclick = this.containerClicked;
+
+    this._message = this._container.querySelector('.message');
+    this._availableSpace = this._container.querySelector('.available-space');
+  },
+
+  containerClicked: function dsw_containerClicked() {
+    // We redirect the user to the app permissions section of the settings app
+    // so she can uninstall 3rd party apps trying to recover from the low
+    // storage situation. This is not the best solution, but the only one that
+    // we have so far. In the future, we must expose how much storage each app
+    // consumes, so the user has a better idea of which apps are consuming
+    // more (see Bug 862408).
+    new MozActivity({
+      name: 'configure',
+      data: {
+        section: 'appPermissions'
+      }
+    });
+  },
+
+  hideNotification: function dsw_hideNotification() {
+    this._lowDeviceStorage = false;
+    if (this._container.classList.contains('displayed')) {
+      this._container.classList.remove('displayed');
+      NotificationScreen.decExternalNotifications();
+    }
+  },
+
+  displayNotification: function dsw_displayNotification() {
+    this._lowDeviceStorage = true;
+    if (!this._container.classList.contains('displayed')) {
+      this._container.classList.add('displayed');
+      NotificationScreen.incExternalNotifications();
+    }
+  },
+
+  lowDiskSpaceNotification: function dsw_lowDiskSpaceNotification(space) {
+    var msg = this._('low-device-storage');
+    var notification;
+    if (space && typeof space.size !== 'undefined' && space.unit) {
+      notification = msg + this._('free-space', {
+        value: space.size,
+        unit: space.unit
+      });
+    } else {
+      notification = msg + this._('unknown-free-space');
+    }
+    SystemBanner.show(notification);
+
+    this._message.textContent = msg;
+    this.updateAvailableSpace(space);
+    this.displayNotification();
+  },
+
+  updateAvailableSpace: function dsw_updateAvailableSpace(space) {
+    if (space && typeof space.size !== 'undefined' && space.unit) {
+      this._availableSpace.textContent = this._('free-space', {
+        value: space.size,
+        unit: space.unit
+      });
+    } else {
+      this._availableSpace.textContent = this._('unknown-free-space');
+    }
+  },
+
+  /**
+   * Helper function to format the value returned by the
+   * nsIDOMDeviceStorage.freeSpace call in a more readable way.
+   */
+  formatSize: function dsw_formatSize(size) {
+    if (size === undefined || isNaN(size)) {
+      return;
+    }
+
+    var units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    var i = 0;
+    while (size >= 1024 && i < units.length) {
+      size /= 1024;
+      ++i;
+    }
+
+    var sizeString = size.toFixed((size < 1024 * 1024) ? 0 : 1);
+    var sizeDecimal = parseFloat(sizeString);
+
+    return {
+      size: sizeDecimal,
+      unit: this._('byteUnit-' + units[i])
+    };
+  },
+
+  handleEvent: function dsw_handleEvent(evt) {
+    if (evt.type !== 'change') {
+      return;
+    }
+
+    switch (evt.reason) {
+      // We get 'onchange' events with a 'low-disk-space' reason when a
+      // modification of a file is identified while the device is in a low
+      // storage situation. When we get the first notification, we have to
+      // show a system banner and pin a notification in the notifications
+      // center, containing the remaining free space. Consecutive events with
+      // a 'low-disk-space' reason will only update the remaining free space.
+      case 'low-disk-space':
+        var self = this;
+        var req = self._appStorage.freeSpace();
+        req.onsuccess = function onsuccess() {
+          var free;
+          if (typeof req.result !== 'undefined') {
+            free = self.formatSize(req.result);
+          }
+          if (self._lowDeviceStorage) {
+            self.updateAvailableSpace(free);
+            return;
+          }
+          self.lowDiskSpaceNotification(free);
+        };
+        req.onerror = function onerror() {
+          self.lowDiskSpaceNotification();
+        };
+        break;
+
+      case 'available-disk-space':
+        this.hideNotification();
+        break;
+    }
+  }
+};
+
+window.addEventListener('localized', function startup(evt) {
+  window.removeEventListener('localized', startup);
+  DeviceStorageWatcher.init();
+});</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

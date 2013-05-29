@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>contacts_shortcuts.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">65.72</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">149</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">28.14</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.23</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">'use strict';
+
+var utils = window.utils || {};
+
+if (!utils.alphaScroll) {
+  (function initScrollbar(doc) {
+    var alphaScroll = utils.alphaScroll = {};
+
+    var scrollToCallback, jumper, overlay,
+        overlayStyle, groupSelector;
+
+    var isScrolling = false;
+    var alreadyRendered = false;
+
+    // Callback invoked when scrolling is neded
+    var P_SCROLLTO_CB = 'scrollToCb';
+    // Element that represents the alpha scroll bar
+    var P_JUMPER = 'jumper';
+    // Element that shows the current letter
+    var P_OVERLAY = 'overlay';
+    // Selector that will allow to get the group that should be scrolled to
+    // Group will be identified by this selector plus the corresponding letter
+    var P_GROUP_SELECTOR = 'groupSelector';
+
+    var TRANSITION_DELAY = '0.3s';
+    var TRANSITION_DURATION = '0.2s';
+
+    var RESET_TRANSITION = '0s';
+
+    var offset = 0, lastY = 0;
+
+    var isTouch = 'ontouchstart' in window;
+    var touchstart = isTouch ? 'touchstart' : 'mousedown';
+    var touchmove = isTouch ? 'touchmove' : 'mousemove';
+    var touchend = isTouch ? 'touchend' : 'mouseup';
+
+    var getY = (function getYWrapper() {
+      return isTouch ? function(e) { return e.touches[0].pageY } :
+                       function(e) { return e.pageY };
+    })();
+
+    var getTarget = (function getTargetWrapper() {
+      if (isTouch) {
+        return function(e) {
+          var touch = e.touches[0];
+          return document.elementFromPoint(touch.pageX, touch.pageY);
+        }
+      } else {
+        return function(e) {
+          return e.target;
+        }
+      }
+    })();
+
+    alphaScroll.init = function(params) {
+      if (alreadyRendered) {
+        return;
+      }
+      scrollToCallback = params[P_SCROLLTO_CB];
+      jumper = params[P_JUMPER];
+      overlay = params[P_OVERLAY];
+      groupSelector = params[P_GROUP_SELECTOR];
+
+      overlay.textContent = '';
+      overlayStyle = overlay.style;
+
+      jumper.addEventListener(touchstart, scrollStart);
+      jumper.addEventListener(touchmove, scrollTo);
+      jumper.addEventListener(touchend, scrollEnd);
+
+      var alphabet = [];
+      for (var i = 65; i <= 90; i++) {
+        alphabet.push({ anchor: String.fromCharCode(i) });
+      }
+      alphabet.push({
+        anchor: '#'
+      });
+      utils.templates.append(jumper, alphabet);
+      alreadyRendered = true;
+    };
+
+    function scrollStart(evt) {
+      evt.preventDefault();
+      evt.stopPropagation();
+      offset = offset || jumper.querySelector('[data-anchor]').offsetHeight;
+      overlayStyle.MozTransitionDelay = RESET_TRANSITION;
+      overlayStyle.MozTransitionDuration = RESET_TRANSITION;
+      overlayStyle.opacity = '1';
+      isScrolling = true;
+      scrollTo(evt);
+    }
+
+    function scrollEnd(evt) {
+      evt.preventDefault();
+      evt.stopPropagation();
+      overlayStyle.MozTransitionDelay = TRANSITION_DELAY;
+      overlayStyle.MozTransitionDuration = TRANSITION_DURATION;
+      overlayStyle.opacity = '0';
+      overlay.textContent = null;
+      isScrolling = false;
+    }
+
+    function scrollTo(evt) {
+      evt.preventDefault();
+      evt.stopPropagation();
+
+      if (!isScrolling) {
+        return;
+      }
+
+      var currentY = getY(evt);
+      if (Math.abs(lastY - currentY) < offset) {
+        return;
+      }
+
+      lastY = currentY;
+
+      var dataset = getTarget(evt).dataset;
+
+      // Render
+      if (dataset.letter) {
+        overlay.textContent = dataset.letter;
+      } else if (dataset.img) {
+        overlay.textContent = '';
+        var img = new Image();
+        img.src = 'style/images/' + dataset.img;
+        overlay.appendChild(img);
+      }
+
+      var anch = dataset.anchor;
+      var selector = anch === 'group-#' ? 'group-und' : anch;
+      var domTarget = doc.querySelector('#' + selector);
+      if (!domTarget)
+        return;
+
+      scrollToCallback(domTarget, selector.replace('group-', ''));
+    }
+
+    // Cache images refered in 'data-img'es
+    var imgCache = (function(doc) {
+      var images = doc.querySelectorAll('li[data-img]');
+      Object.keys(images).forEach(function(value) {
+        var img = new Image();
+        img.src = 'contacts/style/images/' + images[value].dataset.img;
+      });
+    }(doc));
+
+  })(document);
+}</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

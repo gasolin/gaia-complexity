@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>storage.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">70.19</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">210</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">36.16</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.90</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/* -*- Mode: js; js-indent-level: 2; indent-tabs-mode: nil -*- */
+/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
+
+'use strict';
+
+var Storage = {
+  appStorage: null,
+  defaultMediaVolume: null,
+  defaultVolumeState: 'available',
+
+  init: function storage_init() {
+    var self = this;
+
+    // ums master switch on root panel
+    var umsSettingKey = 'ums.enabled';
+    this.umsEnabledCheckBox = document.getElementById('ums-switch-root');
+    this.umsEnabledInfoBlock = document.getElementById('ums-desc-root');
+    this.umsEnabledCheckBox.addEventListener('change', this);
+    Settings.getSettings(function(allSettings) {
+      self.umsEnabledCheckBox.checked = allSettings[umsSettingKey] || false;
+      self.updateUmsInfo();
+    });
+    Settings.mozSettings.addObserver(umsSettingKey, function(evt) {
+      self.umsEnabledCheckBox.checked = evt.settingValue;
+      self.updateUmsInfo();
+    });
+
+    // application storage
+    this.appStorage = navigator.getDeviceStorage('apps');
+    this.appStorageDesc = document.getElementById('application-storage-desc');
+    this.updateAppFreeSpace();
+
+    // media storage
+    // Show default media volume state on root panel
+    this.mediaStorageDesc = document.getElementById('media-storage-desc');
+    function setDefaultMediaVolume(defaultName) {
+      if (self.defaultMediaVolume) {
+        self.defaultMediaVolume.removeEventListener('change', self);
+      }
+      self.defaultMediaVolume = self.getDefaultVolume(defaultName);
+      self.defaultMediaVolume.addEventListener('change', self);
+      self.updateMediaStorageInfo();
+    }
+    var defaultMediaVolumeKey = 'device.storage.writable.name';
+    Settings.getSettings(function(allSettings) {
+      setDefaultMediaVolume(allSettings[defaultMediaVolumeKey]);
+    });
+    Settings.mozSettings.addObserver(defaultMediaVolumeKey, function(evt) {
+      setDefaultMediaVolume(evt.settingValue);
+    });
+
+    window.addEventListener('localized', this);
+  },
+
+  handleEvent: function storage_handleEvent(evt) {
+    switch (evt.type) {
+      case 'localized':
+        this.updateAppFreeSpace();
+        this.updateMediaStorageInfo();
+        break;
+      case 'change':
+        if (evt.target.id === 'ums-switch-root') {
+          this.umsMasterSettingChanged(evt);
+        } else {
+          // we are handling storage state changes
+          // possible state: available, unavailable, shared
+          this.updateMediaStorageInfo();
+        }
+        break;
+    }
+  },
+
+  // ums info
+  updateUmsInfo: function storage_updateUmsInfo() {
+    var _ = navigator.mozL10n.get;
+    if (this.umsEnabledCheckBox.checked) {
+      //TODO list all enabled volume name
+      this.umsEnabledInfoBlock.textContent = _('enabled');
+      this.umsEnabledInfoBlock.dataset.l10nId = 'enabled';
+    } else if (this.defaultVolumeState === 'shared') {
+      this.umsEnabledInfoBlock.textContent = _('umsUnplugToDisable');
+      this.umsEnabledInfoBlock.dataset.l10nId = 'umsUnplugToDisable';
+    } else {
+      this.umsEnabledInfoBlock.textContent = _('disabled');
+      this.umsEnabledInfoBlock.dataset.l10nId = 'disabled';
+    }
+  },
+  umsMasterSettingChanged: function storage_umsMasterSettingChanged(evt) {
+    var _ = navigator.mozL10n.get;
+    var checkbox = evt.target;
+    var cset = {};
+    var umsSettingKey = 'ums.enabled';
+    var warningKey = 'ums-turn-on-warning';
+    if (checkbox.checked) {
+      window.asyncStorage.getItem(warningKey, function(showed) {
+        var msg = _('turn-on-ums-confirm');
+        if (!showed && !window.confirm(msg)) {
+          cset[umsSettingKey] = false;
+          checkbox.checked = false;
+        } else {
+          cset[umsSettingKey] = true;
+          if (!showed) {
+            window.asyncStorage.setItem(warningKey, true);
+          }
+        }
+        Settings.mozSettings.createLock().set(cset);
+      });
+    } else {
+      cset[umsSettingKey] = false;
+      Settings.mozSettings.createLock().set(cset);
+    }
+  },
+
+  // Application Storage
+  updateAppFreeSpace: function storage_updateAppFreeSpace() {
+    var self = this;
+    this.getFreeSpace(this.appStorage, function(freeSpace) {
+      DeviceStorageHelper.showFormatedSize(self.appStorageDesc,
+        'availableSize', freeSpace);
+    });
+  },
+
+  // Media Storage
+  updateMediaStorageInfo: function storage_updateMediaStorageInfo() {
+    if (!this.defaultMediaVolume)
+      return;
+
+    var self = this;
+    this.defaultMediaVolume.available().onsuccess = function(evt) {
+      var _ = navigator.mozL10n.get;
+      var state = evt.target.result;
+      var firstVolume = navigator.getDeviceStorages('sdcard')[0];
+      // if the default storage is unavailable, and it's not the
+      // internal storage, we show the internal storage status instead.
+      if (state === 'unavailable' &&
+          self.defaultMediaVolume.storageName !== firstVolume.storageName) {
+        firstVolume.available().onsuccess = function(e) {
+          self.updateVolumeState(firstVolume, e.target.result);
+        };
+      } else {
+        self.updateVolumeState(self.defaultMediaVolume, state);
+      }
+    };
+  },
+
+  updateVolumeState: function storage_updateVolumeState(volume, state) {
+    var _ = navigator.mozL10n.get;
+    this.defaultVolumeState = state;
+    this.updateUmsInfo();
+    switch (state) {
+      case 'available':
+        this.updateMediaFreeSpace(volume);
+        this.lockMediaStorageMenu(false);
+        break;
+
+      case 'shared':
+        this.mediaStorageDesc.textContent = '';
+        this.mediaStorageDesc.dataset.l10nId = '';
+        this.lockMediaStorageMenu(false);
+        break;
+
+      case 'unavailable':
+        this.mediaStorageDesc.textContent = _('no-storage');
+        this.mediaStorageDesc.dataset.l10nId = 'no-storage';
+        this.lockMediaStorageMenu(true);
+        break;
+    }
+  },
+
+  updateMediaFreeSpace: function storage_updateMediaFreeSpace(volume) {
+    var self = this;
+    this.getFreeSpace(volume, function(freeSpace) {
+      DeviceStorageHelper.showFormatedSize(self.mediaStorageDesc,
+        'availableSize', freeSpace);
+    });
+  },
+
+  lockMediaStorageMenu: function storage_setMediaMenuState(lock) {
+    var mediaStorageSection = document.getElementById('media-storage-section');
+    if (lock) {
+      mediaStorageSection.classList.add('disabled');
+    } else {
+      mediaStorageSection.classList.remove('disabled');
+    }
+  },
+
+  // util function
+  getDefaultVolume: function storage_getDefaultVolume(name) {
+    // Per API design, all media type return the same volumes.
+    // So we use 'sdcard' here for no reason.
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=856782#c10
+    var volumes = navigator.getDeviceStorages('sdcard');
+    if (!name || name === '') {
+      return volumes[0];
+    }
+    for (var i = 0; i < volumes.length; ++i) {
+      if (volumes[i].storageName === name) {
+        return volumes[i];
+      }
+    }
+    return volumes[0];
+  },
+
+  getFreeSpace: function storage_getFreeSpace(storage, callback) {
+    storage.freeSpace().onsuccess = function(e) {
+      if (callback)
+        callback(e.target.result);
+    };
+  }
+
+};
+
+navigator.mozL10n.ready(Storage.init.bind(Storage));</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

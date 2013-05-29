@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>tone_player.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">65.52</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">150</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">48.27</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.09</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">'use strict';
+
+var kKeyToneFrames = 1200;
+
+var TonePlayer = {
+  _frequencies: null, // from gTonesFrequencies
+  _sampleRate: 8000, // number of frames/sec
+  _position: null, // number of frames generated
+  _intervalID: null, // id for the audio loop's setInterval
+  _stopping: false,
+
+  init: function tp_init(channel) {
+    this.setChannel(channel);
+  },
+
+  ensureAudio: function tp_ensureAudio() {
+   if (this._audio)
+     return;
+
+   this._audio = new Audio();
+   this._audio.volume = 0.5;
+  },
+
+  trashAudio: function tp_trashAudio() {
+    this.stop();
+    delete this._audio;
+  },
+
+  // Generating audio frames for the 2 given frequencies
+  generateFrames: function tp_generateFrames(soundData, shortPress) {
+    var position = this._position;
+
+    var kr = 2 * Math.PI * this._frequencies[0] / this._sampleRate;
+    var kc = 2 * Math.PI * this._frequencies[1] / this._sampleRate;
+
+    for (var i = 0; i < soundData.length; i++) {
+      // Poor man's ADSR
+      // Only short press have a release phase because we don't know
+      // when the long press will end
+      var factor;
+      if (position < 200) {
+        // Attack
+        factor = position / 200;
+      } else if (position > 200 && position < 400) {
+        // Decay
+        factor = 1 - ((position - 200) / 200) * 0.3; // Decay factor
+      } else if (shortPress && position > 800) {
+        // Release, short press only
+        factor = 0.7 - ((position - 800) / 400 * 0.7);
+      } else {
+        // Sustain
+        factor = 0.7;
+      }
+
+      soundData[i] = (Math.sin(kr * position) +
+                      Math.sin(kc * position)) / 2 * factor;
+      position++;
+    }
+
+    this._position += soundData.length;
+  },
+
+  start: function tp_start(frequencies, shortPress) {
+    this._frequencies = frequencies;
+    this._position = 0;
+    this._stopping = false;
+
+    // Already playing
+    if (this._intervalID) {
+      return;
+    }
+
+    this._audio.mozSetup(1, this._sampleRate);
+
+    // Writing 150ms of sound (duration for a short press)
+    var initialSoundData = new Float32Array(kKeyToneFrames);
+    this.generateFrames(initialSoundData, shortPress);
+
+    var wrote = this._audio.mozWriteAudio(initialSoundData);
+    var start = 0;
+
+    this._intervalID = setInterval((function audioLoop() {
+      start = start + wrote;
+      // Continuing playing until .stop() is called for long press in calling
+      // state. Or just play one round of data in non calling state.
+      if (this._stopping || (start == kKeyToneFrames && shortPress == true)) {
+       if (this._intervalID == null)
+         return;
+
+        clearInterval(this._intervalID);
+        this._intervalID = null;
+        return;
+      }
+
+      // If shortPress is false then we repeat the tone in call state.
+      if (start == kKeyToneFrames) {
+        start = 0;
+        // Re-generateFrames with sustaining sound.
+        this.generateFrames(initialSoundData);
+      }
+
+      if (this._audio != null)
+        wrote = this._audio.mozWriteAudio(
+          initialSoundData.subarray(start, kKeyToneFrames));
+    }).bind(this), 30); // Avoiding under-run issues by keeping this low
+  },
+
+  stop: function tp_stop() {
+    this._stopping = true;
+
+    clearInterval(this._intervalID);
+    this._intervalID = null;
+
+    if (this._audio != null)
+      this._audio.src = '';
+  },
+
+  // Takes an array of steps, a step being:
+  // - frequence for canal 1
+  // - frequence for canal 2
+  // - duration
+  playSequence: function tp_playSequence(sequence, index) {
+    if (typeof index === 'undefined') {
+      index = 0;
+    }
+
+    if (index >= sequence.length) {
+      return;
+    }
+
+    this.ensureAudio();
+
+    var step = sequence[index];
+    var frequencies = step.slice(0, 2);
+    var duration = step[2];
+    this.start(frequencies, false);
+
+    setTimeout(function nextStep(self) {
+      self.stop();
+      self.playSequence(sequence, (index + 1));
+    }, duration, this);
+  },
+
+  setChannel: function tp_setChannel(channel) {
+    this.ensureAudio();
+    if (channel && (this._audio.mozAudioChannelType !== channel)) {
+      this._audio.mozAudioChannelType = channel;
+    }
+  }
+};</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>
