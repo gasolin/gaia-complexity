@@ -63,7 +63,7 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">25.48</p>
+      <p class="stat">25.20</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
@@ -149,7 +149,7 @@ var AirplaneMode = {
 
   init: function apm_init() {
     var mobileConnection = getMobileConnection();
-    var wifiManager = getWifiManager();
+    var wifiManager = WifiHelper.getWifiManager();
 
     var settings = Settings.mozSettings;
     if (!settings)

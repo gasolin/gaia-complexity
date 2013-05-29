@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.26</p>
+      <p class="stat">64.61</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">802</p>
+      <p class="stat">809</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">72.41</p>
+      <p class="stat">75.21</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">7.92</p>
+      <p class="stat">8.06</p>
     </div>
   </div>
 </div>
@@ -102,31 +102,48 @@
  */
 
 function AnimatedIcon(element, path, frames, delay) {
+  var scaleRatio = window.innerWidth / 320;
+  var baseSize = 16 * scaleRatio;
+
+  element.width = baseSize;
+  element.height = baseSize;
+
   var context = element.getContext('2d');
 
   this.frame = 1;
   this.frames = frames;
   this.timerId = null;
+  this._started = false;
+  var image;
 
   // Load the image and paint the first frame
-  var image = new Image();
-  image.src = path;
-  image.onload = function() {
-    var w = image.width;
-    var h = image.height / frames;
-
-    context.drawImage(image, 0, 0, w, h, 0, 0, w, h);
-  };
+  function init() {
+    image = new Image();
+    image.src = path;
+    image.onload = function() {
+      var w = image.width;
+      var h = image.height / frames;
+      context.drawImage(image, 0, 0, w, h, 0, 0, baseSize, baseSize);
+    };
+  }
 
   this.start = function() {
     var self = this;
+    // XXX: If we draw canvas during device start up,
+    // it will face following issue.
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=849736
+    if (!self._started) {
+      self._started = true;
+      init();
+    }
 
     if (this.timerId == null) {
       this.timerId = setInterval(function() {
           var w = image.width;
           var h = image.height / frames;
-
-          context.drawImage(image, 0, self.frame * h, w, h, 0, 0, w, h);
+          context.clearRect(0, 0, baseSize, baseSize);
+          context.drawImage(image, 0, self.frame * h, w, h, 0, 0,
+            baseSize, baseSize);
           self.frame++;
 
           if (self.frame == self.frames) {
@@ -324,26 +341,21 @@ var StatusBar = {
     // Listen to 'moztimechange'
     window.addEventListener('moztimechange', this);
 
-    // Listen to 'appwillclose', 'appopen', 'home', 'holdhome', 'lock', 'unlock'
-    // to determine the visible state of statusbar
-    window.addEventListener('home', this);
-    window.addEventListener('holdhome', this);
-    window.addEventListener('appwillclose', this);
-    window.addEventListener('appopen', this);
+    // Listen to 'lock', 'unlock', and 'lockpanelchange' from lockscreen.js in
+    // order to correctly set the visibility of the statusbar clock depending
+    // on the active lockscreen panel
     window.addEventListener('lock', this);
     window.addEventListener('unlock', this);
-
-    // Listen to 'mozfullscreenchange' to see if we should hide statusbar
-    window.addEventListener('mozfullscreenchange', this);
+    window.addEventListener('lockpanelchange', this);
 
     this.systemDownloadsCount = 0;
 
     // Create the objects used to animate the statusbar-network-activity and
     // statusbar-system-downloads canvas elements
     this.networkActivityAnimation = new AnimatedIcon(this.icons.networkActivity,
-      'style/statusbar/images/network-activity-flat.png', 6, 200);
+      '/style/statusbar/images/network-activity-flat.png', 6, 200);
     this.systemDownloadsAnimation = new AnimatedIcon(this.icons.systemDownloads,
-      'style/statusbar/images/system-downloads-flat.png', 8, 130);
+      '/style/statusbar/images/system-downloads-flat.png', 8, 130);
 
     this.setActive(true);
   },
@@ -352,6 +364,32 @@ var StatusBar = {
     switch (evt.type) {
       case 'screenchange':
         this.setActive(evt.detail.screenEnabled);
+        break;
+
+      case 'lock':
+        // Hide the clock in the statusbar when screen is locked
+        this.icons.time.hidden = true;
+        this.clock.stop();
+        break;
+
+      case 'unlock':
+        // Display the clock in the statusbar when screen is unlocked
+        this.icons.time.hidden = false;
+        this.clock.start(this.update.time.bind(this));
+        break;
+
+      case 'lockpanelchange':
+        if (this.screen.classList.contains('locked')) {
+          // Display the clock in the statusbar if on Emergency Call screen
+          var isHidden = (evt.detail.panel == 'emergency-call') ? false : true;
+          this.icons.time.hidden = isHidden;
+
+          if (isHidden) {
+            this.clock.stop();
+          } else {
+            this.clock.start(this.update.time.bind(this));
+          }
+        }
         break;
 
       case 'chargingchange':
@@ -421,36 +459,7 @@ var StatusBar = {
       case 'moznetworkdownload':
         this.update.networkActivity.call(this);
         break;
-
-      case 'lock':
-        this.clock.stop();
-        break;
-
-      case 'appopen':
-      case 'mozfullscreenchange':
-      case 'unlock':
-        if (this.screen.classList.contains('fullscreen-app') ||
-            document.mozFullScreen) {
-          this.hide();
-        }
-
-        this.clock.start(this.update.time.bind(this));
-        break;
-
-      case 'appwillclose':
-      case 'home':
-      case 'holdhome':
-        this.show();
-        break;
     }
-  },
-
-  show: function sb_show() {
-    this.element.classList.remove('hidden');
-  },
-
-  hide: function sb_hide() {
-    this.element.classList.add('hidden');
   },
 
   setActive: function sb_setActive(active) {
@@ -486,9 +495,7 @@ var StatusBar = {
       window.addEventListener('moznetworkupload', this);
       window.addEventListener('moznetworkdownload', this);
 
-      if (LockScreen.locked) {
-        this.show();
-      } else {
+      if (!LockScreen.locked) {
         // Start refreshing the clock only if it's visible
         this.clock.start(this.update.time.bind(this));
       }

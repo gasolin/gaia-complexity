@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">68.16</p>
+      <p class="stat">67.83</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">566</p>
+      <p class="stat">561</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">51.07</p>
+      <p class="stat">50.96</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">4.87</p>
+      <p class="stat">4.81</p>
     </div>
   </div>
 </div>
@@ -509,7 +509,7 @@ var Calls = (function(window, document, undefined) {
     });
   }
 
-  var callWaitingItemListener = function (evt) {
+  var callWaitingItemListener = function(evt) {
     var alertPanel = document.querySelector('#call .cw-alert');
     var confirmInput =
       alertPanel.querySelector('.cw-alert-checkbox-label input');
@@ -625,19 +625,19 @@ var Calls = (function(window, document, undefined) {
   }
 
   // Call subpanel navigation control.
-  var oldHash = document.location.hash || '#root';
-  window.addEventListener('hashchange', function() {
+  window.addEventListener('panelready', function(e) {
     // If navigation is from #root to #call panels then update UI always.
-    if (document.location.hash === '#call' &&
-        !oldHash.startsWith('#call-cf-')) {
-      if (!updatingInProgress) {
-        updateCallWaitingItemState(
-          function hashchange_updateCallWaitingItemState() {
-            updateCallForwardingSubpanels();
-        });
-      }
+    if (e.detail.current !== '#call' ||
+        e.detail.previous.startsWith('#call-cf-')) {
+      return;
     }
-    oldHash = document.location.hash;
+
+    if (!updatingInProgress) {
+      updateCallWaitingItemState(
+        function hashchange_updateCallWaitingItemState() {
+          updateCallForwardingSubpanels();
+      });
+    }
   });
 
   // Public API.
@@ -647,12 +647,7 @@ var Calls = (function(window, document, undefined) {
       initCallWaiting();
       initCallForwarding();
 
-      updateCallWaitingItemState(
-        function init_updateCallWaitingItemState() {
-          updateCallForwardingSubpanels(
-            function init_updateCallForwardingSubpanels() {
-              setTimeout(initCallForwardingObservers, 500);
-      })});
+      setTimeout(initCallForwardingObservers, 500);
     }
   };
 })(this, document);

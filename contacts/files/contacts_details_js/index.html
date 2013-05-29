@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">63.25</p>
+      <p class="stat">63.07</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">512</p>
+      <p class="stat">520</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">54.08</p>
+      <p class="stat">54.11</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">5.83</p>
+      <p class="stat">5.94</p>
     </div>
   </div>
 </div>
@@ -176,10 +176,12 @@ contacts.Details = (function() {
       contactDetails.classList.add('up');
       cover.classList.add('up');
 
+      var max_margin = Math.round(150 * SCALE_RATIO);
+
       var onMouseMove = function onMouseMove(event) {
         var event = event.changedTouches[0];
         var newMargin = event.clientY - startPosition;
-        if (newMargin > 0 && newMargin < 150) {
+        if (newMargin > 0 && newMargin < max_margin) {
           contactDetails.classList.remove('up');
           cover.classList.remove('up');
           var calc = 'calc(' + initMargin + 'rem + ' + newMargin + 'px)';
@@ -246,8 +248,9 @@ contacts.Details = (function() {
 
     detailsName.textContent = contact.name;
     contactDetails.classList.remove('no-photo');
+    contactDetails.classList.remove('fb-contact');
     contactDetails.classList.remove('up');
-    listContainer.innerHTML = '';
+    utils.dom.removeChildNodes(listContainer);
 
     renderFavorite(contact);
     renderOrg(contact);
@@ -311,6 +314,7 @@ contacts.Details = (function() {
        cList.getContactById(contact.id,
                            function onSuccess(savedContact, enrichedContact) {
         renderFavorite(savedContact);
+        setContact(savedContact);
         favoriteMessage.style.pointerEvents = 'auto';
       }, function onError() {
         console.error('Error reloading contact');
@@ -568,9 +572,13 @@ contacts.Details = (function() {
 
   var renderPhoto = function cd_renderPhoto(contact) {
     contactDetails.classList.remove('up');
+    if (isFbContact) {
+      contactDetails.classList.add('fb-contact');
+    }
     if (contact.photo && contact.photo.length > 0) {
       contactDetails.classList.add('up');
-      var clientHeight = contactDetails.clientHeight - (initMargin * 10);
+      var clientHeight = contactDetails.clientHeight -
+          (initMargin * 10 * SCALE_RATIO);
       if (detailsInner.offsetHeight < clientHeight) {
         cover.style.overflow = 'hidden';
       } else {

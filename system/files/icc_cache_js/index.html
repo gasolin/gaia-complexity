@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">71.28</p>
+      <p class="stat">71.15</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">89</p>
+      <p class="stat">97</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">14.63</p>
+      <p class="stat">15.51</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">0.65</p>
+      <p class="stat">0.67</p>
     </div>
   </div>
 </div>
@@ -118,7 +118,15 @@
     return;
   }
 
-  var icc = window.navigator.mozMobileConnection.icc;
+  // See bug 859712
+  // To have the backward compatibility for bug 859220.
+  // If we could not get iccManager from navigator,
+  // try to get it from mozMobileConnection.
+  // 'window.navigator.mozMobileConnection.icc' can be dropped
+  // after bug 859220 is landed.
+  var icc = window.navigator.mozIccManager ||
+            window.navigator.mozMobileConnection.icc;
+
   // Remove previous menu
   var resetApplications = window.navigator.mozSettings.createLock().set({
     'icc.applications': '{}'
@@ -168,7 +176,7 @@
                 }, this);
               };
             }
-            if (WindowManager.isFtuRunning()) {
+            if (FtuLauncher.isFtuRunning()) {
               // Delay the stk command until FTU is done
               window.addEventListener('ftudone', function ftudone() {
                 debug('ftu is done!');

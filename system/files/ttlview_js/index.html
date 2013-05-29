@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">79.25</p>
+      <p class="stat">74.58</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">46</p>
+      <p class="stat">77</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">14.15</p>
+      <p class="stat">23.22</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">0.36</p>
+      <p class="stat">0.58</p>
     </div>
   </div>
 </div>
@@ -105,30 +105,61 @@ var TTLView = {
   hide: function tv_hide() {
     if (this.element)
       this.element.style.visibility = 'hidden';
+
+    window.removeEventListener('appwillopen', this);
+    window.removeEventListener('apploadtime', this);
+    window.removeEventListener('activitywillopen', this);
+    window.removeEventListener('activityloadtime', this);
   },
 
   show: function tv_show() {
-    var element = this.element;
-    if (!element) {
-      element = document.createElement('div');
-      element.id = 'debug-ttl';
-      element.innerHTML = '00000';
-      element.dataset.zIndexLevel = 'debug-ttl';
+    if (!this.element)
+      this.createElement();
+    this.element.style.visibility = 'visible';
 
-      this.element = element;
-      document.getElementById('screen').appendChild(element);
+    // this is fired when the app launching is initialized
+    window.addEventListener('appwillopen', this);
+    window.addEventListener('apploadtime', this);
 
-      // this is fired when the app launching is initialized
-      window.addEventListener('appwillopen', function willopen(e) {
-        element.innerHTML = '00000';
-      });
+    // this is to calculate the load time of inline activity
+    window.addEventListener('activitywillopen', this);
+    window.addEventListener('activityloadtime', this);
+  },
 
-      window.addEventListener('apploadtime', function apploadtime(e) {
-        element.innerHTML = e.detail.time + ' [' + e.detail.type + ']';
-      });
+  createElement: function tv_createElement() {
+    var element = document.createElement('div');
+    element.id = 'debug-ttl';
+    element.innerHTML = '00000';
+    element.dataset.zIndexLevel = 'debug-ttl';
+
+    this.element = element;
+    document.getElementById('screen').appendChild(element);
+  },
+
+  handleEvent: function tv_handleEvent(evt) {
+    switch (evt.type) {
+      case 'apploadtime':
+      case 'activityloadtime':
+        this.updateLoadtime(evt.detail.time, evt.detail.type);
+        break;
+
+      case 'appwillopen':
+      case 'activitywillopen':
+        this.resetLoadtime();
+        break;
     }
+  },
 
-    element.style.visibility = 'visible';
+  resetLoadtime: function tv_resetLoadtime() {
+    if (!this.element)
+      this.createElement();
+    this.element.innerHTML = '00000';
+  },
+
+  updateLoadtime: function tv_updateLoadtime(time, type) {
+    if (!this.element)
+      this.createElement();
+    this.element.innerHTML = time + ' [' + type + ']';
   },
 
   toggle: function tv_toggle() {

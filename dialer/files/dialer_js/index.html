@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">71.55</p>
+      <p class="stat">72.01</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">544</p>
+      <p class="stat">537</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">36.97</p>
+      <p class="stat">36.42</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">4.17</p>
+      <p class="stat">4.08</p>
     </div>
   </div>
 </div>
@@ -150,9 +150,6 @@ var CallHandler = (function callHandler() {
 
     activity.postResult({ status: 'accepted' });
   }
-  if (window.navigator.mozSetMessageHandler) {
-    window.navigator.mozSetMessageHandler('activity', handleActivity);
-  }
 
   /* === Notifications support === */
   function handleNotification(evt) {
@@ -166,9 +163,6 @@ var CallHandler = (function callHandler() {
       window.location.hash = '#recents-view';
     };
   }
-  if (window.navigator.mozSetMessageHandler) {
-    window.navigator.mozSetMessageHandler('notification', handleNotification);
-  }
 
   function handleNotificationRequest(number) {
     loader.load('/dialer/js/utils.js', function() {
@@ -181,7 +175,7 @@ var CallHandler = (function callHandler() {
             body = _('from-withheld-number');
           } else if (contact) {
             var primaryInfo = Utils.getPhoneNumberPrimaryInfo(matchingTel,
-                                                              contact);
+              contact);
             if (primaryInfo) {
               if (primaryInfo !== matchingTel.value) {
                 body = _('from-contact', {contact: primaryInfo});
@@ -189,7 +183,7 @@ var CallHandler = (function callHandler() {
                 body = _('from-number', {number: primaryInfo});
               }
             } else {
-                body = _('from-withheld-number');
+              body = _('from-withheld-number');
             }
           } else {
             body = _('from-number', {number: number});
@@ -240,9 +234,6 @@ var CallHandler = (function callHandler() {
 
     openCallScreen();
   }
-  if (window.navigator.mozSetMessageHandler) {
-    window.navigator.mozSetMessageHandler('telephony-new-call', newCall);
-  }
 
   /* === Bluetooth Support === */
   function btCommandHandler(message) {
@@ -271,18 +262,10 @@ var CallHandler = (function callHandler() {
       btCommandsToForward.push(command);
     }
   }
-  if (window.navigator.mozSetMessageHandler) {
-    window.navigator.mozSetMessageHandler('bluetooth-dialer-command',
-                                           btCommandHandler);
-  }
 
   /* === Headset Support === */
   function headsetCommandHandler(message) {
     sendCommandToCallScreen('HS', message);
-  }
-  if (window.navigator.mozSetMessageHandler) {
-    window.navigator.mozSetMessageHandler('headset-button',
-                                          headsetCommandHandler);
   }
 
   /*
@@ -457,7 +440,7 @@ var CallHandler = (function callHandler() {
   }
 
   /* === MMI === */
-  function initMMI() {
+  function init() {
     loader.load(['/shared/js/mobile_operator.js',
                  '/dialer/js/mmi.js',
                  '/dialer/js/mmi_ui.js',
@@ -465,7 +448,17 @@ var CallHandler = (function callHandler() {
                  '/shared/style/input_areas.css',
                  '/shared/style_unstable/progress_activity.css',
                  '/dialer/style/mmi.css'], function() {
+
       if (window.navigator.mozSetMessageHandler) {
+        window.navigator.mozSetMessageHandler('telephony-new-call', newCall);
+        window.navigator.mozSetMessageHandler('activity', handleActivity);
+        window.navigator.mozSetMessageHandler('notification',
+                                              handleNotification);
+        window.navigator.mozSetMessageHandler('bluetooth-dialer-command',
+                                               btCommandHandler);
+        window.navigator.mozSetMessageHandler('headset-button',
+                                              headsetCommandHandler);
+
         window.navigator.mozSetMessageHandler('ussd-received', function(evt) {
           if (document.hidden) {
             var request = window.navigator.mozApps.getSelf();
@@ -482,7 +475,7 @@ var CallHandler = (function callHandler() {
   }
 
   return {
-    initMMI: initMMI,
+    init: init,
     call: call
   };
 })();
@@ -589,12 +582,12 @@ window.addEventListener('load', function startup(evt) {
                       'confirmation-message',
                       'edit-mode'];
 
-    CallHandler.initMMI();
     loader.load(lazyPanels.map(function toElement(id) {
         return document.getElementById(id);
       })
     );
 
+    CallHandler.init();
     LazyL10n.get(function loadLazyFilesSet() {
       loader.load(['/contacts/js/fb/fb_data.js',
                    '/contacts/js/fb/fb_contact_utils.js',

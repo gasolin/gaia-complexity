@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">59.83</p>
+      <p class="stat">59.69</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">822</p>
+      <p class="stat">829</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">73.46</p>
+      <p class="stat">73.49</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">9.71</p>
+      <p class="stat">9.82</p>
     </div>
   </div>
 </div>
@@ -272,10 +272,12 @@ contacts.Form = (function() {
     formView.classList.add('skin-organic');
     if (!fromUpdateActivity)
       saveButton.setAttribute('disabled', 'disabled');
+    saveButton.setAttribute('data-l10n-id', 'update');
     saveButton.textContent = _('update');
     currentContact = contact;
     deleteContactButton.parentNode.classList.remove('hide');
-    formTitle.innerHTML = _('editContact');
+    formTitle.setAttribute('data-l10n-id', 'editContact');
+    formTitle.textContent = _('editContact');
     currentContactId.value = contact.id;
     givenName.value = contact.givenName || '';
     familyName.value = contact.familyName || '';
@@ -332,9 +334,11 @@ contacts.Form = (function() {
       currentContact = {};
     }
     saveButton.setAttribute('disabled', 'disabled');
+    saveButton.setAttribute('data-l10n-id', 'done');
     saveButton.textContent = _('done');
     deleteContactButton.parentNode.classList.add('hide');
-    formTitle.innerHTML = _('addContact');
+    formTitle.setAttribute('data-l10n-id', 'addContact');
+    formTitle.textContent = _('addContact');
 
     params = params || {};
 
@@ -391,7 +395,11 @@ contacts.Form = (function() {
       var currentElem = fields[j];
       var def = (currentElem === 'type') ? default_type : '';
       var defObj = (typeof(obj) === 'string') ? obj : obj[currentElem];
-      var value = currField[currentElem] = defObj || def;
+      var value = '';
+
+      currField[currentElem] =
+      (typeof(defObj) === 'object') ? defObj.toString() : defObj;
+      value = currField[currentElem] || def;
       if (currentElem === 'type') {
         currField['type_value'] = value;
 
@@ -424,7 +432,7 @@ contacts.Form = (function() {
     // Add event listeners
     var boxTitle = rendered.querySelector('legend.action');
     if (boxTitle) {
-      boxTitle.addEventListener(touchstart, onGoToSelectTag);
+      boxTitle.addEventListener('click', onGoToSelectTag);
     }
 
     container.appendChild(rendered);
@@ -756,10 +764,9 @@ contacts.Form = (function() {
     var emails = dom.querySelector('#contacts-form-emails');
     var addresses = dom.querySelector('#contacts-form-addresses');
     var notes = dom.querySelector('#contacts-form-notes');
-    phones.innerHTML = '';
-    emails.innerHTML = '';
-    addresses.innerHTML = '';
-    notes.innerHTML = '';
+
+    [phones, emails, addresses, notes].forEach(utils.dom.removeChildNodes);
+
     counters = {
       'tel': 0,
       'email': 0,

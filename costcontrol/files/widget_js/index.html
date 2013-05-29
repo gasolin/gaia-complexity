@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">63.04</p>
+      <p class="stat">63.36</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">416</p>
+      <p class="stat">421</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">40.51</p>
+      <p class="stat">40.27</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">4.00</p>
+      <p class="stat">4.07</p>
     </div>
   </div>
 </div>
@@ -99,12 +99,9 @@
  * a balance update or timeout.
  */
 
-(function() {
+var Widget = (function() {
 
   'use strict';
-
-  // XXX: This is the point of entry, check common.js for more info
-  waitForDOMAndMessageHandler(window, onReady);
 
   var costcontrol;
   function onReady() {
@@ -118,7 +115,7 @@
       mobileConnection.oncardstatechange = onReady;
 
     // SIM is ready, but ICC info is not ready yet
-    } else if (iccid === null) {
+    } else if (!Common.isValidICCID(iccid)) {
       debug('ICC info not ready yet');
       mobileConnection.oniccinfochange = onReady;
 
@@ -162,7 +159,7 @@
       showSimError('no-sim2');
     }
 
-    checkSIMChange(function _onSIMChecked() {
+    Common.checkSIMChange(function _onSIMChecked() {
       CostControl.getInstance(function _onCostControlReady(instance) {
         costcontrol = instance;
         setupWidget();
@@ -514,7 +511,15 @@
     }
   }
 
-}());</textarea>
+  return {
+    init: function() {
+      Common.waitForDOMAndMessageHandler(window, onReady);
+    }
+  };
+
+}());
+
+Widget.init();</textarea>
   </div>
 </div>
 

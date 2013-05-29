@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">66.70</p>
+      <p class="stat">66.63</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">2035</p>
+      <p class="stat">2029</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">97.44</p>
+      <p class="stat">97.83</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">27.39</p>
+      <p class="stat">27.01</p>
     </div>
   </div>
 </div>
@@ -142,12 +142,14 @@ var Browser = {
   waitingActivities: [],
   hasLoaded: false,
 
+  // store the current scroll position, so we can re-calculate whether
+  // we need to show the addressbar when loading the page is complete
+  lastScrollOffset: 0,
+
   init: function browser_init() {
     this.getAllElements();
 
     // Add event listeners
-    window.addEventListener('resize', this.handleWindowResize.bind(this));
-
     this.backButton.addEventListener('click', this.goBack.bind(this));
     this.forwardButton.addEventListener('click', this.goForward.bind(this));
     this.bookmarkButton.addEventListener('click',
@@ -267,7 +269,7 @@ var Browser = {
           this.waitingActivities.forEach(this.handleActivity, this);
         }
       }.bind(this));
-    }
+    };
 
     LazyLoader.load(elementsToLoad.concat(filesToLoad),
       loadBrowserFiles.bind(this));
@@ -333,8 +335,6 @@ var Browser = {
 
      document.addEventListener('mozvisibilitychange',
        this.handleVisibilityChange.bind(this));
-
-     this.handleWindowResize();
 
      ModalDialog.init();
      AuthenticationDialog.init(false);
@@ -441,20 +441,6 @@ var Browser = {
     this.updateTabsCount();
   },
 
-  // We want to ensure the current page preview on the tabs screen is in
-  // a consistently sized gutter on the left
-  handleWindowResize: function browser_handleWindowResize() {
-    var leftPos = 'translate(' + -(window.innerWidth - 50) + 'px)';
-    if (!this.gutterPosRule) {
-      var css = '.tabs-screen #main-screen { transform: ' + leftPos + '; }';
-      var insertId = this.styleSheet.cssRules.length - 1;
-      this.gutterPosRule = this.styleSheet.insertRule(css, insertId);
-    } else {
-      var rule = this.styleSheet.cssRules[this.gutterPosRule];
-      rule.style.transform = leftPos;
-    }
-  },
-
   // Tabs badge is the button at the top right, used to show the number of tabs
   // and to create new ones
   handleTabsBadgeClicked: function browser_handleTabsBadgeClicked(e) {
@@ -485,7 +471,6 @@ var Browser = {
   // Each browser gets their own listener
   handleBrowserEvent: function browser_handleBrowserEvent(tab) {
     return (function(evt) {
-
       var isCurrentTab = this.currentTab.id === tab.id;
       switch (evt.type) {
 
@@ -538,9 +523,14 @@ var Browser = {
           Places.setAndLoadIconForPage(tab.url, iconUrl);
         }
 
+        // We always show the address bar when loading
+        // After loading we might need to hide it
+        this.handleScroll({ detail: { top: this.lastScrollOffset } });
+
         break;
 
       case 'mozbrowserlocationchange':
+        this.lastScrollOffset = 0;
         if (evt.detail === 'about:blank') {
           return;
         }
@@ -637,22 +627,25 @@ var Browser = {
   },
 
   handleScroll: function browser_handleScroll(evt) {
+    this.lastScrollOffset = evt.detail.top;
+
     if (evt.detail.top < this.LOWER_SCROLL_THRESHOLD) {
-      if (this.addressBarState === this.VISIBLE ||
-          this.addressBarState === this.TRANSITIONING) {
-        return;
-      }
       this.showAddressBar();
     } else if (evt.detail.top > this.UPPER_SCROLL_THRESHOLD) {
-      if (this.addressBarState === this.HIDDEN ||
-          this.addressBarState === this.TRANSITIONING) {
-        return;
-      }
       this.hideAddressBar();
     }
   },
 
   hideAddressBar: function browser_hideAddressBar() {
+    if (this.addressBarState === this.HIDDEN ||
+        this.addressBarState === this.TRANSITIONING) {
+      return;
+    }
+
+    // don't hide the address bar when loading
+    if (this.currentTab.loading)
+      return;
+
     var addressBarHidden = (function browser_addressBarHidden() {
       this.addressBarState = this.HIDDEN;
       this.mainScreen.removeEventListener('transitionend', addressBarHidden);
@@ -665,6 +658,11 @@ var Browser = {
   },
 
   showAddressBar: function browser_showAddressBar() {
+    if (this.addressBarState === this.VISIBLE ||
+        this.addressBarState === this.TRANSITIONING) {
+      return;
+    }
+
     var addressBarVisible = (function browser_addressBarVisible() {
       this.mainScreen.classList.remove('expanded');
       this.addressBarState = this.VISIBLE;
@@ -1541,7 +1539,7 @@ var Browser = {
   createTab: function browser_createTab(url, iframe, tab) {
     if (!iframe) {
       iframe = document.createElement('iframe');
-      iframe.mozbrowser = true;
+      iframe.setAttribute('mozbrowser', true);
       iframe.setAttribute('mozallowfullscreen', true);
       iframe.classList.add('browser-tab');
 
@@ -1970,8 +1968,6 @@ var Browser = {
 
       this.tab.classList.add('active');
       this.tab.style.MozTransition = '';
-      this.tab.style.position = 'absolute';
-      this.tab.style.width = e.target.parentNode.clientWidth + 'px';
     },
 
     pan: function tabSwipe_pan(e) {
@@ -1990,9 +1986,7 @@ var Browser = {
         return;
       }
       if (this.isCloseButton) {
-        this.tab.style.position = 'absolute';
         this.tab.style.left = '0px';
-        this.tab.style.width = this.containerWidth + 'px';
         this.deleteTab(100, this.containerWidth);
         return;
       }

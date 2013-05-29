@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">66.30</p>
+      <p class="stat">66.10</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">606</p>
+      <p class="stat">618</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">70.21</p>
+      <p class="stat">71.23</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">6.17</p>
+      <p class="stat">6.30</p>
     </div>
   </div>
 </div>
@@ -111,7 +111,8 @@ var UpdateManager = {
   _errorTimeout: null,
   _wifiLock: null,
   _systemUpdateDisplayed: false,
-  _isDataConnectionWarningDialogEnabled: true,
+  _dataConnectionWarningEnabled: true,
+  _startedDownloadUsingDataConnection: false,
   _settings: null,
   NOTIFICATION_BUFFERING_TIMEOUT: 30 * 1000,
   TOASTER_TIMEOUT: 1200,
@@ -128,6 +129,8 @@ var UpdateManager = {
   downloadViaDataConnectionDialog: null,
   downloadDialogTitle: null,
   downloadDialogList: null,
+  lastUpdatesAvailable: 0,
+  _notificationTimeout: null,
 
   updatableApps: [],
   systemUpdatable: null,
@@ -190,30 +193,25 @@ var UpdateManager = {
     // a warning on the download dialog
     window.addEventListener('wifi-statuschange', this);
     this.updateWifiStatus();
+    this.updateOnlineStatus();
 
-    window.asyncStorage.
-      getItem('gaia.system.isDataConnectionWarningDialogEnabled',
-      (function(value) {
-        value = value || true;
-        this._isDataConnectionWarningDialogEnabled = true;
-        this.downloadDialog.dataset.dataConnectionInlineWarning = !value;
-    }).bind(this));
+    // Always display the warning after users reboot the phone.
+    this._dataConnectionWarningEnabled = true;
+    this.downloadDialog.dataset.dataConnectionInlineWarning = false;
   },
 
   requestDownloads: function um_requestDownloads(evt) {
     evt.preventDefault();
 
     if (evt.target == this.downloadViaDataConnectionButton) {
-      window.asyncStorage.
-        setItem('gaia.system.isDataConnectionWarningDialogEnabled', false);
-      this._isDataConnectionWarningDialogEnabled = false;
-      this.downloadDialog.dataset.dataConnectionInlineWarning = true;
+      this._startedDownloadUsingDataConnection = true;
       this.startDownloads();
     } else {
-      if (this._isDataConnectionWarningDialogEnabled &&
+      if (this._dataConnectionWarningEnabled &&
           this.downloadDialog.dataset.nowifi === 'true') {
         this.downloadViaDataConnectionDialog.classList.add('visible');
       } else {
+        this._startedDownloadUsingDataConnection = false;
         this.startDownloads();
       }
     }
@@ -397,6 +395,14 @@ var UpdateManager = {
     }
   },
 
+  downloaded: function um_downloaded(udatable) {
+    if (this._startedDownloadUsingDataConnection) {
+      this._startedDownloadUsingDataConnection = false;
+      this._dataConnectionWarningEnabled = false;
+      this.downloadDialog.dataset.dataConnectionInlineWarning = true;
+    }
+  },
+
   startedUncompressing: function um_startedUncompressing() {
     this._uncompressing = true;
     this.render();
@@ -405,9 +411,10 @@ var UpdateManager = {
   render: function um_render() {
     var _ = navigator.mozL10n.get;
 
-    this.toasterMessage.innerHTML = _('updateAvailableInfo', {
-                                      n: this.updatesQueue.length
-                                    });
+    this.toasterMessage.innerHTML =
+      _('updateAvailableInfo', {
+        n: this.updatesQueue.length - this.lastUpdatesAvailable
+      });
 
     var message = '';
     if (this._downloading) {
@@ -470,16 +477,19 @@ var UpdateManager = {
 
     this.updatesQueue.push(updatable);
 
-    if (this.updatesQueue.length === 1) {
-      setTimeout(this.displayNotificationAndToaster.bind(this),
-          this.NOTIFICATION_BUFFERING_TIMEOUT);
+    if (this._notificationTimeout === null) {
+      this._notificationTimeout = setTimeout(
+        this.displayNotificationAndToaster.bind(this),
+        this.NOTIFICATION_BUFFERING_TIMEOUT);
     }
-
     this.render();
   },
 
   displayNotificationAndToaster: function um_displayNotificationAndToaster() {
+    this._notificationTimeout = null;
     if (this.updatesQueue.length && !this._downloading) {
+      this.lastUpdatesAvailable = this.updatesQueue.length;
+      StatusBar.updateNotificationUnread(true);
       this.displayNotificationIfHidden();
       this.toaster.classList.add('displayed');
       var self = this;
@@ -495,6 +505,8 @@ var UpdateManager = {
       return;
 
     this.updatesQueue.splice(removeIndex, 1);
+    this.lastUpdatesAvailable = this.updatesQueue.length;
+
     if (this.updatesQueue.length === 0) {
       this.hideNotificationIfDisplayed();
     }
@@ -606,10 +618,10 @@ var UpdateManager = {
       case 'applicationuninstall':
         this.onuninstall(evt.detail);
         break;
-      case 'online':
+      case 'offline':
         this.updateOnlineStatus();
         break;
-      case 'offline':
+      case 'online':
         this.updateOnlineStatus();
         break;
       case 'wifi-statuschange':

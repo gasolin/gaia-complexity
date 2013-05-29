@@ -49,7 +49,7 @@
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">1810</p>
+      <p class="stat">1808</p>
     </div>
   </div>
   <div class="row historical">
@@ -1245,12 +1245,10 @@ function MessageReaderCard(domNode, mode, args) {
     domNode.getElementsByClassName('msg-star-btn')[0].classList
            .add('msg-btn-active');
 
-
   // event handler for body change events...
   this.handleBodyChange = this.handleBodyChange.bind(this);
 
 }
-
 MessageReaderCard.prototype = {
   _contextMenuType: {
     VIEW_CONTACT: 1,
@@ -1327,13 +1325,13 @@ MessageReaderCard.prototype = {
     var needToPrompt = this.header.hasAttachments ||
       this.body.embeddedImageCount > 0;
 
-    var forwardMessage = function() {
+    var forwardMessage = (function() {
       Cards.eatEventsUntilNextCard();
       var composer = this.header.forwardMessage('inline', function() {
              Cards.pushCard('compose', 'default', 'animate',
                             { composer: composer });
       });
-    }.bind(this);
+    }.bind(this));
 
     if (needToPrompt) {
       var dialog = msgNodes['attachment-disabled-confirm'].cloneNode(true);

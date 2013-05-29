@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">62.77</p>
+      <p class="stat">62.85</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">1526</p>
+      <p class="stat">1535</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">92.63</p>
+      <p class="stat">94.04</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">11.34</p>
+      <p class="stat">11.47</p>
     </div>
   </div>
 </div>
@@ -260,6 +260,7 @@ var touchEventsPresent = false;
 var touchedKeys = {};
 var touchCount = 0;
 var currentInputType = null;
+var currentInputMode = null;
 var menuLockedArea = null;
 var candidatePanelEnabled = false;
 const CANDIDATE_PANEL_SWITCH_TIMEOUT = 100;
@@ -292,6 +293,7 @@ const keyboardGroups = {
   'spanish' : ['es'],
   'portuguese' : ['pt_BR'],
   'polish' : ['pl'],
+  'catalan' : ['ca'],
   'otherlatins': ['cz', 'fr', 'de', 'nb', 'sk', 'tr'],
   'cyrillic': ['ru', 'sr-Cyrl'],
   'serbian-latin': ['sr-Latn'],
@@ -344,6 +346,7 @@ const specialCodes = [
 var userLanguage;
 var currentKeyboardName;
 var suggestionsEnabled;
+var correctionsEnabled;
 var clickEnabled;
 var vibrationEnabled;
 var enabledKeyboardGroups;
@@ -351,26 +354,12 @@ var enabledKeyboardNames;
 var isSoundEnabled;
 
 // data URL for keyboard click sound
-const CLICK_SOUND = 'data:audio/x-wav;base64,' +
-  'UklGRiADAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YfwCAAAW/Fzsqe9O' +
-  'AONWB0Pt3Mf1hsS38mJcc0mq9mzpwsIwsChOBxay/ikHV6Tr8ioJNQa0ErvFzbXrw97j' +
-  '5C2LQII7aBg77Tr+I+wH0QWp/7xowHegIf0yD1UkhzRRIbUGoeOgJptCHVB+WZg5ehgs' +
-  'EcofKwKaAb7+cuzd9doICAx0FZEm+gEq+z//D/yJDtEJx/O73MHkifPK/BoLXwwuBt3p' +
-  '5eBq2h3YT/OR+MH/5xDGB7sHowyp9rrrL++06mnt/PpcALcI7RDSCz4GwwWaAXYNVhLw' +
-  'D20VYQsvCWUPxApJCVUH3P0jA54EIP0RBUYHVgtlD68KtQWI/9MB4f8Q/Fr4UvLz7nPq' +
-  'yOzV9AvzKfEB7azl/+ee6jbrSOw16mjpPepD7d3yT/hL/RIDBAXQAHcDIAZ1BVsPIhAZ' +
-  'CT4Ntwc2CJsQnhV+GlYcJR67GF0WaRK5CewGSQdSBboCfgWGBaQACP0e+8f3O/Y4+Yn1' +
-  '4e8l9Mf3lvns/eT75fbx9t359/lw+6L+XP+5AdsFSgZECK8LvQlVCWYJ1wetBD8AGALl' +
-  'AJUAVAbPBEkDpALfADn/Cv4c/+7+OP/jAAb/7vie+Xr7GvYa9g30rPBc9OL1wveo+3D+' +
-  '8/xG+Zn5tPsi/vX/xv4I/Oj5DPaL8mbxmfMM+80AXQbiCisNvhC8Dt4LGwwyDJkNlAxR' +
-  'CWYGswcHCn0KyA5cDsQKYgrZB+cFlATlAh4A3P5kAOsAOwLbA+ED8gLAAM/+h/vq+Lb5' +
-  'qPgY+GH5i/nE+SX6V/s9+gv69vl89nv33fhc+Zb6nvse/lEA4wMjBrQEugPc/4/8pvux' +
-  '+//9Kf9tAGcBXAFxAtgCuwMeBFQE6AQdA4gCGAJiADsAuwC7/53+a/4J/tv88fte+R74' +
-  'dPhd+HD5LPmf+If5VPsp/noASALRAbsB+wJ+Ak0CuQPiBAsFpwYTB5wFtgZ/DE4P8AuH' +
-  'B4kD3QKPBcAHhgaHBDAEngO6BBcFbwJ2/qD7rPtG/voBwQGU/pn9Lv3T/g==';
+const CLICK_SOUND = './resources/sounds/key.ogg';
+const SPECIAL_SOUND = './resources/sounds/special.ogg';
 
 // The audio element used to play the click sound
 var clicker;
+var specialClicker;
 
 // A MutationObserver we use to spy on the renderer module
 var dimensionsObserver;
@@ -391,12 +380,13 @@ window.addEventListener('load', getKeyboardSettings);
 
 function getKeyboardSettings() {
   // Before we can initialize the keyboard we need to know the current
-  // value of all keyboard-related settings. These are two of the settings
-  // we want to query, with the default value we'll use
+  // value of all keyboard-related settings. These are the settings
+  // we want to query, with the default values we'll use if the query fails
   var settingsQuery = {
     'language.current': 'en-US',
     'keyboard.current': 'en',
     'keyboard.wordsuggestion': true,
+    'keyboard.autocorrect': true,
     'keyboard.vibration': false,
     'keyboard.clicksound': false,
     'audio.volume.notification': 7
@@ -413,6 +403,7 @@ function getKeyboardSettings() {
     userLanguage = values['language.current'];
     currentKeyboardName = values['keyboard.current'];
     suggestionsEnabled = values['keyboard.wordsuggestion'];
+    correctionsEnabled = values['keyboard.autocorrect'];
     vibrationEnabled = values['keyboard.vibration'];
     clickEnabled = values['keyboard.clicksound'];
     isSoundEnabled = !!values['audio.volume.notification'];
@@ -455,6 +446,13 @@ function initKeyboard() {
     // don't need to tell the keyboard about the new value right away.
     // We pass the value to the input method when the keyboard is displayed
     suggestionsEnabled = e.settingValue;
+  });
+
+  navigator.mozSettings.addObserver('keyboard.autocorrect', function(e) {
+    // The keyboard won't be displayed when this setting changes, so we
+    // don't need to tell the keyboard about the new value right away.
+    // We pass the value to the input method when the keyboard is displayed
+    correctionsEnabled = e.settingValue;
   });
 
   navigator.mozSettings.addObserver('keyboard.vibration', function(e) {
@@ -535,8 +533,10 @@ function initKeyboard() {
 function handleKeyboardSound() {
   if (clickEnabled && isSoundEnabled) {
     clicker = new Audio(CLICK_SOUND);
+    specialClicker = new Audio(SPECIAL_SOUND);
   } else {
     clicker = null;
+    specialClicker = null;
   }
 }
 
@@ -608,8 +608,6 @@ function mapInputType(type) {
     return 'number';
     break;
   }
-
-  return null;
 }
 
 //
@@ -635,8 +633,11 @@ function modifyLayout(keyboardName) {
   }
 
   var altLayoutName;
-  if (currentInputType === 'number' || currentInputType === 'tel')
+  if (currentInputType === 'tel')
     altLayoutName = currentInputType + 'Layout';
+  else if (currentInputType === 'number')
+    altLayoutName =
+      currentInputMode === 'digits' ? 'pinLayout' : 'numberLayout';
   else if (layoutPage === LAYOUT_PAGE_SYMBOLS_I)
     altLayoutName = 'alternateLayout';
   else if (layoutPage === LAYOUT_PAGE_SYMBOLS_II)
@@ -821,11 +822,13 @@ function renderKeyboard(keyboardName) {
     var keyboard = Keyboards[keyboardName];
     IMERender.setInputMethodName(keyboard.imEngine || 'default');
 
+    IMERender.ime.classList.remove('full-candidate-panel');
+
     // And draw the layout
     IMERender.draw(currentLayout, {
       uppercase: isUpperCase,
       inputType: currentInputType,
-      showCandidatePanel: Keyboards[keyboardName].needsCandidatePanel
+      showCandidatePanel: needsCandidatePanel()
     });
 
     IMERender.setUpperCaseLock(isUpperCaseLocked ? 'locked' : isUpperCase);
@@ -840,10 +843,12 @@ function renderKeyboard(keyboardName) {
 
   // XXX: if we are going to hide the candidatePanel, notify keyboard manager
   // first to update the app window size
-  if (!Keyboards[keyboardName].needsCandidatePanel && candidatePanelEnabled) {
+  if (!currentLayout.needsCandidatePanel && candidatePanelEnabled) {
     var candidatePanel = document.getElementById('keyboard-candidate-panel');
+    var candidatePanelHeight = (candidatePanel) ?
+                               candidatePanel.scrollHeight : 0;
     document.location.hash = 'show=' +
-      (IMERender.ime.scrollHeight - candidatePanel.scrollHeight);
+      (IMERender.ime.scrollHeight - candidatePanelHeight);
 
     window.setTimeout(drawKeyboard, CANDIDATE_PANEL_SWITCH_TIMEOUT);
   } else {
@@ -872,7 +877,7 @@ function setUpperCase(upperCase, upperCaseLocked) {
   IMERender.draw(currentLayout, {
     uppercase: isUpperCaseLocked || isUpperCase,
     inputType: currentInputType,
-    showCandidatePanel: Keyboards[keyboardName].needsCandidatePanel
+    showCandidatePanel: needsCandidatePanel()
   });
   // And make sure the caps lock key is highlighted correctly
   IMERender.setUpperCaseLock(isUpperCaseLocked ? 'locked' : isUpperCase);
@@ -927,8 +932,7 @@ function getUpperCaseValue(key) {
     return key.value;
 
   var upperCase = currentLayout.upperCase || {};
-  var v = upperCase[key.value] || key.value.toUpperCase();
-  return v;
+  return upperCase[key.value] || key.value.toUpperCase();
 }
 
 function setMenuTimeout(target, coords, touchId) {
@@ -1176,13 +1180,14 @@ function startPress(target, coords, touchId) {
   if (!isNormalKey(target))
     return;
 
+  var keyCode = parseInt(target.dataset.keycode);
+
   // Feedback
+  var isSpecialKey = specialCodes.indexOf(keyCode) >= 0 || keyCode < 0;
+  triggerFeedback(isSpecialKey);
   IMERender.highlightKey(target);
-  triggerFeedback();
 
   setMenuTimeout(target, coords, touchId);
-
-  var keyCode = parseInt(target.dataset.keycode);
 
   // Special keys (such as delete) response when pressing (not releasing)
   // Furthermore, delete key has a repetition behavior
@@ -1515,26 +1520,17 @@ function showKeyboard(state) {
 
   IMERender.showIME();
 
+  currentInputMode = state.inputmode;
   currentInputType = mapInputType(state.type);
-
-  // reset the flag for candidate show/hide workaround
-  candidatePanelEnabled = false;
 
   resetKeyboard();
 
   if (inputMethod.activate) {
-    inputMethod.activate(userLanguage, suggestionsEnabled, state);
+    inputMethod.activate(userLanguage, state, {
+      suggest: suggestionsEnabled,
+      correct: correctionsEnabled
+    });
   }
-
-  if (!inputMethod.displaysCandidates ||
-      inputMethod.displaysCandidates())
-  {
-    IMERender.ime.classList.add('candidate-panel');
-  }
-  else {
-    IMERender.ime.classList.remove('candidate-panel');
-  }
-  IMERender.ime.classList.remove('full-candidate-panel');
 
 }
 
@@ -1543,6 +1539,9 @@ function hideKeyboard() {
   IMERender.hideIME();
   if (inputMethod.deactivate)
     inputMethod.deactivate();
+
+  // reset the flag for candidate show/hide workaround
+  candidatePanelEnabled = false;
 }
 
 // Resize event handler
@@ -1637,7 +1636,7 @@ function updateLayoutParams() {
   }
 }
 
-function triggerFeedback() {
+function triggerFeedback(isSpecialKey) {
   if (vibrationEnabled) {
     try {
       navigator.vibrate(50);
@@ -1645,7 +1644,7 @@ function triggerFeedback() {
   }
 
   if (clickEnabled && isSoundEnabled) {
-    clicker.cloneNode(false).play();
+    (isSpecialKey ? specialClicker : clicker).cloneNode(false).play();
   }
 }
 
@@ -1730,6 +1729,16 @@ function getSettings(settings, callback) {
     if (numResults === numSettings) {
       callback(results);
     }
+  }
+}
+
+// To determine if the candidate panel for word suggestion is needed
+function needsCandidatePanel() {
+  if (Keyboards[keyboardName].needsCandidatePanel &&
+      (!inputMethod.displaysCandidates || inputMethod.displaysCandidates())) {
+    return true;
+  } else {
+    return false;
   }
 }</textarea>
   </div>

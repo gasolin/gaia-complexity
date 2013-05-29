@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">64.68</p>
+      <p class="stat">64.79</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">977</p>
+      <p class="stat">984</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">81.98</p>
+      <p class="stat">80.33</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">10.59</p>
+      <p class="stat">10.61</p>
     </div>
   </div>
 </div>
@@ -109,7 +109,6 @@ contacts.List = (function() {
       contactsPhoto = [],
       photoTemplate,
       headers = {},
-      updating = {},
       contactsCache = {},
       searchLoaded = false,
       imagesLoaded = false,
@@ -306,8 +305,12 @@ contacts.List = (function() {
     var title = document.createElement('header');
     title.id = 'group-' + group;
     title.className = 'hide';
-    title.innerHTML = '<abbr title="Contacts listed ' + group + '">';
-    title.innerHTML += letter + '</abbr>';
+
+    var letterAbbr = document.createElement('abbr');
+    letterAbbr.setAttribute('title', 'Contacts listed ' + group);
+    letterAbbr.textContent = letter;
+    title.appendChild(letterAbbr);
+
     var contactsContainer = document.createElement('ol');
     contactsContainer.id = 'contacts-list-' + group;
     contactsContainer.dataset.group = group;
@@ -322,7 +325,6 @@ contacts.List = (function() {
   var renderFullContact = function renderFullContact(contact, fbContacts) {
     var contactContainer = renderContact(contact);
     var name = contactContainer.children[0];
-    var orderedString = getStringToBeOrdered(contact);
 
     addSearchOptions(name, contact);
     addOrderOptions(name, contact);
@@ -374,15 +376,12 @@ contacts.List = (function() {
     // contactInner is a link with 3 p elements:
     // name, socaial marks and org
     var nameElement = getHighlightedName(contact);
-    var contactInner = '<p>' + nameElement;
-    contactInner += '</p>';
-    contactContainer.innerHTML = contactInner;
-    var nameNode = contactContainer.firstElementChild;
-    addOrderOptions(nameNode, contact);
+    addOrderOptions(nameElement, contact);
+    contactContainer.appendChild(nameElement);
     contactsCache[contact.id] = {
       contact: contact,
       container: contactContainer,
-      nameElement: nameNode
+      nameElement: nameElement
     };
     renderOrg(contact, contactContainer, true);
 
@@ -414,20 +413,28 @@ contacts.List = (function() {
     return utils.text.normalize(escapedValue);
   };
 
-  var getHighlightedName = function getHighlightedName(contact) {
-    var givenName = '';
-    var familyName = '';
-    if (contact.givenName && contact.givenName.length)
-      givenName = utils.text.escapeHTML(contact.givenName[0]);
-    if (contact.familyName && contact.familyName.length)
-      familyName = utils.text.escapeHTML(contact.familyName[0]);
+  function getHighlightedName(contact, ele) {
+    if (!ele) {
+      ele = document.createElement('p');
+    }
+    var givenName = (contact.givenName && contact.givenName[0]) || '';
+    var familyName = (contact.familyName && contact.familyName[0]) || '';
+
+    function createStrongTag(content) {
+      var fs = document.createElement('strong');
+      fs.textContent = content;
+      return fs;
+    }
 
     if (orderByLastName) {
-      return givenName + ' <strong>' + familyName + '</strong>';
+      ele.appendChild(document.createTextNode(givenName + ' '));
+      ele.appendChild(createStrongTag(familyName));
     } else {
-      return '<strong>' + givenName + '</strong> ' + familyName;
+      ele.appendChild(createStrongTag(givenName));
+      ele.appendChild(document.createTextNode(' ' + familyName));
     }
-  };
+    return ele;
+  }
 
   function buildSocialMarks(category) {
     var marks = [];
@@ -1020,7 +1027,7 @@ contacts.List = (function() {
   // Reset the content of the list to 0
   var resetDom = function resetDom() {
     contactsPhoto = [];
-    groupsList.innerHTML = '';
+    utils.dom.removeChildNodes(groupsList);
     loaded = false;
 
     initHeaders(true);

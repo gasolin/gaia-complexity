@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">66.35</p>
+      <p class="stat">67.48</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">1005</p>
+      <p class="stat">951</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">76.90</p>
+      <p class="stat">66.31</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">9.77</p>
+      <p class="stat">9.35</p>
     </div>
   </div>
 </div>
@@ -99,7 +99,7 @@ var ids = ['thumbnail-list-view', 'thumbnails-bottom',
            'thumbnail-select-view',
            'thumbnails-delete-button', 'thumbnails-share-button',
            'thumbnails-cancel-button', 'thumbnails-number-selected',
-           'fullscreen-view',
+           'fullscreen-view', 'crop-view',
            'thumbnails-single-delete-button', 'thumbnails-single-share-button',
            'player', 'overlay', 'overlay-title',
            'overlay-text', 'videoControls', 'videoBar', 'videoActionBar',
@@ -142,8 +142,9 @@ var currentVideoBlob; // The blob for the currently playing video
 var videos = [];
 var firstScanEnded = false;
 
-var THUMBNAIL_WIDTH = 210;
-var THUMBNAIL_HEIGHT = 120;
+var scaleRatio = window.innerWidth / 320;
+var THUMBNAIL_WIDTH = 210 * scaleRatio;
+var THUMBNAIL_HEIGHT = 120 * scaleRatio;
 
 // Enumerating the readyState for html5 video api
 var HAVE_NOTHING = 0;
@@ -569,69 +570,12 @@ function playerMousedown(event) {
   }
 }
 
-// Make the video fit the container
+// Align vertically fullscreen view
 function setPlayerSize() {
-  var containerWidth = window.innerWidth;
-  var containerHeight = window.innerHeight;
-
-  // Don't do anything if we don't know our size.
-  // This could happen if we get a resize event before our metadata loads
-  if (!dom.player.videoWidth || !dom.player.videoHeight)
-    return;
-
-  var width, height; // The size the video will appear, after rotation
-  var rotation = 'metadata' in currentVideo ?
-    currentVideo.metadata.rotation : 0;
-
-  switch (rotation) {
-  case 0:
-  case 180:
-    width = dom.player.videoWidth;
-    height = dom.player.videoHeight;
-    break;
-  case 90:
-  case 270:
-    width = dom.player.videoHeight;
-    height = dom.player.videoWidth;
-  }
-
-  var xscale = containerWidth / width;
-  var yscale = containerHeight / height;
-  var scale = Math.min(xscale, yscale);
-
-  // scale large videos down and scale small videos up
-  // this might result in lower image quality for small videos
-  width *= scale;
-  height *= scale;
-
-  var left = ((containerWidth - width) / 2);
-  var top = ((containerHeight - height) / 2);
-
-  var transform;
-  switch (rotation) {
-  case 0:
-    transform = 'translate(' + left + 'px,' + top + 'px)';
-    break;
-  case 90:
-    transform =
-      'translate(' + (left + width) + 'px,' + top + 'px) ' +
-      'rotate(90deg)';
-    break;
-  case 180:
-    transform =
-      'translate(' + (left + width) + 'px,' + (top + height) + 'px) ' +
-      'rotate(180deg)';
-    break;
-  case 270:
-    transform =
-      'translate(' + left + 'px,' + (top + height) + 'px) ' +
-      'rotate(270deg)';
-    break;
-  }
-
-  transform += ' scale(' + scale + ')';
-
-  dom.player.style.transform = transform;
+  var containerHeight = (window.innerHeight > dom.player.offsetHeight) ?
+    window.innerHeight : dom.player.offsetHeight;
+  dom.cropView.style.marginTop = (containerHeight / 2) * -1 + 'px';
+  dom.cropView.style.height = containerHeight + 'px';
 }
 
 function setVideoUrl(player, video, callback) {
@@ -956,11 +900,13 @@ function padLeft(num, length) {
 
 function formatDuration(duration) {
   var minutes = Math.floor(duration / 60);
-  var seconds = Math.round(duration % 60);
+  var seconds = Math.floor(duration % 60);
   if (minutes < 60) {
     return padLeft(minutes, 2) + ':' + padLeft(seconds, 2);
   }
-  return '';
+  var hours = Math.floor(minutes / 60);
+  minutes = Math.floor(minutes % 60);
+  return hours + ':' + padLeft(minutes, 2) + ':' + padLeft(seconds, 2);
 }
 
  // Pause on visibility change

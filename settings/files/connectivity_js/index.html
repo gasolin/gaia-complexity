@@ -108,7 +108,7 @@ var Connectivity = (function(window, document, undefined) {
   var _ = navigator.mozL10n.get;
 
   // in util.js, we fake these device interfaces if they are not exist.
-  var wifiManager = getWifiManager();
+  var wifiManager = WifiHelper.getWifiManager();
   var bluetooth = getBluetooth();
   var mobileConnection = getMobileConnection();
 
@@ -376,7 +376,7 @@ var Connectivity = (function(window, document, undefined) {
   function initSystemMessageHandler() {
     // XXX this is not a good way to interact with bluetooth.js
     var handlePairingRequest = function(message, method) {
-      window.location.hash = '#bluetooth';
+      Settings.currentPanel = '#bluetooth';
       setTimeout(function() {
         gDeviceList.onRequestPairing(message, method);
       }, 1500);

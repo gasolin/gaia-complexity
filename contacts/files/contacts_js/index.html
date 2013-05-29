@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">67.26</p>
+      <p class="stat">67.87</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">930</p>
+      <p class="stat">873</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">62.05</p>
+      <p class="stat">61.21</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">9.22</p>
+      <p class="stat">8.56</p>
     </div>
   </div>
 </div>
@@ -96,6 +96,10 @@ var _;
 var TAG_OPTIONS;
 var COMMS_APP_ORIGIN = document.location.protocol + '//' +
   document.location.host;
+var asyncScriptsLoaded;
+
+// Scale ratio for different devices
+var SCALE_RATIO = window.innerWidth / 320;
 
 var Contacts = (function() {
   var navigation = new navigationStack('view-contacts-list');
@@ -104,9 +108,7 @@ var Contacts = (function() {
     navigation.go('view-contact-form', 'popup');
   };
 
-  var selectedTag,
-      customTag,
-      contactTag,
+  var contactTag,
       settings,
       settingsButton,
       cancelButton,
@@ -244,7 +246,6 @@ var Contacts = (function() {
   };
 
   var initContainers = function initContainers() {
-    customTag = document.getElementById('custom-tag');
     settings = document.getElementById('view-settings');
     settingsButton = document.getElementById('settings-button');
     cancelButton = document.getElementById('cancel_activity');
@@ -283,7 +284,10 @@ var Contacts = (function() {
       window.removeEventListener('asyncScriptsLoaded', onAsyncLoad);
       contactsList.initAlphaScroll();
       checkUrl();
+
       PerformanceTestingHelper.dispatch('init-finished');
+
+      asyncScriptsLoaded = true;
     });
   };
 
@@ -477,100 +481,22 @@ var Contacts = (function() {
   };
 
   var goToSelectTag = function goToSelectTag(event) {
-    var target = event.currentTarget.children[0];
-    var tagList = target.dataset.taglist;
-    var options = TAG_OPTIONS[tagList];
-    fillTagOptions(options, tagList, target);
+    contactTag = event.currentTarget.children[0];
+    var tagsList = document.getElementById('tags-list');
+    var customTag = document.getElementById('custom-tag');
+    var selectedTagType = contactTag.dataset.taglist;
+    var options = TAG_OPTIONS[selectedTagType];
+
+    for (var i in options) {
+      options[i].value = _(options[i].type);
+    }
+    ContactsTag.setCustomTag(customTag);
+    ContactsTag.fillTagOptions(tagsList, contactTag, options);
+
     navigation.go('view-select-tag', 'right-left');
     if (document.activeElement) {
       document.activeElement.blur();
     }
-  };
-
-  var fillTagOptions = function fillTagOptions(options, tagList, update) {
-    var container = document.getElementById('tags-list');
-    container.innerHTML = '';
-    contactTag = update;
-
-    var selectedLink;
-    for (var option in options) {
-      var link = document.createElement('button');
-      link.dataset.index = option;
-      link.textContent = _(options[option].type);
-      link.setAttribute('data-l10n-id', options[option].type);
-      link.setAttribute('data-value', options[option].type);
-
-      link.onclick = function(event) {
-        selectTag(event.target, tagList);
-        event.preventDefault();
-      };
-
-      if (update.dataset.value == TAG_OPTIONS[tagList][option].type) {
-        selectedLink = link;
-      }
-
-      var list = document.createElement('li');
-      list.appendChild(link);
-      container.appendChild(list);
-    }
-
-    // Deal with the custom tag, clean or fill
-    customTag.value = '';
-    if (!selectedLink && update.textContent) {
-      customTag.value = update.textContent;
-    }
-
-    selectTag(selectedLink);
-  };
-
-  var onCustomTagSelected = function onCustomTagSelected() {
-    if (selectedTag) {
-      // Remove any mark if we had selected other option
-      selectedTag.removeAttribute('class');
-    }
-    selectedTag = null;
-  };
-
-  var selectTag = function selectTag(link, tagList) {
-    if (link == null) {
-      return;
-    }
-
-    //Clean any trace of the custom tag
-    customTag.value = '';
-
-    if (selectedTag) {
-      selectedTag.removeAttribute('class');
-    }
-
-    link.className = 'icon icon-selected';
-    selectedTag = link;
-  };
-
-  /*
-  * Finish the tag edition, check if we have a custom
-  * tag selected or use the predefined ones
-  */
-  var doneTag = function doneTag() {
-    var prevValue = contactTag.textContent;
-    if (selectedTag) {
-      contactTag.textContent = selectedTag.textContent;
-      contactTag.dataset.l10nId = selectedTag.dataset.l10nId;
-      contactTag.dataset.value = selectedTag.dataset.value;
-    } else if (customTag.value.length > 0) {
-      contactTag.textContent = customTag.value;
-      contactTag.dataset.value = customTag.value;
-    }
-    var valueModifiedEvent = new CustomEvent('ValueModified', {
-      bubbles: true,
-      detail: {
-        prevValue: prevValue,
-        newValue: contactTag.textContent
-      }
-    });
-    contactTag.dispatchEvent(valueModifiedEvent);
-    contactTag = null;
-    Contacts.goBack();
   };
 
   var sendSms = function sendSms(number) {
@@ -616,6 +542,25 @@ var Contacts = (function() {
         window.parent.postMessage(message, COMMS_APP_ORIGIN);
       }
     }
+  };
+
+  var handleSelectTagDone = function handleSelectTagDone() {
+    var prevValue = contactTag.textContent;
+    ContactsTag.clickDone(function() {
+      var valueModifiedEvent = new CustomEvent('ValueModified', {
+        bubbles: true,
+        detail: {
+          prevValue: prevValue,
+          newValue: contactTag.textContent
+        }
+      });
+      contactTag.dispatchEvent(valueModifiedEvent);
+      handleBack();
+    });
+  };
+
+  var handleCustomTag = function handleCustomTag() {
+    ContactsTag.touchCustomTag();
   };
 
   var sendEmailOrPick = function sendEmailOrPick(address) {
@@ -795,8 +740,6 @@ var Contacts = (function() {
       '#save-button': saveContact,
       '#add-contact-button': showAddContact,
       '#settings-button': showSettings, // Settings related
-      '#settings-cancel': handleBack,
-      '#settings-done': doneTag,
       '#cancel-search': exitSearchMode, // Search related
       '#search-start': [
         {
@@ -810,12 +753,14 @@ var Contacts = (function() {
       '#settings-close': hideSettings,
       '#toggle-favorite': toggleFavorite,
       'button[type="reset"]': stopPropagation,
+      '#settings-done': handleSelectTagDone,
+      '#settings-cancel': handleBack,
       // Bug 832861: Click event can't be synthesized correctly on customTag by
       // mouse_event_shim due to Gecko bug.  Use ontouchend here.
       '#custom-tag': [
         {
           event: 'touchend',
-          handler: onCustomTagSelected
+          handler: handleCustomTag
         }
       ]
     });
@@ -826,17 +771,16 @@ var Contacts = (function() {
     contacts.Details.onLineChanged();
   };
 
-
   var cardStateChanged = function() {
     contacts.Settings.cardStateChanged();
   };
-
 
   var getFirstContacts = function c_getFirstContacts() {
     var onerror = function() {
       console.error('Error getting first contacts');
     };
     contactsList = contactsList || contacts.List;
+
     contactsList.getAllContacts(onerror);
   };
 
@@ -844,8 +788,8 @@ var Contacts = (function() {
     var lazyLoadFiles = [
       '/contacts/js/utilities/templates.js',
       '/contacts/js/contacts_shortcuts.js',
-      '/contacts/js/utilities/responsive.js',
       '/contacts/js/confirm_dialog.js',
+      '/contacts/js/contacts_tag.js',
       '/contacts/js/contacts_settings.js',
       '/contacts/js/contacts_details.js',
       '/contacts/js/contacts_form.js',
@@ -857,6 +801,7 @@ var Contacts = (function() {
       '/contacts/js/utilities/normalizer.js',
       '/contacts/js/utilities/status.js',
       '/contacts/js/utilities/overlay.js',
+      '/contacts/js/utilities/dom.js',
       '/contacts/js/search.js',
       '/shared/style_unstable/progress_activity.css',
       '/shared/style/status.css',
@@ -871,8 +816,6 @@ var Contacts = (function() {
     ];
 
     LazyLoader.load(lazyLoadFiles, function() {
-      var event = new CustomEvent('asyncScriptsLoaded');
-      window.dispatchEvent(event);
       var handling = ActivityHandler.currentlyHandling;
       if (!handling || ActivityHandler.activityName === 'pick') {
         initContactsList();
@@ -881,6 +824,7 @@ var Contacts = (function() {
         // Unregister here to avoid un-necessary list operations.
         navigator.mozContacts.oncontactchange = null;
       }
+      window.dispatchEvent(new CustomEvent('asyncScriptsLoaded'));
     });
   };
 
@@ -989,7 +933,6 @@ var Contacts = (function() {
   window.addEventListener('localized', initContacts); // addEventListener
 
   return {
-    'doneTag': doneTag,
     'goBack' : handleBack,
     'cancel': handleCancel,
     'goToSelectTag': goToSelectTag,

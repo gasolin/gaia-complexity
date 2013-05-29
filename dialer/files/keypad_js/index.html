@@ -49,7 +49,7 @@
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">568</p>
+      <p class="stat">567</p>
     </div>
   </div>
   <div class="row historical">
@@ -529,11 +529,10 @@ var KeypadManager = {
       // or right away if this is a long press
 
       var delay = this._longPress ? 0 : 100;
+      if (keypadSoundIsEnabled) {
+        TonePlayer.stop();
+      }
       if (this._onCall) {
-        if (keypadSoundIsEnabled) {
-          TonePlayer.stop();
-        }
-
         window.setTimeout(function ch_stopTone() {
           telephony.stopTone();
         }, delay);

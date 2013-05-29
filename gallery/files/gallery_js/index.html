@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">66.37</p>
+      <p class="stat">66.04</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">1057</p>
+      <p class="stat">1141</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">67.51</p>
+      <p class="stat">68.04</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">7.30</p>
+      <p class="stat">8.24</p>
     </div>
   </div>
 </div>
@@ -353,6 +353,10 @@ function initDB() {
   };
 
   photodb.onscanend = function onscanend() {
+    // if we're still having the scanning overlay there are no photo's
+    if (currentOverlay === 'scanning')
+      showOverlay('emptygallery');
+
     // Hide the scanning indicator
     $('progress').classList.add('hidden');
     $('throbber').classList.remove('throb');
@@ -484,7 +488,7 @@ function initThumbnails() {
   function done() {
     flush();
     if (files.length === 0) { // If we didn't find anything
-      showOverlay('emptygallery');
+      showOverlay('scanning');
     }
     // Now that we've enumerated all the photos and videos we already know
     // about go start looking for new photos and videos.
@@ -579,7 +583,7 @@ function fileCreated(fileinfo) {
     return;
 
   // If we were showing the 'no pictures' overlay, hide it
-  if (currentOverlay === 'emptygallery')
+  if (currentOverlay === 'emptygallery' || currentOverlay === 'scanning')
     showOverlay(null);
 
   // If this new image is newer than the first one, it goes first
@@ -1010,18 +1014,75 @@ function deleteSelectedItems() {
   if (selected.length === 0)
     return;
 
-  var msg = navigator.mozL10n.get('delete-n-items?', {n: selected.length});
-  if (confirm(msg)) {
-    // XXX
+  showConfirmDialog({
+    message: navigator.mozL10n.get('delete-n-items?', {n: selected.length}),
+    cancelText: navigator.mozL10n.get('cancel'),
+    confirmText: navigator.mozL10n.get('delete'),
+    danger: true
+  }, function() { // onSuccess
     // deleteFile is O(n), so this loop is O(n*n). If used with really large
     // selections, it might have noticably bad performance.  If so, we
     // can write a more efficient deleteFiles() function.
     for (var i = 0; i < selected.length; i++) {
       selected[i].classList.toggle('selected');
-      deleteFile(parseInt(selected[i].dataset.index));
+      deleteFile(parseInt(selected[i].dataset.index, 10));
     }
     clearSelection();
-  }
+  });
+}
+
+// show a confirm dialog
+function showConfirmDialog(options, onConfirm, onCancel) {
+  LazyLoader.load('shared/style/confirm.css', function() {
+    var dialog = $('confirm-dialog');
+    var msgEle = $('confirm-msg');
+    var cancelButton = $('confirm-cancel');
+    var confirmButton = $('confirm-ok');
+
+    // set up the dialog based on the options
+    msgEle.textContent = options.message;
+    cancelButton.textContent = options.cancelText ||
+      navigator.mozL10n.get('cancel');
+    confirmButton.textContent = options.confirmText ||
+      navigator.mozL10n.get('ok');
+
+    if (options.danger) {
+      confirmButton.classList.add('danger');
+    }
+    else {
+      confirmButton.classList.remove('danger');
+    }
+
+    // show the confirm dialog
+    dialog.classList.remove('hidden');
+
+    // attach event handlers
+    var onCancelClick = function(ev) {
+      close(ev);
+      if (onCancel) {
+        onCancel();
+      }
+      return false;
+    };
+    var onConfirmClick = function(ev) {
+      close(ev);
+      if (onConfirm) {
+        onConfirm();
+      }
+      return false;
+    };
+    cancelButton.addEventListener('click', onCancelClick);
+    confirmButton.addEventListener('click', onConfirmClick);
+
+    function close(ev) {
+      dialog.classList.add('hidden');
+      cancelButton.removeEventListener('click', onCancelClick);
+      confirmButton.removeEventListener('click', onConfirmClick);
+      ev.preventDefault();
+      ev.stopPropagation();
+      return false;
+    }
+  });
 }
 
 
@@ -1127,6 +1188,7 @@ var currentOverlay;  // The id of the current overlay or null if none.
 //   nocard: no sdcard is installed in the phone
 //   pluggedin: the sdcard is being used by USB mass storage
 //   emptygallery: no pictures found
+//   scanning: scanning the sdcard for photo's, but none found yet
 //
 // Localization is done using the specified id with "-title" and "-text"
 // suffixes.
@@ -1134,13 +1196,35 @@ var currentOverlay;  // The id of the current overlay or null if none.
 function showOverlay(id) {
   currentOverlay = id;
 
-  if (id === null) {
-    $('overlay').classList.add('hidden');
-    return;
+  var title, text;
+
+  switch (currentOverlay) {
+    case null:
+      $('overlay').classList.add('hidden');
+      return;
+    case 'nocard':
+      title = navigator.mozL10n.get('nocard2-title');
+      text = navigator.mozL10n.get('nocard2-text');
+      break;
+    case 'pluggedin':
+      title = navigator.mozL10n.get('pluggedin2-title');
+      text = navigator.mozL10n.get('pluggedin2-text');
+      break;
+    case 'scanning':
+      title = navigator.mozL10n.get('scanning-title');
+      text = navigator.mozL10n.get('scanning-text');
+      break;
+    case 'emptygallery':
+      title = navigator.mozL10n.get('emptygallery2-title');
+      text = navigator.mozL10n.get('emptygallery2-text');
+      break;
+    default:
+      console.warn('Reference to undefined overlay', currentOverlay);
+      return;
   }
 
-  $('overlay-title').textContent = navigator.mozL10n.get(id + '2-title');
-  $('overlay-text').textContent = navigator.mozL10n.get(id + '2-text');
+  $('overlay-title').textContent = title;
+  $('overlay-text').textContent = text;
   $('overlay').classList.remove('hidden');
 }
 

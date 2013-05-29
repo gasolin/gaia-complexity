@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">69.52</p>
+      <p class="stat">69.44</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">996</p>
+      <p class="stat">1031</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">84.65</p>
+      <p class="stat">86.01</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">10.39</p>
+      <p class="stat">10.83</p>
     </div>
   </div>
 </div>
@@ -108,11 +108,20 @@ function Icon(descriptor, app) {
   this.updateAppStatus(app);
 }
 
+
+// Support rendering icons for different screens
+var BASE_WIDTH = 320;
+var SCALE_RATIO = window.innerWidth / BASE_WIDTH;
+var MIN_ICON_SIZE = 52 * SCALE_RATIO;
+var MAX_ICON_SIZE = 60 * SCALE_RATIO;
+
 var DRAGGING_TRANSITION = '-moz-transform .3s';
 
 Icon.prototype = {
-  MIN_ICON_SIZE: 52,
-  MAX_ICON_SIZE: 60,
+
+  MAX_ICON_SIZE: MAX_ICON_SIZE,
+
+  MIN_ICON_SIZE: MIN_ICON_SIZE,
 
   DEFAULT_BOOKMARK_ICON_URL: window.location.protocol + '//' +
                     window.location.host + '/style/images/default_favicon.png',
@@ -144,6 +153,12 @@ Icon.prototype = {
            (descriptor.entry_point ? descriptor.entry_point : '');
   },
 
+  isOfflineReady: function icon_isOfflineReady() {
+    return !(this.descriptor.isHosted &&
+      !this.descriptor.hasOfflineCache ||
+      this.descriptor.isBookmark);
+  },
+
   /*
    * Renders the icon into the page
    *
@@ -161,7 +176,9 @@ Icon.prototype = {
      *   <span class="options"></span>
      * </li>
      */
+
     var container = this.container = document.createElement('li');
+    this.container.dataset.offlineReady = this.isOfflineReady();
     container.className = 'icon';
     if (this.descriptor.hidden) {
       delete this.descriptor.hidden;
@@ -186,8 +203,8 @@ Icon.prototype = {
     // Image
     var img = this.img = new Image();
     img.setAttribute('role', 'presentation');
-    img.width = 64;
-    img.height = 64;
+    img.width = MAX_ICON_SIZE + 4 * SCALE_RATIO;
+    img.height = MAX_ICON_SIZE + 4 * SCALE_RATIO;
     img.style.visibility = 'hidden';
     if (descriptor.renderedIcon) {
       this.displayRenderedIcon();
@@ -345,8 +362,8 @@ Icon.prototype = {
   renderImageForBookMark: function icon_renderImageForBookmark(img) {
     var self = this;
     var canvas = document.createElement('canvas');
-    canvas.width = 64;
-    canvas.height = 64;
+    canvas.width = MAX_ICON_SIZE + 4 * SCALE_RATIO;
+    canvas.height = MAX_ICON_SIZE + 4 * SCALE_RATIO;
     var ctx = canvas.getContext('2d');
 
     // Draw the background
@@ -356,12 +373,14 @@ Icon.prototype = {
       ctx.shadowColor = 'rgba(0,0,0,0.8)';
       ctx.shadowBlur = 2;
       ctx.shadowOffsetY = 2;
-      ctx.drawImage(background, 2, 2);
+      ctx.drawImage(background, 2 * SCALE_RATIO,
+                    2 * SCALE_RATIO, MAX_ICON_SIZE, MAX_ICON_SIZE);
       // Disable smoothing on icon resize
       ctx.shadowBlur = 0;
       ctx.shadowOffsetY = 0;
       ctx.mozImageSmoothingEnabled = false;
-      ctx.drawImage(img, 16, 16, 32, 32);
+      ctx.drawImage(img, 16 * SCALE_RATIO, 16 * SCALE_RATIO,
+                    32 * SCALE_RATIO, 32 * SCALE_RATIO);
       canvas.toBlob(self.renderBlob.bind(self));
     };
   },
@@ -373,8 +392,8 @@ Icon.prototype = {
     }
 
     var canvas = document.createElement('canvas');
-    canvas.width = 64;
-    canvas.height = 64;
+    canvas.width = MAX_ICON_SIZE + 4 * SCALE_RATIO;
+    canvas.height = MAX_ICON_SIZE + 4 * SCALE_RATIO;
 
     var ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -384,12 +403,12 @@ Icon.prototype = {
 
     // Deal with very small or very large icons
     img.width =
-        Math.min(this.MAX_ICON_SIZE, Math.max(img.width, this.MIN_ICON_SIZE));
+        Math.min(MAX_ICON_SIZE, Math.max(img.width, MAX_ICON_SIZE));
     img.height =
-        Math.min(this.MAX_ICON_SIZE, Math.max(img.height, this.MIN_ICON_SIZE));
+        Math.min(MAX_ICON_SIZE, Math.max(img.height, MAX_ICON_SIZE));
 
-    var width = Math.min(img.width, canvas.width - 4);
-    var height = Math.min(img.width, canvas.height - 4);
+    var width = Math.min(img.width, canvas.width - 4 * SCALE_RATIO);
+    var height = Math.min(img.width, canvas.height - 4 * SCALE_RATIO);
     ctx.drawImage(img,
                   (canvas.width - width) / 2,
                   (canvas.height - height) / 2,
@@ -459,6 +478,9 @@ Icon.prototype = {
     var oldDescriptor = this.descriptor;
     this.descriptor = descriptor;
     descriptor.removable === true ? this.appendOptions() : this.removeOptions();
+
+    // Update offline availability
+    this.container.dataset.offlineReady = this.isOfflineReady();
 
     if (descriptor.updateTime == oldDescriptor.updateTime &&
         descriptor.icon == oldDescriptor.icon) {
@@ -608,6 +630,10 @@ Icon.prototype = {
 
   getLeft: function icon_getLeft() {
     return this.container.getBoundingClientRect().left;
+  },
+
+  getWidth: function icon_getWidth() {
+    return this.container.getBoundingClientRect().width;
   }
 };
 
@@ -1043,8 +1069,17 @@ dockProto.getLeft = function dk_getLeft() {
   return this.olist.getBoundingClientRect().left;
 };
 
+/**
+ * Returns the right position of the last icon in the dock
+ */
 dockProto.getRight = function dk_getRight() {
-  return this.getLeft() + this.getWidth();
+  var children = this.olist.children;
+  var lastChild = children[children.length - 1];
+  if (!lastChild) {
+    return 0;
+  }
+
+  return lastChild.getBoundingClientRect().right;
 };
 
 dockProto.getWidth = function dk_getWidth() {

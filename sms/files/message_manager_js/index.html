@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">67.55</p>
+      <p class="stat">67.61</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">496</p>
+      <p class="stat">499</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">47.91</p>
+      <p class="stat">47.43</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">4.31</p>
+      <p class="stat">4.30</p>
     </div>
   </div>
 </div>
@@ -252,7 +252,7 @@ var MessageManager = {
     // If we receive a message with screen off, the height is
     // set to 0 and future checks will fail. So we update if needed
     if (!ThreadListUI.fullHeight || ThreadListUI.fullHeight === 0) {
-      ThreadListUI.fullHeight = ThreadListUI.view.offsetHeight;
+      ThreadListUI.fullHeight = ThreadListUI.container.offsetHeight;
     }
   },
 
@@ -334,6 +334,15 @@ var MessageManager = {
         editButton.parentNode.appendChild(editButton);
         if (mainWrapper.classList.contains('edit')) {
           mainWrapper.classList.remove('edit');
+          if (ThreadListUI.editDone) {
+            ThreadListUI.editDone = false;
+            // TODO Address this re-render in
+            // https://bugzilla.mozilla.org/show_bug.cgi?id=825604
+            this.getThreads(ThreadListUI.renderThreads,
+              function threadListUpdated() {
+              WaitingScreen.hide();
+            });
+          }
         } else if (threadMessages.classList.contains('new')) {
           MessageManager.slide('right', function() {
             threadMessages.classList.remove('new');
@@ -418,7 +427,7 @@ var MessageManager = {
     };
 
     cursor.onerror = function onerror() {
-      var msg = 'Reading the database. Error: ' + cursor.error.name;
+      var msg = 'Reading the database. Error: ' + this.error.name;
       console.log(msg);
     };
   },
@@ -466,7 +475,7 @@ var MessageManager = {
       }
     };
     cursor.onerror = function onerror() {
-      var msg = 'Reading the database. Error: ' + cursor.error.name;
+      var msg = 'Reading the database. Error: ' + this.error.name;
       console.log(msg);
     };
   },
@@ -552,15 +561,9 @@ var MessageManager = {
     removed completely.
   */
   deleteMessages: function mm_deleteMessages(list, callback) {
-    if (list.length > 0) {
-      this.deleteMessage(list.shift(), function(result) {
-        this.deleteMessages(list, callback);
-      }.bind(this));
-    } else {
-      if (callback) {
-        callback();
-      }
-    }
+    // mozMobileMessage.delete() has been modified per bug 771458.
+    // Now deleteMessage() can take an id or an array of id.
+    this.deleteMessage(list, callback);
   },
 
   markMessagesRead: function mm_markMessagesRead(list, value, callback) {
