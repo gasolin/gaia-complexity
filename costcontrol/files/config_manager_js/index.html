@@ -49,7 +49,7 @@
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">291</p>
+      <p class="stat">293</p>
     </div>
   </div>
   <div class="row historical">
@@ -176,7 +176,9 @@
 
   // Let's serialize dates
   // XXX: To avoid random error:
-  // "DataCloneError: The object could not be cloned." {file: "app://costcontrol.gaiamobile.org/shared/js/async_storage.js" line: 90}]
+  // "DataCloneError: The object could not be cloned."
+  // {file:
+  // "app://costcontrol.gaiamobile.org/shared/js/async_storage.js" line: 90}]
   Date.prototype.toJSON = function() {
     return {'__date__': this.toISOString()};
   };

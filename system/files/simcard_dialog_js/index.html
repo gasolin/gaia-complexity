@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">63.53</p>
+      <p class="stat">63.84</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">351</p>
+      <p class="stat">377</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">61.18</p>
+      <p class="stat">60.86</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">3.80</p>
+      <p class="stat">4.03</p>
     </div>
   </div>
 </div>
@@ -102,13 +102,13 @@ var SimPinDialog = {
 
   pinArea: document.getElementById('pinArea'),
   pukArea: document.getElementById('pukArea'),
-  nckArea: document.getElementById('nckArea'),
+  xckArea: document.getElementById('xckArea'),
   newPinArea: document.getElementById('newPinArea'),
   confirmPinArea: document.getElementById('confirmPinArea'),
 
   pinInput: null,
   pukInput: null,
-  nckInput: null,
+  xckInput: null,
   newPinInput: null,
   confirmPinInput: null,
 
@@ -122,6 +122,14 @@ var SimPinDialog = {
 
   lockType: 'pin',
   action: 'unlock',
+
+  lockTypeMap: {
+    'pinRequired': 'pin',
+    'pukRequired': 'puk',
+    'networkLocked': 'nck',
+    'corporateLocked': 'cck',
+    'serviceProviderLocked': 'spck'
+  },
 
   // Now we don't have a number-password type for input field
   // mimic one by binding one number input and one text input
@@ -149,12 +157,20 @@ var SimPinDialog = {
         valueEntered += String.fromCharCode(code);
       }
       displayField.value = encryption(valueEntered);
+      checkDialogDone();
+    });
+	
+    inputField.addEventListener('focus', function() {
+      checkDialogDone();
+    });
+
+    function checkDialogDone() {
       if (displayField.value.length >= 4)
         self.dialogDone.disabled = false;
       else
         self.dialogDone.disabled = true;
-    });
-
+    }
+	
     function encryption(str) {
       return (new Array(str.length + 1)).join('*');
     }
@@ -185,6 +201,7 @@ var SimPinDialog = {
     var _ = navigator.mozL10n.get;
 
     var cardState = this.mobileConnection.cardState;
+    var lockType = this.lockTypeMap[cardState];
     var retryCount = this.mobileConnection.retryCount;
 
     if (!retryCount) {
@@ -194,26 +211,31 @@ var SimPinDialog = {
       this.triesLeftMsg.textContent = _('inputCodeRetriesLeft', l10nArgs);
       this.triesLeftMsg.hidden = false;
     }
-    switch (cardState) {
-      case 'pinRequired':
-        this.lockType = 'pin';
+
+    switch (lockType) {
+      case 'pin':
+        this.lockType = lockType;
         this.errorMsg.hidden = true;
         this.inputFieldControl(true, false, false, false);
         this.pinInput.focus();
         break;
-      case 'pukRequired':
-        this.lockType = 'puk';
+      case 'puk':
+        this.lockType = lockType;
         this.errorMsgHeader.textContent = _('simCardLockedMsg') || '';
         this.errorMsgBody.textContent = _('enterPukMsg') || '';
         this.errorMsg.hidden = false;
         this.inputFieldControl(false, true, false, true);
         this.pukInput.focus();
         break;
-      case 'networkLocked':
-        this.lockType = 'nck';
+      case 'nck':
+      case 'cck':
+      case 'spck':
+        this.lockType = lockType;
         this.errorMsg.hidden = true;
         this.inputFieldControl(false, false, true, false);
-        this.nckInput.focus();
+        var desc = this.xckArea.querySelector('div[name="xckDesc"]');
+        desc.textContent = _(lockType + 'Code');
+        this.xckInput.focus();
         break;
       default:
         this.skip();
@@ -234,7 +256,7 @@ var SimPinDialog = {
     } else if (evt.lockType === 'puk') {
       this.pukInput.focus();
     } else {
-      this.nckInput.focus();
+      this.xckInput.focus();
     }
   },
 
@@ -283,12 +305,12 @@ var SimPinDialog = {
     this.clear();
   },
 
-  unlockNck: function spl_unlockNck() {
-    var nck = this.nckInput.value;
-    if (nck === '')
+  unlockXck: function spl_unlockXck() {
+    var xck = this.xckInput.value;
+    if (xck === '')
       return;
 
-    var options = {lockType: 'nck', pin: nck };
+    var options = {lockType: this.lockType, pin: xck };
     this.unlockCardLock(options);
     this.clear();
   },
@@ -333,10 +355,10 @@ var SimPinDialog = {
     var req = this.mobileConnection.setCardLock(options);
     req.onsuccess = this.close.bind(this, 'success');
   },
-  inputFieldControl: function spl_inputField(isPin, isPuk, isNck, isNewPin) {
+  inputFieldControl: function spl_inputField(isPin, isPuk, isXck, isNewPin) {
     this.pinArea.hidden = !isPin;
     this.pukArea.hidden = !isPuk;
-    this.nckArea.hidden = !isNck;
+    this.xckArea.hidden = !isXck;
     this.newPinArea.hidden = !isNewPin;
     this.confirmPinArea.hidden = !isNewPin;
   },
@@ -349,7 +371,7 @@ var SimPinDialog = {
         else if (this.lockType === 'puk') {
           this.unlockPuk();
         } else {
-          this.unlockNck();
+          this.unlockXck();
         }
         break;
       case 'enable':
@@ -374,6 +396,8 @@ var SimPinDialog = {
     this.pinInput.blur();
     this.pukInput.value = '';
     this.pukInput.blur();
+    this.xckInput.value = '';
+    this.xckInput.blur();
     this.newPinInput.value = '';
     this.confirmPinInput.value = '';
   },
@@ -390,8 +414,10 @@ var SimPinDialog = {
   show: function spl_show(action, onclose) {
     var _ = navigator.mozL10n.get;
 
+    // Hide the utility tray to avoid overlapping the SIM Pin dialog
+    UtilityTray.hide(true);
+
     this.systemDialog.show();
-    this.dialogDone.disabled = true;
     this.action = action;
     this.lockType = 'pin';
     switch (action) {
@@ -437,7 +463,7 @@ var SimPinDialog = {
     this.dialogClose.onclick = this.skip.bind(this);
     this.pinInput = this.getNumberPasswordInputField('simpin');
     this.pukInput = this.getNumberPasswordInputField('simpuk');
-    this.nckInput = this.getNumberPasswordInputField('nckpin');
+    this.xckInput = this.getNumberPasswordInputField('xckpin');
     this.newPinInput = this.getNumberPasswordInputField('newSimpin');
     this.confirmPinInput = this.getNumberPasswordInputField('confirmNewSimpin');
   }

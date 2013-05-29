@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">59.89</p>
+      <p class="stat">59.83</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">803</p>
+      <p class="stat">822</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">70.95</p>
+      <p class="stat">73.46</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">9.44</p>
+      <p class="stat">9.71</p>
     </div>
   </div>
 </div>
@@ -338,7 +338,7 @@ contacts.Form = (function() {
 
     params = params || {};
 
-    givenName.value = params.giveName || '';
+    givenName.value = params.givenName || '';
     familyName.value = params.lastName || '';
     company.value = params.company || '';
 
@@ -471,6 +471,23 @@ contacts.Form = (function() {
     return photo;
   };
 
+  var CATEGORY_WHITE_LIST = ['gmail', 'live'];
+  function updateCategoryForImported(contact) {
+    if (Array.isArray(contact.category)) {
+      var total = CATEGORY_WHITE_LIST.length;
+      var idx = -1;
+      for (var i = 0; i < total; i++) {
+        var idx = contact.category.indexOf(CATEGORY_WHITE_LIST[i]);
+        if (idx !== -1) {
+          break;
+        }
+      }
+      if (idx !== -1) {
+        contact.category[idx] = contact.category[idx] + '/updated';
+      }
+    }
+  }
+
   var saveContact = function saveContact() {
     currentContact = currentContact || {};
     currentContact = deviceContact || currentContact;
@@ -558,6 +575,7 @@ contacts.Form = (function() {
       contact.init(myContact);
     }
 
+    updateCategoryForImported(contact);
     var request = navigator.mozContacts.save(contact);
 
     request.onsuccess = function onsuccess() {
@@ -837,7 +855,8 @@ contacts.Form = (function() {
 
     activity.onsuccess = function success() {
       addRemoveIconToPhoto();
-      saveButton.removeAttribute('disabled');
+      if (!emptyForm())
+        saveButton.removeAttribute('disabled');
       // XXX
       // this.result.blob is valid now, but it won't stay valid
       // (see https://bugzilla.mozilla.org/show_bug.cgi?id=806503)

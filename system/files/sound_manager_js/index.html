@@ -49,7 +49,7 @@
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">553</p>
+      <p class="stat">556</p>
     </div>
   </div>
   <div class="row historical">
@@ -147,7 +147,7 @@
 
   // Store the current active channel;
   // change with 'audio-channel-changed' mozChromeEvent
-  var currentChannel = 'notification';
+  var currentChannel = 'none';
 
   var vibrationEnabled = true;
 
@@ -514,6 +514,9 @@
 
   /**
    * Leaving silent mode.
+   * @param  {String} channel Specify the channel name.
+   *                          which is going to enter silent mode.
+   * @param  {Boolean} skip_restore Specify to skip the volume restore or not.
    */
   function leaveSilentMode(channel, skip_restore) {
     if (!channel)

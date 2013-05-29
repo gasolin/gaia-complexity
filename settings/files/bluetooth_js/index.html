@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">69.35</p>
+      <p class="stat">69.23</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">760</p>
+      <p class="stat">764</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">57.58</p>
+      <p class="stat">59.89</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">7.02</p>
+      <p class="stat">7.09</p>
     </div>
   </div>
 </div>
@@ -174,6 +174,9 @@ navigator.mozL10n.ready(function bluetoothSettings() {
       }
 
       var nameEntered = window.prompt(_('change-phone-name'), myName);
+
+      nameEntered = nameEntered.replace(/^\s+|\s+$/g, '');
+
       if (!nameEntered || nameEntered === '' || nameEntered === myName)
         return;
 
@@ -330,8 +333,8 @@ navigator.mozL10n.ready(function bluetoothSettings() {
             this.connectOpt.style.display = 'block';
             this.disconnectOpt.style.display = 'none';
             this.connectOpt.onclick = function() {
-              setDeviceConnect(device);
               stopDiscovery();
+              setDeviceConnect(device);
             };
           }
         } else {
@@ -524,10 +527,11 @@ navigator.mozL10n.ready(function bluetoothSettings() {
         var small = aItem.querySelector('small');
         small.textContent = _('device-status-pairing');
         small.dataset.l10nId = 'device-status-pairing';
+        stopDiscovery();
+
         var req = defaultAdapter.pair(device);
         pairingMode = 'active';
         pairingAddress = device.address;
-        stopDiscovery();
         req.onerror = function bt_pairError(error) {
           showDevicePaired(false, req.error.name);
         };
@@ -538,10 +542,10 @@ navigator.mozL10n.ready(function bluetoothSettings() {
     }
 
     function showDevicePaired(paired, errorMessage) {
-      // if we are in a pairing process, update found device list
-      // or do error handling.
+      // If we don't know the pairing device address,
+      // it means the pair request is handled by interface level.
+      // So we just need to update paired list.
       if (!pairingAddress) {
-        // acquire a new paired list no matter paired or unpaired
         getPairedDevice();
         return;
       }
@@ -556,6 +560,7 @@ navigator.mozL10n.ready(function bluetoothSettings() {
           var device = openList.index[workingAddress][0];
           var item = openList.index[workingAddress][1];
           openList.list.removeChild(item);
+          delete openList.index[workingAddress];
           connectingAddress = workingAddress;
         }
       } else {
@@ -619,7 +624,8 @@ navigator.mozL10n.ready(function bluetoothSettings() {
     function setDeviceConnect(device) {
       // we only support audio-card device to connect now
       if (!bluetooth.enabled || !defaultAdapter ||
-          device.icon !== 'audio-card') {
+          device.icon !== 'audio-card' ||
+          device.address === connectedAddress) {
         connectingAddress = null;
         return;
       }
@@ -664,7 +670,6 @@ navigator.mozL10n.ready(function bluetoothSettings() {
       if (!pairList.index[connectingAddress]) {
         return;
       }
-
       var small = pairList.index[connectingAddress][1].querySelector('small');
       small.textContent = _('device-status-connecting');
       small.dataset.l10nId = 'device-status-connecting';
@@ -687,7 +692,6 @@ navigator.mozL10n.ready(function bluetoothSettings() {
       if (!pairList.index[deviceAddress]) {
         return;
       }
-
       var small = pairList.index[deviceAddress][1].querySelector('small');
       small.textContent = (connected) ? _('device-status-connected') : '';
       small.dataset.l10nId = (connected) ? 'device-status-connected' : '';

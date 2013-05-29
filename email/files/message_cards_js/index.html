@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">61.95</p>
+      <p class="stat">61.35</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">1548</p>
+      <p class="stat">1810</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">104.76</p>
+      <p class="stat">116.14</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">17.32</p>
+      <p class="stat">20.53</p>
     </div>
   </div>
 </div>
@@ -178,6 +178,9 @@ function displaySubject(subjectNode, message) {
  *
  * See `onScroll` for more details.
  *
+ * XXX this class wants to be cleaned up, badly.  A lot of this may want to
+ * happen via pushing more of the hiding/showing logic out onto CSS, taking
+ * care to use efficient selectors.
  */
 function MessageListCard(domNode, mode, args) {
   this.domNode = domNode;
@@ -235,7 +238,9 @@ function MessageListCard(domNode, mode, args) {
   this.toolbar.editBtn = domNode.getElementsByClassName('msg-edit-btn')[0];
   this.toolbar.editBtn
     .addEventListener('click', this.setEditMode.bind(this, true), false);
-  domNode.getElementsByClassName('msg-refresh-btn')[0]
+  this.toolbar.refreshBtn =
+    domNode.getElementsByClassName('msg-refresh-btn')[0];
+  this.toolbar.refreshBtn
     .addEventListener('click', this.onRefresh.bind(this), false);
 
   // - header buttons: edit mode
@@ -249,7 +254,8 @@ function MessageListCard(domNode, mode, args) {
     .addEventListener('click', this.onMarkMessagesRead.bind(this, true), false);
   domNode.getElementsByClassName('msg-delete-btn')[0]
     .addEventListener('click', this.onDeleteMessages.bind(this, true), false);
-  domNode.getElementsByClassName('msg-move-btn')[0]
+  this.toolbar.moveBtn = domNode.getElementsByClassName('msg-move-btn')[0];
+  this.toolbar.moveBtn
     .addEventListener('click', this.onMoveMessages.bind(this, true), false);
 
   // -- non-search mode
@@ -281,6 +287,7 @@ function MessageListCard(domNode, mode, args) {
 
   this.curFolder = null;
   this.messagesSlice = null;
+  this.isIncomingFolder = true;
   this._boundSliceRequestComplete = this.onSliceRequestComplete.bind(this);
   if (mode == 'nonsearch')
     this.showFolder(args.folder);
@@ -446,12 +453,34 @@ MessageListCard.prototype = {
       this.messagesContainer.innerHTML = '';
     }
     this.curFolder = folder;
+    switch (folder.type) {
+      case 'drafts':
+      case 'localdrafts':
+      case 'sent':
+        this.isIncomingFolder = false;
+        break;
+      default:
+        this.isIncomingFolder = true;
+        break;
+    }
 
     this.domNode.getElementsByClassName('msg-list-header-folder-label')[0]
       .textContent = folder.name;
 
     this.hideEmptyLayout();
 
+    // you can't refresh the localdrafts folder or move messages out of it.
+    if (folder.type === 'localdrafts') {
+      this.toolbar.refreshBtn.classList.add('collapsed');
+      this.toolbar.moveBtn.classList.add('collapsed');
+    }
+    else {
+      this.toolbar.refreshBtn.classList.remove('collapsed');
+      this.toolbar.moveBtn.classList.remove('collapsed');
+    }
+
+    // We are creating a new slice, so any pending snippet requests are moot.
+    this._snippetRequestPending = false;
     this.messagesSlice = MailAPI.viewFolderMessages(folder);
     this.messagesSlice.onsplice = this.onMessagesSplice.bind(this);
     this.messagesSlice.onchange = this.updateMessageDom.bind(this, false);
@@ -483,6 +512,8 @@ MessageListCard.prototype = {
     if (phrase.length < 1)
       return false;
 
+    // We are creating a new slice, so any pending snippet requests are moot.
+    this._snippetRequestPending = false;
     this.messagesSlice = MailAPI.searchFolderMessages(
       folder, phrase,
       {
@@ -568,9 +599,16 @@ MessageListCard.prototype = {
   },
 
   onCandybarTimeout: function() {
-    this.progressNode.classList.add('pack-activity');
+    if (this.progressCandybarTimer) {
+      this.progressNode.classList.add('pack-activity');
+      this.progressCandybarTimer = null;
+    }
   },
 
+  /**
+   * Hide buttons that are not appropriate if we have no messages and display
+   * the appropriate l10n string in the message list proper.
+   */
   showEmptyLayout: function() {
     var text = this.domNode.
       getElementsByClassName('msg-list-empty-message-text')[0];
@@ -582,6 +620,10 @@ MessageListCard.prototype = {
     this.toolbar.searchBtn.classList.add('disabled');
     this._hideSearchBoxByScrolling();
   },
+  /**
+   * Show buttons we hid in `showEmptyLayout` and hide the "empty folder"
+   * message.
+   */
   hideEmptyLayout: function() {
     this.messageEmptyContainer.classList.add('collapsed');
     this.toolbar.editBtn.classList.remove('disabled');
@@ -597,7 +639,9 @@ MessageListCard.prototype = {
     else
       this.syncMoreNode.classList.add('collapsed');
 
-    if (this.messagesSlice.items.length === 0) {
+    // Show empty layout, unless this is a slice with fake data that
+    // will get changed soon.
+    if (this.messagesSlice.items.length === 0 && !this.messagesSlice._fake) {
       this.showEmptyLayout();
     }
     // Consider requesting more data or discarding data based on scrolling that
@@ -782,34 +826,58 @@ MessageListCard.prototype = {
 
   },
 
+  _fakeRemoveElements: [],
+
   onMessagesSplice: function(index, howMany, addedItems,
-                             requested, moreExpected) {
+                             requested, moreExpected, fake) {
+    // If no work to do, just skip it. This is particularly important during
+    // the fake to real transition, where an empty onMessagesSplice is sent.
+    // If this return is not done, there is a flicker in the message list
+    if (index === 0 && howMany === 0 && !addedItems.length)
+      return;
+
+    if (this._fakeRemoveElements.length) {
+      this._fakeRemoveElements.forEach(function(element) {
+        element.parentNode.removeChild(element);
+      });
+      this._fakeRemoveElements = [];
+    }
+
     var prevHeight;
     // - removed messages
     if (howMany) {
-      // Plan to fixup the scroll position if we are deleting a message that
-      // starts before the (visible) scrolled area.  (We add the container's
-      // start offset because it is as big as the occluding header bar.)
-      prevHeight = null;
-      if (this.messagesSlice.items[index].element.offsetTop <
-          this.scrollContainer.scrollTop + this.messagesContainer.offsetTop) {
-        prevHeight = this.messagesContainer.clientHeight;
-      }
+      if (fake && index === 0 && this.messagesSlice.items.length === howMany &&
+          !addedItems.length) {
+        // If this is a call to remove the fake data, hold onto it until the
+        // next splice call, to avoid flickering.
+        this._fakeRemoveElements = this.messagesSlice.items.map(
+              function(item) { return item.element; });
+      } else {
+        // Regular remove for current call.
+        // Plan to fixup the scroll position if we are deleting a message that
+        // starts before the (visible) scrolled area.  (We add the container's
+        // start offset because it is as big as the occluding header bar.)
+        var prevHeight = null;
+        if (this.messagesSlice.items[index].element.offsetTop <
+            this.scrollContainer.scrollTop + this.messagesContainer.offsetTop) {
+          prevHeight = this.messagesContainer.clientHeight;
+        }
 
-      for (var i = index + howMany - 1; i >= index; i--) {
-        var message = this.messagesSlice.items[i];
-        message.element.parentNode.removeChild(message.element);
-      }
+        for (var i = index + howMany - 1; i >= index; i--) {
+          var message = this.messagesSlice.items[i];
+          message.element.parentNode.removeChild(message.element);
+        }
 
-      // If fixup is requred, adjust.
-      if (prevHeight !== null) {
-        this.scrollContainer.scrollTop -=
-          (prevHeight - this.messagesContainer.clientHeight);
-      }
+        // If fixup is requred, adjust.
+        if (prevHeight !== null) {
+          this.scrollContainer.scrollTop -=
+            (prevHeight - this.messagesContainer.clientHeight);
+        }
 
-      // Check the message count after deletion:
-      if (this.messagesContainer.children.length === 0) {
-        this.showEmptyLayout();
+        // Check the message count after deletion:
+        if (this.messagesContainer.children.length === 0) {
+          this.showEmptyLayout();
+        }
       }
     }
 
@@ -859,9 +927,23 @@ MessageListCard.prototype = {
     // some things only need to be done once
     var dateNode = msgNode.getElementsByClassName('msg-header-date')[0];
     if (firstTime) {
+      var listPerson;
+      if (this.isIncomingFolder)
+        listPerson = message.author;
+      // XXX This is not to UX spec, but this is a stop-gap and that would
+      // require adding strings which we cannot justify as a slipstream fix.
+      else if (message.to && message.to.length)
+        listPerson = message.to[0];
+      else if (message.cc && message.cc.length)
+        listPerson = message.cc[0];
+      else if (message.bcc && message.bcc.length)
+        listPerson = message.bcc[0];
+      else
+        listPerson = message.author;
+
       // author
       msgNode.getElementsByClassName('msg-header-author')[0]
-        .textContent = message.author.name || message.author.address;
+        .textContent = listPerson.name || listPerson.address;
       // date
       dateNode.dataset.time = message.date.valueOf();
       dateNode.textContent = prettyDate(message.date);
@@ -971,6 +1053,14 @@ MessageListCard.prototype = {
         cb.checked = true;
       }
       this.selectedMessagesUpdated();
+      return;
+    }
+
+    if (this.curFolder.type === 'localdrafts') {
+      var composer = header.editAsDraft(function() {
+        Cards.pushCard('compose', 'default', 'animate',
+                       { composer: composer });
+      });
       return;
     }
 
@@ -1160,7 +1250,15 @@ function MessageReaderCard(domNode, mode, args) {
   this.handleBodyChange = this.handleBodyChange.bind(this);
 
 }
+
 MessageReaderCard.prototype = {
+  _contextMenuType: {
+    VIEW_CONTACT: 1,
+    CREATE_CONTACT: 2,
+    ADD_TO_CONTACT: 4,
+    REPLY: 8,
+    NEW_MESSAGE: 16
+  },
 
   postInsert: function() {
     // iframes need to be linked into the DOM tree before their contentDocument
@@ -1221,11 +1319,40 @@ MessageReaderCard.prototype = {
   },
 
   onForward: function(event) {
-    Cards.eatEventsUntilNextCard();
-    var composer = this.header.forwardMessage('inline', function() {
-      Cards.pushCard('compose', 'default', 'animate',
-                     { composer: composer });
-    });
+    // If we don't have a body yet, we can't forward the message.  In the future
+    // we should visibly disable the button until the body has been retrieved.
+    if (!this.body)
+      return;
+
+    var needToPrompt = this.header.hasAttachments ||
+      this.body.embeddedImageCount > 0;
+
+    var forwardMessage = function() {
+      Cards.eatEventsUntilNextCard();
+      var composer = this.header.forwardMessage('inline', function() {
+             Cards.pushCard('compose', 'default', 'animate',
+                            { composer: composer });
+      });
+    }.bind(this);
+
+    if (needToPrompt) {
+      var dialog = msgNodes['attachment-disabled-confirm'].cloneNode(true);
+      ConfirmDialog.show(dialog,
+        {
+          id: 'msg-attachment-disabled-ok',
+          handler: function() {
+            forwardMessage();
+          }
+        },
+        {
+          id: 'msg-attachment-disabled-cancel',
+          handler: null
+        }
+      );
+    } else {
+      forwardMessage();
+    }
+
   },
 
   onDelete: function() {
@@ -1279,29 +1406,119 @@ MessageReaderCard.prototype = {
 
   onPeepClick: function(target) {
     var contents = msgNodes['contact-menu'].cloneNode(true);
-    var email = target.getAttribute('data-email');
+    var email = target.dataset.address;
+    var contact = null;
     contents.getElementsByTagName('header')[0].textContent = email;
     document.body.appendChild(contents);
+
+    /*
+     * Show menu items based on the options which consists of values of
+     * the type "_contextMenuType".
+     */
+    var showContextMenuItems = (function(options) {
+      if (options & this._contextMenuType.VIEW_CONTACT)
+        contents.querySelector('.msg-contact-menu-view')
+          .classList.remove('collapsed');
+      if (options & this._contextMenuType.CREATE_CONTACT)
+        contents.querySelector('.msg-contact-menu-create-contact')
+          .classList.remove('collapsed');
+      if (options & this._contextMenuType.ADD_TO_CONTACT)
+        contents.querySelector('.msg-contact-menu-add-to-existing-contact')
+          .classList.remove('collapsed');
+      if (options & this._contextMenuType.REPLY)
+        contents.querySelector('.msg-contact-menu-reply')
+          .classList.remove('collapsed');
+      if (options & this._contextMenuType.NEW_MESSAGE)
+        contents.querySelector('.msg-contact-menu-new')
+          .classList.remove('collapsed');
+    }).bind(this);
+
+    var updateName = (function(targetMail, name) {
+      if (!name || name === '')
+        return;
+
+      // update UI
+      var selector = '.msg-peep-bubble[data-address="' +
+        targetMail + '"]';
+      var nodes = Array.prototype.slice
+        .call(this.domNode.querySelectorAll(selector));
+
+      for (var i = 0; i < nodes.length; i++) {
+        var node = nodes[i];
+        var content = node.querySelector('.msg-peep-content');
+        node.dataset.name = name;
+        content.textContent = name;
+      }
+    }).bind(this);
+
     var formSubmit = (function(evt) {
       document.body.removeChild(contents);
       switch (evt.explicitOriginalTarget.className) {
         // All of these mutations are immediately reflected, easily observed
         // and easily undone, so we don't show them as toaster actions.
+        case 'msg-contact-menu-new':
+          var composer =
+            MailAPI.beginMessageComposition(this.header, null, null,
+            function composerReady() {
+              composer.to = [{
+                address: target.dataset.address,
+                name: target.dataset.name
+              }];
+              Cards.pushCard('compose', 'default', 'animate',
+                             { composer: composer });
+            });
+          break;
         case 'msg-contact-menu-view':
-          try {
-            //TODO: Provide correct params for contact activiy handler.
+          if (contact) {
             var activity = new MozActivity({
-              name: 'new',
+              name: 'open',
               data: {
                 type: 'webcontacts/contact',
                 params: {
-                  'email': email
+                  'id': contact.id
                 }
               }
             });
-          } catch (e) {
-            console.log('WebActivities unavailable? : ' + e);
           }
+          break;
+        case 'msg-contact-menu-create-contact':
+          var params = {
+            'email': email
+          };
+
+          if (name)
+            params['givenName'] = target.dataset.name;
+
+          var activity = new MozActivity({
+            name: 'new',
+            data: {
+              type: 'webcontacts/contact',
+              params: params
+            }
+          });
+
+          activity.onsuccess = function() {
+            var contact = activity.result.contact;
+            if (contact)
+              updateName(email, contact.name);
+          };
+          break;
+        case 'msg-contact-menu-add-to-existing-contact':
+          var activity = new MozActivity({
+            name: 'update',
+            data: {
+              type: 'webcontacts/contact',
+              params: {
+                'email': email
+              }
+            }
+          });
+
+          activity.onsuccess = function() {
+            var contact = activity.result.contact;
+            if (contact)
+              updateName(email, contact.name);
+          };
           break;
         case 'msg-contact-menu-reply':
           //TODO: We need to enter compose view with specific email address.
@@ -1314,6 +1531,24 @@ MessageReaderCard.prototype = {
       return false;
     }).bind(this);
     contents.addEventListener('submit', formSubmit);
+
+    ContactDataManager.searchContactData(email, function(contacts) {
+      var contextMenuOptions = this._contextMenuType.NEW_MESSAGE;
+      var messageType = target.dataset.type;
+
+      if (messageType === 'from')
+        contextMenuOptions |= this._contextMenuType.REPLY;
+
+      if (contacts && contacts.length > 0) {
+        contact = contacts[0];
+        contextMenuOptions |= this._contextMenuType.VIEW_CONTACT;
+      } else {
+        contact = null;
+        contextMenuOptions |= this._contextMenuType.CREATE_CONTACT;
+        contextMenuOptions |= this._contextMenuType.ADD_TO_CONTACT;
+      }
+      showContextMenuItems(contextMenuOptions);
+    }.bind(this));
   },
 
   onLoadBarClick: function(event) {
@@ -1395,10 +1630,30 @@ MessageReaderCard.prototype = {
           if (!blob) {
             throw new Error('Blob does not exist');
           }
+
+          // To delegate a correct activity, we should try to avoid the unsure
+          // mimetype because types like "application/octet-stream" which told
+          // by the e-mail client are not supported.
+          // But it doesn't mean we really don't support that attachment
+          // what we can do here is:
+          // 1. Check blob.type, most of the time it will not be empty
+          //    because it's reported by deviceStorage, it should be a
+          //    correct mimetype, or
+          // 2. Use the original mimetype from the attachment,
+          //    but it's possibly an unsupported mimetype, like
+          //    "application/octet-stream" which cannot be used correctly, or
+          // 3. Use MimeMapper to help us, if it's still an unsure mimetype,
+          //    MimeMapper can guess the possible mimetype from extension,
+          //    then we can delegate a right activity.
+          var extension = attachment.filename.split('.').pop();
+          var originalType = blob.type || attachment.mimetype;
+          var mappedType = (MimeMapper.isSupportedType(originalType)) ?
+            originalType : MimeMapper.guessTypeFromExtension(extension);
+
           var activity = new MozActivity({
             name: 'open',
             data: {
-              type: attachment.mimetype,
+              type: mappedType,
               blob: blob
             }
           });
@@ -1464,7 +1719,9 @@ MessageReaderCard.prototype = {
   buildHeaderDom: function(domNode) {
     var header = this.header, body = this.body;
 
-    function addHeaderEmails(lineClass, peeps) {
+    // -- Header
+    function addHeaderEmails(type, peeps) {
+      var lineClass = 'msg-envelope-' + type + '-line';
       var lineNode = domNode.getElementsByClassName(lineClass)[0];
 
       if (!peeps || !peeps.length) {
@@ -1484,8 +1741,10 @@ MessageReaderCard.prototype = {
         var peep = peeps[0];
         // TODO: Display peep name if the address is not exist.
         //       Do we nee to deal with that scenario?
-        contentTemplate.textContent = peep.address || peep.name;
-        peepTemplate.setAttribute('data-email', peep.address);
+        contentTemplate.textContent = peep.name || peep.address;
+        peepTemplate.dataset.address = peep.address;
+        peepTemplate.dataset.name = peep.name;
+        peepTemplate.dataset.type = type;
         if (peep.address) {
           contentTemplate.classList.add('msg-peep-address');
         }
@@ -1497,7 +1756,9 @@ MessageReaderCard.prototype = {
       for (var i = 0; i < peeps.length; i++) {
         var peep = peeps[i];
         contentTemplate.textContent = peep.name || peep.address;
-        peepTemplate.setAttribute('data-email', peep.address);
+        peepTemplate.dataset.address = peep.address;
+        peepTemplate.dataset.name = peep.name;
+        peepTemplate.dataset.type = type;
         if (!peep.name && peep.address) {
           contentTemplate.classList.add('msg-peep-address');
         } else {
@@ -1507,10 +1768,10 @@ MessageReaderCard.prototype = {
       }
     }
 
-    addHeaderEmails('msg-envelope-from-line', [header.author]);
-    addHeaderEmails('msg-envelope-to-line', header.to);
-    addHeaderEmails('msg-envelope-cc-line', header.cc);
-    addHeaderEmails('msg-envelope-bcc-line', header.bcc);
+    addHeaderEmails('from', [header.author]);
+    addHeaderEmails('to', header.to);
+    addHeaderEmails('cc', header.cc);
+    addHeaderEmails('bcc', header.bcc);
 
     var dateNode = domNode.getElementsByClassName('msg-envelope-date')[0];
     dateNode.dataset.time = header.date.valueOf();
@@ -1593,41 +1854,42 @@ MessageReaderCard.prototype = {
     var attachmentsContainer =
       domNode.getElementsByClassName('msg-attachments-container')[0];
     if (body.attachments && body.attachments.length) {
-      var attTemplate = msgNodes['attachment-item'],
-          filenameTemplate =
-            attTemplate.getElementsByClassName('msg-attachment-filename')[0],
-          filesizeTemplate =
-            attTemplate.getElementsByClassName('msg-attachment-filesize')[0];
-      for (var iAttach = 0; iAttach < body.attachments.length; iAttach++) {
-        var attachment = body.attachments[iAttach], state;
-        if (attachment.isDownloaded)
-          state = 'downloaded';
+      // We need MimeMapper to help us determining the downloadable attachments
+      // but it might not be loaded yet, so load before use it
+      App.loader.load('shared/js/mime_mapper.js', function() {
+        var attTemplate = msgNodes['attachment-item'],
+            filenameTemplate =
+              attTemplate.getElementsByClassName('msg-attachment-filename')[0],
+            filesizeTemplate =
+              attTemplate.getElementsByClassName('msg-attachment-filesize')[0];
+        for (var iAttach = 0; iAttach < body.attachments.length; iAttach++) {
+          var attachment = body.attachments[iAttach], state;
+          var extension = attachment.filename.split('.').pop();
 
-        // uplifting note: commenting the audio part of the regexp because the
-        // audio app does not support this mimetype in v1.0.1
-        // (commenting instead of removing so that future uplifts have some
-        // context to resolve conflicts)
-        else if (/^image\//.test(attachment.mimetype) /* ||
-                 /^audio\//.test(attachment.mimetype) */)
-          state = 'downloadable';
-        else
-          state = 'nodownload';
-        attTemplate.setAttribute('state', state);
-        filenameTemplate.textContent = attachment.filename;
-        filesizeTemplate.textContent = prettyFileSize(
-          attachment.sizeEstimateInBytes);
+          if (attachment.isDownloaded)
+            state = 'downloaded';
+          else if (MimeMapper.isSupportedType(attachment.mimetype) ||
+                   MimeMapper.isSupportedExtension(extension))
+            state = 'downloadable';
+          else
+            state = 'nodownload';
+          attTemplate.setAttribute('state', state);
+          filenameTemplate.textContent = attachment.filename;
+          filesizeTemplate.textContent = prettyFileSize(
+            attachment.sizeEstimateInBytes);
 
-        var attachmentNode = attTemplate.cloneNode(true);
-        attachmentsContainer.appendChild(attachmentNode);
-        attachmentNode.getElementsByClassName('msg-attachment-download')[0]
-          .addEventListener('click',
-                            this.onDownloadAttachmentClick.bind(
-                              this, attachmentNode, attachment));
-        attachmentNode.getElementsByClassName('msg-attachment-view')[0]
-          .addEventListener('click',
-                            this.onViewAttachmentClick.bind(
-                              this, attachmentNode, attachment));
-      }
+          var attachmentNode = attTemplate.cloneNode(true);
+          attachmentsContainer.appendChild(attachmentNode);
+          attachmentNode.getElementsByClassName('msg-attachment-download')[0]
+            .addEventListener('click',
+                              this.onDownloadAttachmentClick.bind(
+                                this, attachmentNode, attachment));
+          attachmentNode.getElementsByClassName('msg-attachment-view')[0]
+            .addEventListener('click',
+                              this.onViewAttachmentClick.bind(
+                                this, attachmentNode, attachment));
+        }
+      }.bind(this));
     }
     else {
       attachmentsContainer.classList.add('collapsed');

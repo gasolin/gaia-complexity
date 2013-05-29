@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">64.37</p>
+      <p class="stat">60.98</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">297</p>
+      <p class="stat">412</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">56.41</p>
+      <p class="stat">66.07</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">3.23</p>
+      <p class="stat">4.57</p>
     </div>
   </div>
 </div>
@@ -93,6 +93,10 @@
     <textarea id="file-source" class="span12">'use strict';
 
 var SimManager = {
+  // XXX: For handling the intermediate 'networkLocked' after unlock
+  //      the SIM card.
+  _unlocked: false,
+
   init: function sm_init() {
     this.mobConn = window.navigator.mozMobileConnection;
     if (!this.mobConn)
@@ -144,6 +148,22 @@ var SimManager = {
         }
         // TODO what if counter gets to 0 ??
         break;
+      case 'nck':
+      case 'cck':
+      case 'spck':
+        UIManager.xckInput.value = '';
+        UIManager.fakeXckInput.value = '';
+        UIManager.xckInput.classList.add('onerror');
+        UIManager.xckError.textContent = _('nckError');
+        UIManager.xckError.classList.remove('hidden');
+        UIManager.xckInfo.classList.add('hidden');
+        UIManager.xckError.textContent = _('nckAttemptMsg2', l10nArgs);
+        UIManager.xckRetriesLeft.textContent = _('inputCodeRetriesLeft',
+                                                 l10nArgs);
+        if (data.retryCount == 1) {
+          UIManager.xckError.textContent += _('nckLastChanceMsg');
+        }
+        break;
     }
   },
 
@@ -161,11 +181,15 @@ var SimManager = {
   *   'pinRequired',
   *   'pukRequired',
   *   'networkLocked',
+  *   'corporateLocked',
+  *   'serviceProviderLocked',
   *   'ready'.
   */
+
   handleCardState: function sm_handleCardState(callback) {
     SimManager.checkSIMButton();
     this.accessCallback = (typeof callback === 'function') ? callback : null;
+
     switch (this.mobConn.cardState) {
       case 'pinRequired':
         this.showPinScreen();
@@ -173,12 +197,18 @@ var SimManager = {
       case 'pukRequired':
         this.showPukScreen();
         break;
+      case 'networkLocked':
+      case 'corporateLocked':
+      case 'serviceProviderLocked':
+        this.showXckScreen();
+        break;
       default:
-        // Quick fix for bug 831697,
+        // Quick fix for bug 831697 (only for v1.0.1),
         // should be fixed when uplifting 814840
         if (this.mobConn.cardState === 'ready') {
           AppManager.disableLockscreen();
         }
+
         if (this.accessCallback) {
           this.accessCallback(this.mobConn.cardState === 'ready');
         }
@@ -189,19 +219,21 @@ var SimManager = {
   checkSIMButton: function sm_checkSIMButton() {
     var simOption = UIManager.simImportButton;
     // If there is an unlocked SIM we activate import from SIM
-    if (!this.alreadyImported && SimManager.available()) {
+    if (!SimManager.alreadyImported && SimManager.available()) {
       simOption.removeAttribute('disabled');
       UIManager.noSim.classList.add('hidden');
     } else {
       simOption.setAttribute('disabled', 'disabled');
-      if (!this.alreadyImported) {
+      if (!SimManager.alreadyImported) {
         UIManager.noSim.classList.remove('hidden');
       }
     }
   },
-  accessCallback: null,
 
   showPinScreen: function sm_showScreen() {
+    if (this._unlocked)
+      return;
+
     if (!this.retryCount || this.retryCount === 'undefined') {
       UIManager.pinRetriesLeft.classList.add('hidden');
     } else {
@@ -213,10 +245,14 @@ var SimManager = {
     UIManager.activationScreen.classList.remove('show');
     UIManager.unlockSimScreen.classList.add('show');
     UIManager.pincodeScreen.classList.add('show');
+    UIManager.xckcodeScreen.classList.remove('show');
     UIManager.fakePinInput.focus();
   },
 
   showPukScreen: function sm_showPukScreen() {
+    if (this._unlocked)
+      return;
+
     if (!this.retryCount) {
       UIManager.pukRetriesLeft.classList.add('hidden');
     } else {
@@ -229,14 +265,51 @@ var SimManager = {
     UIManager.activationScreen.classList.remove('show');
     UIManager.pincodeScreen.classList.remove('show');
     UIManager.pukcodeScreen.classList.add('show');
+    UIManager.xckcodeScreen.classList.remove('show');
     UIManager.unlockSimHeader.textContent = _('pukcode');
     UIManager.fakePukInput.focus();
+  },
+
+  showXckScreen: function sm_showXckScreen() {
+    if (this._unlocked)
+      return;
+
+    if (!this.retryCount) {
+      UIManager.xckRetriesLeft.classList.add('hidden');
+    } else {
+      var l10nArgs = {n: this.retryCount};
+      UIManager.xckRetriesLeft.textContent = _('inputCodeRetriesLeft',
+                                               l10nArgs);
+      UIManager.xckRetriesLeft.classList.remove('hidden');
+    }
+    UIManager.unlockSimScreen.classList.add('show');
+    UIManager.activationScreen.classList.remove('show');
+    UIManager.pincodeScreen.classList.remove('show');
+    UIManager.pukcodeScreen.classList.remove('show');
+    UIManager.xckcodeScreen.classList.add('show');
+
+    switch (this.mobConn.cardState) {
+      case 'networkLocked':
+        UIManager.unlockSimHeader.textContent = _('nckcode');
+        UIManager.xckLabel.textContent = _('type_nck');
+        break;
+      case 'corporateLocked':
+        UIManager.unlockSimHeader.textContent = _('cckcode');
+        UIManager.xckLabel.textContent = _('type_cck');
+        break;
+      case 'serviceProviderLocked':
+        UIManager.unlockSimHeader.textContent = _('spckcode');
+        UIManager.xckLabel.textContent = _('type_spck');
+        break;
+    }
+    UIManager.fakeXckInput.focus();
   },
 
   hideScreen: function sm_hideScreen() {
     UIManager.unlockSimScreen.classList.remove('show');
     UIManager.pincodeScreen.classList.remove('show');
     UIManager.pukcodeScreen.classList.remove('show');
+    UIManager.xckcodeScreen.classList.remove('show');
     UIManager.activationScreen.classList.add('show');
   },
 
@@ -248,12 +321,19 @@ var SimManager = {
   },
 
   unlock: function sm_unlock() {
+    this._unlocked = false;
+
     switch (this.mobConn.cardState) {
       case 'pinRequired':
         this.unlockPin();
         break;
       case 'pukRequired':
         this.unlockPuk();
+        break;
+      case 'networkLocked':
+      case 'corporateLocked':
+      case 'serviceProviderLocked':
+        this.unlockXck();
         break;
     }
   },
@@ -273,9 +353,10 @@ var SimManager = {
     // Unlock SIM
     var options = {lockType: 'pin', pin: pin };
     var req = this.mobConn.unlockCardLock(options);
-    req.onsuccess = function sm_unlockSuccess() {
+    req.onsuccess = (function sm_unlockSuccess() {
+      this._unlocked = true;
       this.hideScreen();
-    }.bind(this);
+    }).bind(this);
   },
 
   clearFields: function sm_clearFields() {
@@ -322,6 +403,40 @@ var SimManager = {
     var options = {lockType: 'puk', puk: pukCode, newPin: newpinCode };
     var req = this.mobConn.unlockCardLock(options);
     req.onsuccess = (function sm_unlockSuccess() {
+      this._unlocked = true;
+      this.hideScreen();
+    }).bind(this);
+  },
+
+  unlockXck: function sm_unlockXck() {
+    var xck = UIManager.xckInput.value;
+    var lockType;
+    switch (this.mobConn.cardState) {
+      case 'networkLocked':
+        lockType = 'nck';
+        break;
+      case 'corporateLocked':
+        lockType = 'cck';
+        break;
+      case 'serviceProviderLocked':
+        lockType = 'spck';
+        break;
+    }
+    if (xck.length < 8 || xck.length > 16) {
+      UIManager.xckInput.classList.add('onerror');
+      UIManager.xckError.classList.remove('hidden');
+      UIManager.xckError.textContent = _(lockType + 'Validation');
+      return;
+    } else {
+      UIManager.pinInput.classList.remove('onerror');
+      UIManager.pinError.classList.add('hidden');
+    }
+
+    // Unlock SIM
+    var options = {lockType: lockType, pin: xck };
+    var req = this.mobConn.unlockCardLock(options);
+    req.onsuccess = (function sm_unlockSuccess() {
+      this._unlocked = true;
       this.hideScreen();
     }).bind(this);
   },
@@ -341,7 +456,7 @@ var SimManager = {
 
     importer.onread = function sim_import_read(n) {
       progress.setClass('progressBar');
-      progress.setHeaderMsg(_('simContacts-importing'))
+      progress.setHeaderMsg(_('simContacts-importing'));
       progress.setTotal(n);
     };
 

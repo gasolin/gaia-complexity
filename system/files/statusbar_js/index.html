@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.36</p>
+      <p class="stat">65.26</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">767</p>
+      <p class="stat">802</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">72.00</p>
+      <p class="stat">72.41</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">7.60</p>
+      <p class="stat">7.92</p>
     </div>
   </div>
 </div>
@@ -116,7 +116,7 @@ function AnimatedIcon(element, path, frames, delay) {
     var h = image.height / frames;
 
     context.drawImage(image, 0, 0, w, h, 0, 0, w, h);
-  }
+  };
 
   this.start = function() {
     var self = this;
@@ -134,14 +134,14 @@ function AnimatedIcon(element, path, frames, delay) {
           }
       }, delay);
     }
-  }
+  };
 
   this.stop = function() {
     if (this.timerId != null) {
       clearInterval(this.timerId);
       this.timerId = null;
     }
-  }
+  };
 }
 
 /**
@@ -249,7 +249,10 @@ var StatusBar = {
    */
   systemDownloadsCount: 0,
 
-  /* Objects used to animate the system downloads and network activity canvas elements */
+  /**
+   * Objects used to animate the system downloads and
+   * network activity canvas elements
+   */
   networkActivityAnimation: null,
   systemDownloadsAnimation: null,
 
@@ -321,9 +324,17 @@ var StatusBar = {
     // Listen to 'moztimechange'
     window.addEventListener('moztimechange', this);
 
-    // Listen to 'lock', 'unlock' to determine the visible state of the clock
+    // Listen to 'appwillclose', 'appopen', 'home', 'holdhome', 'lock', 'unlock'
+    // to determine the visible state of statusbar
+    window.addEventListener('home', this);
+    window.addEventListener('holdhome', this);
+    window.addEventListener('appwillclose', this);
+    window.addEventListener('appopen', this);
     window.addEventListener('lock', this);
     window.addEventListener('unlock', this);
+
+    // Listen to 'mozfullscreenchange' to see if we should hide statusbar
+    window.addEventListener('mozfullscreenchange', this);
 
     this.systemDownloadsCount = 0;
 
@@ -377,7 +388,8 @@ var StatusBar = {
         break;
 
       case 'moztimechange':
-        this.clock.start.bind(this.clock, this.update.time.bind(this))
+        navigator.mozL10n.ready(
+          this.clock.start.bind(this.clock, this.update.time.bind(this)));
         break;
 
       case 'mozChromeEvent':
@@ -414,10 +426,31 @@ var StatusBar = {
         this.clock.stop();
         break;
 
+      case 'appopen':
+      case 'mozfullscreenchange':
       case 'unlock':
+        if (this.screen.classList.contains('fullscreen-app') ||
+            document.mozFullScreen) {
+          this.hide();
+        }
+
         this.clock.start(this.update.time.bind(this));
         break;
+
+      case 'appwillclose':
+      case 'home':
+      case 'holdhome':
+        this.show();
+        break;
     }
+  },
+
+  show: function sb_show() {
+    this.element.classList.remove('hidden');
+  },
+
+  hide: function sb_hide() {
+    this.element.classList.add('hidden');
   },
 
   setActive: function sb_setActive(active) {
@@ -453,7 +486,9 @@ var StatusBar = {
       window.addEventListener('moznetworkupload', this);
       window.addEventListener('moznetworkdownload', this);
 
-      if (!LockScreen.locked) {
+      if (LockScreen.locked) {
+        this.show();
+      } else {
         // Start refreshing the clock only if it's visible
         this.clock.start(this.update.time.bind(this));
       }

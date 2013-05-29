@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">67.11</p>
+      <p class="stat">66.37</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">979</p>
+      <p class="stat">1057</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">67.06</p>
+      <p class="stat">67.51</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">6.74</p>
+      <p class="stat">7.30</p>
     </div>
   </div>
 </div>
@@ -213,6 +213,9 @@ window.addEventListener('localized', function showBody() {
 });
 
 function init() {
+  // We only need clicks and move event coordinates
+  MouseEventShim.trackMouseMoves = false;
+
   // Clicking on the select button goes to thumbnail select mode
   $('thumbnails-select-button').onclick =
     setView.bind(null, thumbnailSelectView);
@@ -231,7 +234,7 @@ function init() {
   };
 
   // In crop view, the done button finishes the pick
-  $('crop-done-button').onclick = finishPick;
+  $('crop-done-button').onclick = cropAndEndPick;
 
   // The camera buttons should both launch the camera app
   $('fullscreen-camera-button').onclick = launchCameraApp;
@@ -296,7 +299,6 @@ function init() {
 // event handlers.
 function initDB() {
   photodb = new MediaDB('pictures', metadataParserWrapper, {
-    mimeTypes: ['image/jpeg', 'image/png'],
     version: 2,
     autoscan: false,     // We're going to call scan() explicitly
     batchHoldTime: 150,  // Batch files during scanning
@@ -406,14 +408,36 @@ function initThumbnails() {
   // displayed. There is no need to re-enumerate them, so we just go
   // straight to scanning for new files
   if (visibilityMonitor) {
-    scan();
+    photodb.scan();
     return;
   }
 
   // Keep track of when thumbnails are onscreen and offscreen
+/*
+  // Tune for low memory usage and small batch jobes to fetch new
+  // images.  Lower fps / frequent but smaller jank.
+  var visibilityMargin = 360;
+  var minimumScrollDelta = 1;
+*/
+
+  // Tune for fast panning for long distances, which requires larger
+  // batch jobs.  Higher fps / infrequent but larger jank.
+  //
+  // These magic constants were determined as follows
+  //  - keep "a lot" of images loaded:
+  //      max 300 images = 100 rows
+  //       = 10600px on HVGA = (10600 - 480) / 2 margins = 5060
+  //
+  //  - batch up as much work as possible while showing unpainted
+  //    thumbnails as little as possible.  4000px determined by
+  //    experimentation.  (Provides 10 rows' worth loading zone.)
+  var visibilityMargin = 5060;
+  var minimumScrollDelta = 4000;
+
   visibilityMonitor =
     monitorChildVisibility(thumbnails,
-                           360,                 // extra space top and bottom
+                           visibilityMargin,    // extra space top and bottom
+                           minimumScrollDelta,  // min scroll before we do work
                            thumbnailOnscreen,   // set background image
                            thumbnailOffscreen); // remove background image
 
@@ -755,6 +779,7 @@ function thumbnailOffscreen(thumbnail) {
 var pendingPick;
 var pickType;
 var pickWidth, pickHeight;
+var pickedFile;
 var cropURL;
 var cropEditor;
 
@@ -774,12 +799,36 @@ function startPick() {
   });
 }
 
+// Called when the user clicks on a thumbnail in pick mode
 function cropPickedImage(fileinfo) {
+  pickedFile = fileinfo;
+
+  // Do we actually want to allow the user to crop the image?
+  var nocrop = pendingPick.source.data.nocrop;
+
+  if (nocrop) {
+    // If we're not cropping we don't want the word "Crop" in the title bar
+    // XXX: UX will probably get rid of this title bar soon, anyway.
+    $('crop-header').textContent = '';
+  }
+
   setView(cropView);
 
-  photodb.getFile(fileinfo.name, function(file) {
+  photodb.getFile(pickedFile.name, function(file) {
     cropURL = URL.createObjectURL(file);
     cropEditor = new ImageEditor(cropURL, $('crop-frame'), {}, function() {
+      // If the initiating app doesn't want to allow the user to crop
+      // the image, we don't display the crop overlay. But we still use
+      // this image editor to preview the image.
+      if (nocrop) {
+        // Set a fake crop region even though we won't display it
+        // so that getCroppedRegionBlob() works.
+        cropEditor.cropRegion.left = cropEditor.cropRegion.top = 0;
+        cropEditor.cropRegion.right = cropEditor.dest.w;
+        cropEditor.cropRegion.bottom = cropEditor.dest.h;
+        return;
+      }
+
       cropEditor.showCropOverlay();
       if (pickWidth)
         cropEditor.setCropAspectRatio(pickWidth, pickHeight);
@@ -789,15 +838,43 @@ function cropPickedImage(fileinfo) {
   });
 }
 
-function finishPick() {
-  cropEditor.getCroppedRegionBlob(pickType, pickWidth, pickHeight,
-                                  function(blob) {
-                                    pendingPick.postResult({
-                                      type: pickType,
-                                      blob: blob
-                                    });
-                                    cleanupPick();
-                                  });
+function cropAndEndPick() {
+  if (Array.isArray(pickType)) {
+    if (pickType.length === 0 ||
+        pickType.indexOf(pickedFile.type) !== -1 ||
+        pickType.indexOf('image/*') !== -1) {
+      pickType = pickedFile.type;
+    }
+    else if (pickType.indexOf('image/png') !== -1) {
+      pickType = 'image/png';
+    }
+    else {
+      pickType = 'image/jpeg';
+    }
+  }
+  else if (pickType === 'image/*') {
+    pickType = pickedFile.type;
+  }
+
+  // If we're not changing the file type or resizing the image and if
+  // we're not cropping, or if the user did not crop, then we can just
+  // use the file as it is.
+  if (pickType === pickedFile.type &&
+      !pickWidth && !pickHeight &&
+      (pendingPick.source.data.nocrop || !cropEditor.hasBeenCropped())) {
+    photodb.getFile(pickedFile.name, endPick);
+  }
+  else {
+    cropEditor.getCroppedRegionBlob(pickType, pickWidth, pickHeight, endPick);
+  }
+}
+
+function endPick(blob) {
+  pendingPick.postResult({
+    type: pickType,
+    blob: blob
+  });
+  cleanupPick();
 }
 
 function cancelPick() {
@@ -819,6 +896,7 @@ function cleanupCrop() {
 function cleanupPick() {
   cleanupCrop();
   pendingPick = null;
+  pickedFile = null;
   setView(thumbnailListView);
 }
 

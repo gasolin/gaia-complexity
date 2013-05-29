@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">64.80</p>
+      <p class="stat">64.68</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">944</p>
+      <p class="stat">977</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">80.50</p>
+      <p class="stat">81.98</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">10.17</p>
+      <p class="stat">10.59</p>
     </div>
   </div>
 </div>
@@ -299,7 +299,7 @@ contacts.List = (function() {
       if (callback)
         callback();
     }
-  }
+  };
 
   var renderGroupHeader = function renderGroupHeader(group, letter, show) {
     var letteredSection = document.createElement('section');
@@ -355,7 +355,7 @@ contacts.List = (function() {
     }
 
     return contactContainer;
-  }
+  };
 
   // This method returns the very essential information needed
   // for rendering the contacts list
@@ -404,9 +404,15 @@ contacts.List = (function() {
         }
       }
     });
+    if (contact.tel && contact.tel.length) {
+      for (var i = contact.tel.length - 1; i >= 0; i--) {
+        var current = contact.tel[i];
+        searchInfo.push(current.value);
+      }
+    }
     var escapedValue = utils.text.escapeHTML(searchInfo.join(' '), true);
     return utils.text.normalize(escapedValue);
-  }
+  };
 
   var getHighlightedName = function getHighlightedName(contact) {
     var givenName = '';
@@ -464,6 +470,10 @@ contacts.List = (function() {
       appendToList(contact, isFirstChunk);
     }
 
+    if (isFirstChunk) {
+      // Performance testing
+      PerformanceTestingHelper.dispatch('above-the-fold-ready');
+    }
     renderedChunks++;
   }
 
@@ -500,6 +510,7 @@ contacts.List = (function() {
     });
     FixedHeader.refresh();
 
+    PerformanceTestingHelper.dispatch('startup-path-done');
     fb.init(function contacts_init() {
       if (fb.isEnabled) {
         Contacts.loadFacebook(NOP_FUNCTION);
@@ -582,12 +593,12 @@ contacts.List = (function() {
 
     imagesLoaded = true;
     dispatchCustomEvent('finishLazyLoading');
-  }
+  };
 
   var dispatchCustomEvent = function dispatchCustomEvent(eventName) {
     var event = new CustomEvent(eventName);
     window.dispatchEvent(event);
-  }
+  };
 
   var renderPhoto = function renderPhoto(contact, link) {
     if (!contact.photo || !contact.photo.length) {
@@ -656,14 +667,35 @@ contacts.List = (function() {
     meta.innerHTML = '<span class="org"></span>';
     link.appendChild(meta);
     return meta;
-  }
+  };
 
   var toggleNoContactsScreen = function cl_toggleNoContacs(show) {
+    if (show && ActivityHandler.currentlyHandling) {
+      var actName = ActivityHandler.activityName;
+      if (actName == 'pick' || actName == 'update') {
+        showNoContactsAlert();
+        return;
+      }
+    }
     if (show && !ActivityHandler.currentlyHandling) {
       noContacts.classList.remove('hide');
       return;
     }
     noContacts.classList.add('hide');
+  };
+
+  var showNoContactsAlert = function showNoContactsAlert() {
+    var msg = _('noContactsActivity');
+    var noObject = {
+      title: _('ok'),
+      isDanger: false,
+      callback: function onNoClicked() {
+        ConfirmDialog.hide();
+        ActivityHandler.postCancel();
+      }
+    };
+
+    ConfirmDialog.show(null, msg, noObject);
   };
 
   function addToFavoriteList(favorite) {
@@ -947,14 +979,15 @@ contacts.List = (function() {
           enrichedContact = fbContact.merge(fbData);
         }
         addToList(contact, enrichedContact);
-        if(callback) {
+        if (callback) {
           callback(id);
         }
       });
     } else {
       var contact = id;
       remove(contact.id);
-      addToList(contact); // Add without looking for extras, just what we have as contact
+      // Add without looking for extras, just what we have as contact
+      addToList(contact);
       if (callback) {
         callback(contact.id);
       }

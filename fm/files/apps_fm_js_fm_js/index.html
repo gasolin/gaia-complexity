@@ -49,7 +49,7 @@
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">776</p>
+      <p class="stat">777</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">81.33</p>
+      <p class="stat">82.28</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">7.14</p>
+      <p class="stat">7.12</p>
     </div>
   </div>
 </div>
@@ -272,7 +272,7 @@ function cancelSeekAndSetFreq(frequency) {
     mozFMRadio.setFrequency(frequency);
   }
 
-  var seeking = !!$('frequency').getAttribute('data-seek-dir');
+  var seeking = !!$('power-switch').getAttribute('data-seeking');
   if (!seeking) {
     setFreq();
   } else {
@@ -757,20 +757,21 @@ function init() {
   var seeking = false;
   function onclick_seekbutton(event) {
     var seekButton = this;
-    var freqElement = $('frequency');
-    var seeking = !!freqElement.getAttribute('data-seek-dir');
+    var powerSwitch = $('power-switch');
+    var seeking = !!powerSwitch.getAttribute('data-seeking');
     var up = seekButton.id == 'frequency-op-seekup';
 
     function seek() {
-      freqElement.dataset.seekDir = up ? 'up' : 'down';
+      powerSwitch.dataset.seeking = true;
+
       var request = up ? mozFMRadio.seekUp() : mozFMRadio.seekDown();
 
       request.onsuccess = function seek_onsuccess() {
-        freqElement.removeAttribute('data-seek-dir');
+        powerSwitch.removeAttribute('data-seeking');
       };
 
       request.onerror = function seek_onerror() {
-        freqElement.removeAttribute('data-seek-dir');
+        powerSwitch.removeAttribute('data-seeking');
       };
     }
 

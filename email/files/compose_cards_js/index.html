@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">63.08</p>
+      <p class="stat">62.97</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">594</p>
+      <p class="stat">664</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">68.16</p>
+      <p class="stat">72.72</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">6.19</p>
+      <p class="stat">7.16</p>
     </div>
   </div>
 </div>
@@ -95,6 +95,11 @@
  * things.  Although ideally, the picking and attaching will be handled by a
  * web activity or shared code.
  **/
+
+/**
+ * Max composer attachment size is defined as 5120000 bytes.
+ */
+var MAX_ATTACHMENT_SIZE = 5120000;
 
 /**
  * To make it easier to focus input boxes, we have clicks on their owning
@@ -135,6 +140,9 @@ function ComposeCard(domNode, mode, args) {
     .addEventListener('click', this.onBack.bind(this), false);
   this.sendButton = domNode.getElementsByClassName('cmp-send-btn')[0];
   this.sendButton.addEventListener('click', this.onSend.bind(this), false);
+  this._bound_onVisibilityChange = this.onVisibilityChange.bind(this);
+  document.addEventListener('mozvisibilitychange',
+                            this._bound_onVisibilityChange);
 
   this.toNode = domNode.getElementsByClassName('cmp-to-text')[0];
   this.ccNode = domNode.getElementsByClassName('cmp-cc-text')[0];
@@ -169,11 +177,6 @@ function ComposeCard(domNode, mode, args) {
     containerList[i].addEventListener('click',
       this.onContainerClick.bind(this));
   }
-
-  // uplifting note: commenting this part in v1.0.1 because we don't support
-  // this in this version. Commenting instead of removing so that future
-  // uplifters have some context in case of conflicts.
-  /*
   // Add attachments area event listener
   var attachmentBtns =
     domNode.getElementsByClassName('cmp-attachment-container');
@@ -181,7 +184,6 @@ function ComposeCard(domNode, mode, args) {
     attachmentBtns[i].addEventListener('click',
                                        this.onAttachmentAdd.bind(this));
   }
-  */
 
   // Add subject focus for larger hitbox
   var subjectContainer = domNode.querySelector('.cmp-subject');
@@ -189,9 +191,6 @@ function ComposeCard(domNode, mode, args) {
     focusInputAndPositionCursorFromContainerClick(
       evt, subjectContainer.querySelector('input'));
   });
-
-  // Add attachments
-  this.insertAttachments();
 
   // Sent sound init
   this.sentAudioKey = 'mail.sent-sound.enabled';
@@ -246,6 +245,10 @@ ComposeCard.prototype = {
     if (this.isEmptyAddress()) {
       this.sendButton.setAttribute('aria-disabled', 'true');
     }
+
+    // Add attachments
+    this.insertAttachments();
+
     this.subjectNode.value = this.composer.subject;
     this.textBodyNode.value = this.composer.body.text;
     // force the textarea to be sized.
@@ -290,6 +293,30 @@ ComposeCard.prototype = {
     // need to save it.  However, what we send to the back-end is what gets
     // sent, so if you want to implement editing UI and change this here,
     // go crazy.
+  },
+
+  _closeCard: function() {
+    Cards.removeCardAndSuccessors(this.domNode, 'animate');
+  },
+
+  _saveNeeded: function() {
+    var self = this;
+    var checkAddressEmpty = function() {
+      var bubbles = self.domNode.querySelectorAll('.cmp-peep-bubble');
+      if (bubbles.length == 0 && !self.toNode.value && !self.ccNode.value &&
+          !self.bccNode.value)
+        return true;
+      else
+        return false;
+    };
+
+    return (this.subjectNode.value || this.textBodyNode.value ||
+        !checkAddressEmpty());
+  },
+
+  _saveDraft: function() {
+    this._saveStateToComposer();
+    this.composer.saveDraft();
   },
 
   createBubbleNode: function(name, address) {
@@ -355,7 +382,7 @@ ComposeCard.prototype = {
 
     if (evt.keyCode == 8 && node.value == '') {
       //delete bubble
-      var previousBubble = node.previousSibling;
+      var previousBubble = node.previousElementSibling;
       this.deleteBubble(previousBubble);
       if (this.isEmptyAddress()) {
         this.sendButton.setAttribute('aria-disabled', 'true');
@@ -481,8 +508,41 @@ ComposeCard.prototype = {
             attTemplate.getElementsByClassName('cmp-attachment-filename')[0],
           filesizeTemplate =
             attTemplate.getElementsByClassName('cmp-attachment-filesize')[0];
+      var totalSize = 0;
       for (var i = 0; i < this.composer.attachments.length; i++) {
         var attachment = this.composer.attachments[i];
+        //check for attachment max size
+        if ((totalSize + attachment.blob.size) > MAX_ATTACHMENT_SIZE) {
+
+          /*Remove all the remaining attachments from composer*/
+          while (this.composer.attachments.length > i) {
+            this.composer.removeAttachment(this.composer.attachments[i]);
+          }
+          var dialog = msgNodes['attach-confirm'].cloneNode(true);
+          var title = dialog.getElementsByTagName('h1')[0];
+          var content = dialog.getElementsByTagName('p')[0];
+
+          if (this.composer.attachments.length > 0) {
+            title.textContent = mozL10n.get('composer-attachments-large');
+            content.textContent =
+            mozL10n.get('compose-attchments-size-exceeded');
+          } else {
+            title.textContent = mozL10n.get('composer-attachment-large');
+            content.textContent =
+            mozL10n.get('compose-attchment-size-exceeded');
+          }
+          ConfirmDialog.show(dialog,
+           {
+            // ok
+            id: 'msg-attach-ok',
+            handler: function() {
+              this.updateAttachmentsSize();
+            }.bind(this)
+           }
+          );
+          return;
+        }
+        totalSize = totalSize + attachment.blob.size;
         filenameTemplate.textContent = attachment.name;
         filesizeTemplate.textContent = prettyFileSize(attachment.blob.size);
         var attachmentNode = attTemplate.cloneNode(true);
@@ -494,8 +554,7 @@ ComposeCard.prototype = {
                               this, attachmentNode, attachment));
       }
 
-      // Only one attachment for v1.0.1 so we should't update header information
-      // this.updateAttachmentsSize();
+      this.updateAttachmentsSize();
 
       attachmentsContainer.classList.remove('collapsed');
     }
@@ -538,18 +597,14 @@ ComposeCard.prototype = {
     node.parentNode.removeChild(node);
     this.composer.removeAttachment(attachment);
 
-    // Only one attachment for v1.0.1 so we should't update header information
-    // this.updateAttachmentsSize();
+    this.updateAttachmentsSize();
   },
 
   /**
    * Save the draft if there's anything to it, close the card.
    */
   onBack: function() {
-    // Since we will discard all the content while exit, there is no need to
-    // save draft for now.
-    //this.composer.saveDraftEndComposition();
-    var discardHandler = (function() {
+    var goBack = (function() {
       if (this.activity) {
         // We need more testing here to make sure the behavior that back
         // to originated activity works perfectly without any crash or
@@ -557,37 +612,44 @@ ComposeCard.prototype = {
 
         this.activity.postError('cancelled');
         this.activity = null;
-
-        Cards.removeCardAndSuccessors(this.domNode, 'animate');
-      } else {
-        Cards.removeCardAndSuccessors(this.domNode, 'animate');
       }
+
+      this._closeCard();
     }).bind(this);
-    var self = this;
-    var checkAddressEmpty = function() {
-      var bubbles = self.domNode.querySelectorAll('.cmp-peep-bubble');
-      if (bubbles.length == 0 && !self.toNode.value && !self.ccNode.value &&
-          !self.bccNode.value)
-        return true;
-      else
-        return false;
-    };
-    if (!this.subjectNode.value && !this.textBodyNode.value &&
-        checkAddressEmpty()) {
-      discardHandler();
+
+    if (!this._saveNeeded()) {
+      goBack();
       return;
     }
-    var dialog = cmpNodes['discard-confirm'].cloneNode(true);
-    ConfirmDialog.show(dialog,
-      { // Confirm
-        id: 'cmp-discard-ok',
-        handler: discardHandler
-      },
-      { // Cancel
-        id: 'cmp-discard-cancel',
-        handler: null
+
+    var menu = cmpNodes['draft-menu'].cloneNode(true);
+    document.body.appendChild(menu);
+    var formSubmit = (function(evt) {
+      document.body.removeChild(menu);
+      switch (evt.explicitOriginalTarget.id) {
+        case 'cmp-draft-save':
+          this._saveDraft();
+          goBack();
+          break;
+        case 'cmp-draft-discard':
+          this.composer.abortCompositionDeleteDraft();
+          goBack();
+          break;
+        case 'cmp-draft-cancel':
+          break;
       }
-    );
+      return false;
+    }).bind(this);
+    menu.addEventListener('submit', formSubmit);
+  },
+
+  /**
+   * Save the draft if there's anything to it, close the card.
+   */
+  onVisibilityChange: function() {
+    if (document.mozHidden && this._saveNeeded()) {
+      this._saveDraft();
+    }
   },
 
   onSend: function() {
@@ -632,8 +694,8 @@ ComposeCard.prototype = {
           return;
         }
         activityHandler();
-        Cards.removeCardAndSuccessors(domNode, 'animate');
-      }
+        this._closeCard();
+      }.bind(this)
     );
   },
 
@@ -668,8 +730,8 @@ ComposeCard.prototype = {
       var activity = new MozActivity({
         name: 'pick',
         data: {
-          type: 'image/jpeg',
-          isAttachment: true
+          type: 'image/*', // any kind of image
+          nocrop: true
         }
       });
       activity.onsuccess = (function success() {
@@ -694,6 +756,10 @@ ComposeCard.prototype = {
   },
 
   die: function() {
+    document.removeEventListener('mozvisibilitychange',
+                                 this._bound_onVisibilityChange);
+    this.composer.die();
+    this.composer = null;
   }
 };
 Cards.defineCardWithDefaultMode('compose', {}, ComposeCard);</textarea>

@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.28</p>
+      <p class="stat">65.55</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">445</p>
+      <p class="stat">447</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">52.83</p>
+      <p class="stat">52.66</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">3.56</p>
+      <p class="stat">3.59</p>
     </div>
   </div>
 </div>
@@ -180,7 +180,9 @@ contacts.Search = (function() {
     });
 
     imgLoader = new ImageLoader('#groups-list-search', 'li');
-    imgLoader.setResolver(fb.resolver);
+    LazyLoader.load(['/contacts/js/fb_resolver.js'], function() {
+      imgLoader.setResolver(fb.resolver);
+    });
   };
 
   //Search mode instructions
@@ -217,7 +219,7 @@ contacts.Search = (function() {
     remainingPending = true;
   }
 
-  function addRemainingResults(nodes,from) {
+  function addRemainingResults(nodes, from) {
     if (remainingPending !== true) {
       return;
     }
@@ -354,8 +356,8 @@ contacts.Search = (function() {
             hideProgressResults();
           }
           // Only an initial page of elements is loaded in the search list
-          if (Object.keys(currentSet).length
-             < SEARCH_PAGE_SIZE && !(contact.dataset.uuid in currentSet)) {
+          if (Object.keys(currentSet).length <
+              SEARCH_PAGE_SIZE && !(contact.dataset.uuid in currentSet)) {
             var clonedNode = getClone(contact);
             currentSet[contact.dataset.uuid] = clonedNode;
             searchList.appendChild(clonedNode);
@@ -473,7 +475,7 @@ contacts.Search = (function() {
       contactNodes = list.querySelectorAll(CONTACTS_SELECTOR);
     }
     return contactNodes;
-  }
+  };
 
   var getContactsToSearch = function getContactsToSearch(newText, prevText) {
     var out;
@@ -488,11 +490,11 @@ contacts.Search = (function() {
     }
 
     return out;
-  }
+  };
 
   var isInSearchMode = function isInSearchMode() {
     return inSearchMode;
-  }
+  };
 
   var invalidateCache = function s_invalidate() {
     canReuseSearchables = false;
@@ -500,12 +502,12 @@ contacts.Search = (function() {
     contactNodes = null;
     currentSet = {};
     searchTextCache = {};
-  }
+  };
 
   var removeContact = function s_removeContact(id) {
     var contact = searchList.querySelector('li[data-uuid=\"' + id + '\"]');
     searchList.removeChild(contact);
-  }
+  };
 
   function showProgress() {
     searchNoResult.classList.add('hide');

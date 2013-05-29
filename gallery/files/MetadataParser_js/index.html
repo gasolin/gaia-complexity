@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">66.03</p>
+      <p class="stat">65.85</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">384</p>
+      <p class="stat">390</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">54.20</p>
+      <p class="stat">54.13</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.80</p>
+      <p class="stat">2.84</p>
     </div>
   </div>
 </div>
@@ -219,20 +219,26 @@ var metadataParser = (function() {
     getImageSize(file, gotImageSize, gotImageSizeError);
 
     function gotImageSizeError(errmsg) {
-      // If the error message is anything other than unknown image type
-      // it means we've got a corrupt image file, or the image metdata parser
-      // can't handle the file for some reason. Log a warning but keep going
-      // in case the image is good and the metadata parser is buggy.
-      if (errmsg !== 'unknown image type') {
-        console.warn('getImageSize', errmsg, file.name);
-      }
-
       // The image is not a JPEG, PNG or GIF file. We may still be
       // able to decode and display it but we don't know the image
       // size, so we won't even try if the file is too big.
       if (file.size > MAX_UNKNOWN_IMAGE_FILE_SIZE) {
         metadataError('Ignoring large file ' + file.name);
         return;
+      }
+
+      // If the file is too small to be an image, ignore it
+      if (file.size < 32) {
+        metadataError('Ignoring small file ' + file.name);
+        return;
+      }
+
+      // If the error message is anything other than unknown image type
+      // it means we've got a corrupt image file, or the image metdata parser
+      // can't handle the file for some reason. Log a warning but keep going
+      // in case the image is good and the metadata parser is buggy.
+      if (errmsg !== 'unknown image type') {
+        console.warn('getImageSize', errmsg, file.name);
       }
 
       // If it is not too big create a preview and thumbnail.

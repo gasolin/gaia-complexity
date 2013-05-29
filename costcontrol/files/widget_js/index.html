@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">62.72</p>
+      <p class="stat">63.04</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">390</p>
+      <p class="stat">416</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">39.80</p>
+      <p class="stat">40.51</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">3.80</p>
+      <p class="stat">4.00</p>
     </div>
   </div>
 </div>
@@ -107,18 +107,13 @@
   waitForDOMAndMessageHandler(window, onReady);
 
   var costcontrol;
-  var hasSim = true;
   function onReady() {
     var mobileConnection = window.navigator.mozMobileConnection;
+    var cardState = checkCardState();
     var iccid = mobileConnection.iccInfo.iccid;
 
-    // No SIM
-    if (!mobileConnection || mobileConnection.cardState === 'absent') {
-      hasSim = false;
-      startWidget();
-
-    // SIM is not ready
-    } else if (mobileConnection.cardState !== 'ready') {
+    // SIM not ready
+    if (cardState !== 'ready') {
       debug('SIM not ready:', mobileConnection.cardState);
       mobileConnection.oncardstatechange = onReady;
 
@@ -136,34 +131,43 @@
     }
   };
 
+  // Check the card status. Return 'ready' if all OK or take actions for
+  // special situations such as 'pin/puk locked' or 'absent'.
+  function checkCardState() {
+    var mobileConnection = window.navigator.mozMobileConnection;
+    var state, cardState;
+    state = cardState = mobileConnection.cardState;
+
+    // SIM is absent
+    if (cardState === 'absent') {
+      debug('There is no SIM');
+      showSimError('no-sim2');
+
+    // SIM is locked
+    } else if (
+      cardState === 'pinRequired' ||
+      cardState === 'pukRequired'
+    ) {
+      showSimError('sim-locked');
+      state = 'locked';
+    }
+
+    return state;
+  }
+
   function startWidget() {
     function _onNoICCID() {
       console.error('checkSIMChange() failed. Impossible to ensure consistent' +
                     'data. Aborting start up.');
-      window.close(); // remove the widget
+      showSimError('no-sim2');
     }
 
-    if (!hasSim) {
-      var leftPanel = document.getElementById('left-panel');
-      var rightPanel = document.getElementById('right-panel');
-      var fte = document.getElementById('fte-view');
-
-      fte.setAttribute('aria-hidden', false);
-      leftPanel.setAttribute('aria-hidden', true);
-      rightPanel.setAttribute('aria-hidden', true);
-
-      document.getElementById('fte-icon').className = 'icon ' + 'widget-no-sim2';
-      fte.querySelector('p:first-child').innerHTML = _('widget-no-sim2-heading');
-      fte.querySelector('p:last-child').innerHTML = _('widget-no-sim2-meta');
-
-    } else {
-      checkSIMChange(function _onSIMChecked() {
-        CostControl.getInstance(function _onCostControlReady(instance) {
-          costcontrol = instance;
-          setupWidget();
-        });
-      }, _onNoICCID);
-    }
+    checkSIMChange(function _onSIMChecked() {
+      CostControl.getInstance(function _onCostControlReady(instance) {
+        costcontrol = instance;
+        setupWidget();
+      });
+    }, _onNoICCID);
   }
 
   window.addEventListener('localized', function _onLocalize() {
@@ -194,7 +198,8 @@
     // Update UI when visible
     document.addEventListener('mozvisibilitychange',
       function _onVisibilityChange(evt) {
-        if (!document.mozHidden && initialized) {
+        if (!document.mozHidden && initialized &&
+            checkCardState() === 'ready') {
           updateUI();
         }
       }
@@ -257,6 +262,22 @@
 
   // USER INTERFACE
 
+  // Reuse fte panel to display errors
+  function showSimError(status) {
+    var fte = document.getElementById('fte-view');
+    var leftPanel = document.getElementById('left-panel');
+    var rightPanel = document.getElementById('right-panel');
+
+    fte.setAttribute('aria-hidden', false);
+    leftPanel.setAttribute('aria-hidden', true);
+    rightPanel.setAttribute('aria-hidden', true);
+
+    var className = 'widget-' + status;
+    document.getElementById('fte-icon').classList.add(className);
+    fte.querySelector('p:first-child').textContent = _(className + '-heading');
+    fte.querySelector('p:last-child').textContent = _(className + '-meta');
+  }
+
   function setupFte(provider, mode) {
 
     fte.setAttribute('aria-hidden', false);
@@ -276,9 +297,9 @@
     var simKey = keyLookup[mode];
 
     document.getElementById('fte-icon').className = 'icon ' + simKey;
-    fte.querySelector('p:first-child').innerHTML = _(simKey + '-heading',
+    fte.querySelector('p:first-child').textContent = _(simKey + '-heading',
                                                      { provider: provider });
-    fte.querySelector('p:last-child').innerHTML = _(simKey + '-meta');
+    fte.querySelector('p:last-child').textContent = _(simKey + '-meta');
   }
 
   var hashMark = 0;
@@ -366,17 +387,18 @@
             value: limitText[0],
             unit: limitText[1]
           });
-          leftTag.innerHTML = limitTresspased ? _('limit-passed') : _('used');
-          leftValue.innerHTML = limitTresspased ? limitText : currentText;
-          rightTag.innerHTML = limitTresspased ? _('used') : _('limit');
-          rightValue.innerHTML = limitTresspased ? currentText : limitText;
+          leftTag.textContent = limitTresspased ? _('limit-passed') : _('used');
+          leftValue.textContent = limitTresspased ? limitText : currentText;
+          rightTag.textContent = limitTresspased ? _('used') : _('limit');
+          rightValue.textContent = limitTresspased ? currentText : limitText;
 
         } else {
           // Texts
-          document.getElementById('mobile-usage-value').innerHTML =
+          document.getElementById('mobile-usage-value').textContent =
             _('magnitude', { value: data[0], unit: data[1] });
-          views.dataUsage.querySelector('.meta').innerHTML =
-            formatTimeHTML(stats.timestamp);
+          var meta = views.dataUsage.querySelector('.meta');
+          meta.innerHTML = '';
+          meta.appendChild(formatTimeHTML(stats.timestamp));
         }
         checkDataUsageNotification(settings, stats.mobile.total,
           // inform driver in system we are finished to update the widget
@@ -408,20 +430,21 @@
           requestObj = { type: 'telephony' };
           costcontrol.request(requestObj, function _onRequest(result) {
             var activity = result.data;
-            document.getElementById('telephony-calltime').innerHTML =
+            document.getElementById('telephony-calltime').textContent =
               _('magnitude', {
                 value: computeTelephonyMinutes(activity),
                 unit: 'min'
               }
             );
-            document.getElementById('telephony-smscount').innerHTML =
+            document.getElementById('telephony-smscount').textContent =
               _('magnitude', {
                 value: activity.smscount,
                 unit: 'SMS'
               }
             );
-            views.telephony.querySelector('.meta').innerHTML =
-              formatTimeHTML(activity.timestamp);
+            var meta = views.telephony.querySelector('.meta');
+            meta.innerHTML = '';
+            meta.appendChild(formatTimeHTML(activity.timestamp));
           });
         }
       }
@@ -434,23 +457,26 @@
     // Balance not available
     if (balance === null) {
       debug('Balance not available.');
-      document.getElementById('balance-credit').innerHTML = _('not-available');
+      document.getElementById('balance-credit')
+        .textContent = _('not-available');
       views.balance.querySelector('.meta').innerHTML = '';
       return;
     }
 
     // Balance available
-    document.getElementById('balance-credit').innerHTML = _('currency', {
+    document.getElementById('balance-credit').textContent = _('currency', {
       value: balance.balance,
       currency: ConfigManager.configuration.credit.currency
     });
 
     // Timestamp
-    var timeContent = formatTimeHTML(balance.timestamp);
+    var meta = views.balance.querySelector('.meta');
     if (views.balance.classList.contains('updating')) {
-      timeContent = _('updating') + '...';
+      meta.textContent = _('updating-ellipsis');
+    } else {
+      meta.innerHTML = '';
+      meta.appendChild(formatTimeHTML(balance.timestamp));
     }
-    views.balance.querySelector('.meta').innerHTML = timeContent;
 
     // Limits: reaching zero / low limit
     if (balance.balance === 0) {

@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">72.13</p>
+      <p class="stat">71.55</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">546</p>
+      <p class="stat">574</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">47.91</p>
+      <p class="stat">49.01</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">3.62</p>
+      <p class="stat">3.94</p>
     </div>
   </div>
 </div>
@@ -390,10 +390,11 @@
       this.modifier('/settings/', 'Settings', { clear: false });
       this.modifier('/advanced-settings/', 'AdvancedSettings');
 
-      this.state('/alarm-display/:id', 'ModifyEvent', { path: false });
+      this.state('/alarm-display/:id', 'ViewEvent', { path: false });
 
-      this.state('/add/', 'ModifyEvent');
-      this.state('/event/:id', 'ModifyEvent');
+      this.state('/event/add/', 'ModifyEvent');
+      this.state('/event/edit/:id', 'ModifyEvent');
+      this.state('/event/show/:id', 'ViewEvent');
 
       this.modifier('/select-preset/', 'CreateAccount');
       this.modifier('/create-account/:preset', 'ModifyAccount');
@@ -445,10 +446,10 @@
         colors.render();
       });
 
-      this.view('Errors');
-
       document.body.classList.remove('loading');
       this._routes();
+
+      setTimeout(this.loadDOM.bind(this), 0);
 
        //lazy load recurring event expander so as not to impact initial load.
       this.loadObject('Controllers.RecurringEvents', function() {
@@ -524,6 +525,33 @@
       };
 
       document.head.appendChild(el);
+    },
+
+    /**
+     * Loads delayed DOM nodes specified by div.delay
+     * Each .delay node has a single comment with markup
+     * This gets us to the initial render ~400ms faster
+     */
+    loadDOM: function() {
+      var delayedNodes = document.querySelectorAll('.delay');
+      for (var i = 0, node; node = delayedNodes[i]; i++) {
+        var newEl = document.createElement('div');
+        newEl.innerHTML = node.childNodes[0].nodeValue;
+
+        // translate content
+        navigator.mozL10n.translate(newEl);
+
+        var parent = node.parentNode;
+        var lastEl = node.nextElementSibling;
+        var child;
+        while (child = newEl.children[0]) {
+          parent.insertBefore(child, lastEl);
+        }
+
+        parent.removeChild(node);
+      }
+
+      this.view('Errors');
     },
 
     /**

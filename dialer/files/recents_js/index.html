@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">62.96</p>
+      <p class="stat">60.50</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">957</p>
+      <p class="stat">875</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">80.53</p>
+      <p class="stat">82.09</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">11.85</p>
+      <p class="stat">10.88</p>
     </div>
   </div>
 </div>
@@ -156,46 +156,10 @@ var Recents = {
       getElementById('select-all-threads');
   },
 
-  get iframeContacts() {
-    delete this.iframeContacts;
-    return this.iframeContacts = document.
-      getElementById('iframe-contacts');
-  },
-
-  get addContactActionMenu() {
-    delete this.addContactActionMenu;
-    return this.addContactActionMenu = document.
-      getElementById('add-contact-action-menu');
-  },
-
   get recentsEditMenu() {
     delete this.recentsEditMenu;
     return this.recentsEditMenu = document.
       getElementById('edit-mode');
-  },
-
-  get callMenuItem() {
-    delete this.callMenuItem;
-    return this.callMenuItem = document.
-      getElementById('call-menuitem');
-  },
-
-  get createNewContactMenuItem() {
-    delete this.createNewContactMenuItem;
-    return this.createNewContactMenuItem = document.
-      getElementById('create-new-contact-menuitem');
-  },
-
-  get addToExistingContactMenuItem() {
-    delete this.addToExistingContactMenuItem;
-    return this.addToExistingContactMenuItem = document.
-      getElementById('add-to-existing-contact-menuitem');
-  },
-
-  get cancelActionMenuItem() {
-    delete this.cancelActionMenuItem;
-    return this.cancelActionMenuItem = document.
-      getElementById('cancel-action-menu');
   },
 
   createFilter: function re_createFilter(startDate, endDate) {
@@ -228,9 +192,9 @@ var Recents = {
       '/shared/style/headers.css',
       '/shared/style/switches.css',
       '/shared/style/edit_mode.css',
-      '/shared/style/action_menu.css',
       '/shared/style_unstable/lists.css',
 
+      '/dialer/js/phone_action_menu.js',
       '/dialer/js/fixed_header.js',
       '/dialer/js/utils.js'
     ];
@@ -242,7 +206,6 @@ var Recents = {
 
       this.init();
       this.recentsView.classList.remove('hidden');
-      this.addContactActionMenu.hidden = false;
       this.recentsEditMenu.hidden = false;
 
       if (callback) {
@@ -289,26 +252,6 @@ var Recents = {
         this.mouseUp.bind(this));
       this.recentsContainer.addEventListener('click',
         this.click.bind(this));
-    }
-    if (this.callMenuItem) {
-      this.callMenuItem.addEventListener('click',
-        this.call.bind(this));
-    }
-    if (this.addContactActionMenu) {
-      this.addContactActionMenu.addEventListener('submit',
-        this.formSubmit.bind(this));
-    }
-    if (this.createNewContactMenuItem) {
-      this.createNewContactMenuItem.addEventListener('click',
-        this.createNewContact.bind(this));
-    }
-    if (this.addToExistingContactMenuItem) {
-      this.addToExistingContactMenuItem.addEventListener('click',
-        this.addToExistingContact.bind(this));
-    }
-    if (this.cancelActionMenuItem) {
-      this.cancelActionMenuItem.addEventListener('click',
-        this.cancelActionMenu.bind(this));
     }
 
     // Setting up the SimplePhoneMatcher
@@ -376,8 +319,8 @@ var Recents = {
   },
 
   filter: function re_filter(event) {
-    // do nothing if selected tab is same that current
-    if (event.target.parentNode.classList.contains('selected')) {
+    // Do nothing if the selected tab is same that current
+    if (event.target.parentNode.getAttribute('aria-selected') === "true") {
       return;
     }
     var action = event.target.dataset.action;
@@ -408,9 +351,20 @@ var Recents = {
         var selectedCallsLength = selectedCalls.length;
         if (selectedCallsLength == 0) {
           this.headerEditModeText.textContent = this._('edit');
+          this.recentsIconDelete.classList.add('disabled');
+          this.deselectAllThreads.setAttribute('disabled', 'disabled');
+          this.selectAllThreads.textContent = this._('selectAll');
+          this.selectAllThreads.removeAttribute('disabled');
         } else {
           this.headerEditModeText.textContent = this._('edit-selected',
                                                   {n: selectedCallsLength});
+          this.recentsIconDelete.classList.remove('disabled');
+          this.deselectAllThreads.removeAttribute('disabled');
+          if (visibleCalls.length === selectedCallsLength) {
+            this.selectAllThreads.setAttribute('disabled', 'disabled');
+          } else {
+            this.selectAllThreads.removeAttribute('disabled');
+          }
         }
       }
       if (this._allViewGroupingPending) {
@@ -442,9 +396,20 @@ var Recents = {
           var selectedCallsLength = selectedCalls.length;
           if (selectedCallsLength == 0) {
             this.headerEditModeText.textContent = this._('edit');
+            this.recentsIconDelete.classList.add('disabled');
+            this.deselectAllThreads.setAttribute('disabled', 'disabled');
+            this.selectAllThreads.textContent = this._('selectAll');
+            this.selectAllThreads.removeAttribute('disabled');
           } else {
             this.headerEditModeText.textContent = this._('edit-selected',
                                                     {n: selectedCallsLength});
+            this.recentsIconDelete.classList.remove('disabled');
+            this.deselectAllThreads.removeAttribute('disabled');
+            if (visibleCalls.length === selectedCallsLength) {
+              this.selectAllThreads.setAttribute('disabled', 'disabled');
+            } else {
+              this.selectAllThreads.removeAttribute('disabled');
+            }
           }
         }
       }
@@ -453,8 +418,16 @@ var Recents = {
         this._missedViewGroupingPending = false;
       }
     }
-    this.allFilter.classList.toggle('selected');
-    this.missedFilter.classList.toggle('selected');
+    if (this.allFilter.getAttribute('aria-selected') === 'true') {
+      this.allFilter.removeAttribute('aria-selected');
+    } else {
+      this.allFilter.setAttribute('aria-selected', 'true')
+    }
+    if (this.missedFilter.getAttribute('aria-selected') === 'true') {
+      this.missedFilter.removeAttribute('aria-selected');
+    } else {
+      this.missedFilter.setAttribute('aria-selected', 'true');
+    }
     this.limitVisibleEntries(100);
   },
 
@@ -642,7 +615,7 @@ var Recents = {
       if (target.classList.contains('isContact')) {
         contactId = target.dataset.contactId;
       }
-      Recents.viewOrCreate(contactId, phoneNumber);
+      PhoneNumberActionMenu.show(contactId, phoneNumber);
     } else {
       //Edit mode
       if (target.classList.contains('call-log-contact-photo')) {
@@ -668,62 +641,6 @@ var Recents = {
           this.selectAllThreads.removeAttribute('disabled');
         }
       }
-    }
-  },
-
-  formSubmit: function formSubmit(event) {
-    return false;
-  },
-
-  _switchToContacts: function re_switchToContacts() {
-    window.removeEventListener('hashchange', this._switchToContacts);
-    this.addContactActionMenu.classList.remove('visible');
-  },
-
-  createNewContact: function re_createNewContact() {
-    var src = '/contacts/index.html';
-    src += '#view-contact-form?tel=' + this.newPhoneNumber;
-    var timestamp = new Date().getTime();
-    window.addEventListener('hashchange', this._switchToContacts.bind(this));
-    this.iframeContacts.src = src + '&timestamp=' + timestamp;
-    window.location.hash = '#contacts-view';
-  },
-
-  addToExistingContact: function re_addToExistingContact() {
-    var src = '/contacts/index.html';
-    src += '#add-parameters?tel=' + this.newPhoneNumber;
-    var timestamp = new Date().getTime();
-    window.addEventListener('hashchange', this._switchToContacts.bind(this));
-    this.iframeContacts.src = src + '&timestamp=' + timestamp;
-    window.location.hash = '#contacts-view';
-  },
-
-  call: function re_call() {
-    if (this.newPhoneNumber) {
-      this.updateLatestVisit();
-      CallHandler.call(this.newPhoneNumber);
-    }
-    this.addContactActionMenu.classList.remove('visible');
-  },
-
-  cancelActionMenu: function re_cancelActionMenu() {
-    this.addContactActionMenu.classList.remove('visible');
-  },
-
-  viewOrCreate: function re_viewOrCreate(contactId, phoneNumber) {
-    var contactsIframe = document.getElementById('iframe-contacts');
-    var src = '/contacts/index.html';
-    if (contactId) {
-      src += '#view-contact-details?id=' + contactId;
-      src += '&tel=' + phoneNumber;
-      // enable the function of receiving the messages posted from the iframe
-      src += '&back_to_previous_tab=1';
-      var timestamp = new Date().getTime();
-      contactsIframe.src = src + '&timestamp=' + timestamp;
-      window.location.hash = '#contacts-view';
-    } else {
-      this.newPhoneNumber = phoneNumber;
-      this.addContactActionMenu.classList.add('visible');
     }
   },
 
@@ -760,7 +677,7 @@ var Recents = {
       '    <aside class="icon call-type-icon ' + classes + '"></aside>' +
       '    <p class="primary-info">' +
       '      <span class="primary-info-main">' +
-               (recent.number || this._('unknown')) +
+               (recent.number || this._('withheld-number')) +
       '      </span>' + '<span class="many-contacts">' +
       '      </span>' + '<span class="entry-count">' +
       '      </span>' +
@@ -785,13 +702,13 @@ var Recents = {
       this.recentsContainer.innerHTML =
         '<div id="no-result-container">' +
         ' <div id="no-result-message">' +
-        ' <p data-l10n-id="no-logs-msg-1">no calls recorded</p>' +
-        ' <p data-l10n-id="no-logs-msg-2">start communicating now</p>' +
+        '   <p data-l10n-id="no-logs-msg-1">no calls recorded</p>' +
+        '   <p data-l10n-id="no-logs-msg-2">start communicating now</p>' +
         ' </div>' +
         '</div>';
       navigator.mozL10n.translate(this.recentsContainer);
       this.recentsIconEdit.parentNode.setAttribute('aria-disabled', 'true');
-      this.allFilter.classList.add('selected');
+      this.allFilter.setAttribute('aria-selected', 'true');
       return;
     }
 
@@ -800,7 +717,7 @@ var Recents = {
     var self = this;
     window.asyncStorage.getItem('latestCallLogVisit', function getItem(value) {
       var content = '',
-        currentDay = '';
+          currentDay = '';
 
       for (var i = 0; i < recents.length; i++) {
         var day = Utils.getDayDate(recents[i].date);
@@ -827,18 +744,18 @@ var Recents = {
       var event = new Object();
       self._allViewGroupingPending = true;
       self._missedViewGroupingPending = true;
-      if (self.missedFilter.classList.contains('selected')) {
-        self.missedFilter.classList.remove('selected');
+      if (self.missedFilter.getAttribute('aria-selected') === 'true') {
+        self.missedFilter.removeAttribute('aria-selected');
         event.target = self.missedFilter.children[0];
         self.filter(event);
-        self.missedFilter.classList.add('selected');
-        self.allFilter.classList.remove('selected');
+        self.missedFilter.setAttribute('aria-selected', 'true');
+        self.allFilter.removeAttribute('aria-selected');
       } else {
-        self.allFilter.classList.remove('selected');
+        self.allFilter.removeAttribute('aria-selected');
         event.target = self.allFilter.children[0];
         self.filter(event);
-        self.missedFilter.classList.remove('selected');
-        self.allFilter.classList.add('selected');
+        self.missedFilter.removeAttribute('aria-selected');
+        self.allFilter.setAttribute('aria-selected', 'true');
       }
     });
   },
@@ -875,7 +792,7 @@ var Recents = {
         primaryInfoMainNode.textContent = primaryInfo;
       } else {
         LazyL10n.get(function gotL10n(_) {
-          primaryInfoMainNode.textContent = _('unknown');
+          primaryInfoMainNode.textContent = _('withheld-number');
         });
       }
       manyContactsNode.innerHTML = contactsWithSameNumber ?
@@ -971,6 +888,7 @@ var Recents = {
         }
       }
     }
+    PerformanceTestingHelper.dispatch('call-log-ready');
   },
 
   groupCalls: function re_groupCalls(olderCallEl, newerCallEl, count, inc) {

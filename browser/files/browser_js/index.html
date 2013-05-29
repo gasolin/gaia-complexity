@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">66.67</p>
+      <p class="stat">66.70</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">1897</p>
+      <p class="stat">2035</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">95.80</p>
+      <p class="stat">97.44</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">25.81</p>
+      <p class="stat">27.39</p>
     </div>
   </div>
 </div>
@@ -132,7 +132,8 @@ var Browser = {
   MAX_THUMBNAIL_WIDTH: 140,
   MAX_THUMBNAIL_HEIGHT: 100,
   FIRST_TAB: 'tab_0',
-
+  MAX_SAVING_RETRIES: 100, // max number of retries when saving images with a
+                           // new name.
   urlButtonMode: null,
   addressBarState: null,
 
@@ -434,8 +435,6 @@ var Browser = {
   },
 
   handleCloseTab: function browser_handleCloseTab() {
-    if (Object.keys(this.tabs).length == 1)
-      return;
     this.hideCrashScreen();
     this.deleteTab(this.currentTab.id);
     this.setTabVisibility(this.currentTab, true);
@@ -688,11 +687,6 @@ var Browser = {
   },
 
   showCrashScreen: function browser_showCrashScreen() {
-    if (Object.keys(this.tabs).length > 1) {
-      this.closeTab.removeAttribute('disabled');
-    } else {
-      this.closeTab.setAttribute('disabled', 'disabled');
-    }
     this.crashscreen.style.display = 'block';
   },
 
@@ -858,28 +852,65 @@ var Browser = {
 
   removeBookmark: function browser_removeBookmark(e) {
     e.preventDefault();
-    if (!this.currentTab.url)
+    if (!this.bookmarkMenuRemove.dataset.url)
       return;
-    Places.removeBookmark(this.currentTab.url,
+
+    Places.removeBookmark(this.bookmarkMenuRemove.dataset.url,
       this.refreshBookmarkButton.bind(this));
     this.hideBookmarkMenu();
+    // refresh bookmark tab
+    this.showBookmarksTab();
   },
 
+  // responsible to show the specific action menu
+  showActionMenu: function browser_showActionMenu(url, from) {
+      if (!url)
+        return;
+      this.bookmarkMenu.classList.remove('hidden');
+      Places.getBookmark(url, (function(bookmark) {
+        if (bookmark) {
+          if (from && from === 'bookmarksTab') { //show actions in bookmark tab
+
+            this.bookmarkMenuAdd.parentNode.classList.add('hidden');
+            //append url to button's dataset
+            this.bookmarkMenuRemove.dataset.url = url;
+            this.bookmarkMenuRemove.parentNode.classList.remove('hidden');
+            //XXX not implement yet: edit bookmark in bookmarktab #838041
+            this.bookmarkMenuEdit.parentNode.classList.add('hidden');
+            //XXX not implement yet: link to home in bookmarktab #850999
+            this.bookmarkMenuAddHome.parentNode.classList.add('hidden');
+
+          } else { //show actions in browser page
+
+            this.bookmarkMenuAdd.parentNode.classList.add('hidden');
+            this.bookmarkMenuRemove.dataset.url = url;
+            this.bookmarkMenuRemove.parentNode.classList.remove('hidden');
+            this.bookmarkMenuEdit.dataset.url = url;
+            this.bookmarkMenuEdit.parentNode.classList.remove('hidden');
+            //XXX not implement yet: link to home in bookmarktab #850999
+            this.bookmarkMenuAddHome.parentNode.classList.remove('hidden');
+
+          }
+        } else { //show actions in browser page
+
+          this.bookmarkMenuAdd.parentNode.classList.remove('hidden');
+          this.bookmarkMenuRemove.parentNode.classList.add('hidden');
+          this.bookmarkMenuEdit.parentNode.classList.add('hidden');
+          //XXX not implement yet: link to home in bookmarktab #850999
+          this.bookmarkMenuAddHome.parentNode.classList.remove('hidden');
+
+        }
+      }).bind(this));
+  },
+
+  // Adaptor to show menu while press bookmark star
   showBookmarkMenu: function browser_showBookmarkMenu() {
-    if (!this.currentTab.url)
-      return;
-    this.bookmarkMenu.classList.remove('hidden');
-    Places.getBookmark(this.currentTab.url, (function(bookmark) {
-      if (bookmark) {
-        this.bookmarkMenuAdd.parentNode.classList.add('hidden');
-        this.bookmarkMenuRemove.parentNode.classList.remove('hidden');
-        this.bookmarkMenuEdit.parentNode.classList.remove('hidden');
-      } else {
-        this.bookmarkMenuAdd.parentNode.classList.remove('hidden');
-        this.bookmarkMenuRemove.parentNode.classList.add('hidden');
-        this.bookmarkMenuEdit.parentNode.classList.add('hidden');
-      }
-    }).bind(this));
+    this.showActionMenu(this.currentTab.url);
+  },
+
+  // Adaptor to show menu while longpress in bookmark tab
+  showBookmarkTabContextMenu: function browser_showBookmarkTabContextMenu(url) {
+    this.showActionMenu(url, 'bookmarksTab');
   },
 
   hideBookmarkMenu: function browser_hideBookmarkMenu() {
@@ -1143,7 +1174,7 @@ var Browser = {
   },
 
   drawAwesomescreenListItem: function browser_drawAwesomescreenListItem(list,
-    data, filter) {
+    data, filter, current_tab) {
     var entry = document.createElement('li');
     var link = document.createElement('a');
     var title = document.createElement('h5');
@@ -1165,17 +1196,30 @@ var Browser = {
     entry.appendChild(link);
     list.appendChild(entry);
 
+    // enable longpress manipulation in bookmark tab
+    if (current_tab === 'bookmark') {
+      var that = this;
+      link.addEventListener('contextmenu', function() {
+        that.showBookmarkTabContextMenu(link.href);
+      });
+    }
+
+    var underlay = ',url(./style/images/favicon-underlay.png)';
+
     if (!data.iconUri) {
-      link.style.backgroundImage = 'url(' + this.DEFAULT_FAVICON + ')';
+      link.style.backgroundImage = 'url(' + this.DEFAULT_FAVICON + ')' +
+        underlay;
       return;
     }
 
     Places.db.getIcon(data.iconUri, (function(icon) {
       if (icon && icon.failed != true && icon.data) {
         var imgUrl = window.URL.createObjectURL(icon.data);
-        link.style.backgroundImage = 'url(' + imgUrl + ')';
+        link.style.backgroundImage = 'url(' + imgUrl + ')' +
+          underlay;
       } else {
-        link.style.backgroundImage = 'url(' + this.DEFAULT_FAVICON + ')';
+        link.style.backgroundImage = 'url(' + this.DEFAULT_FAVICON + ')' +
+          underlay;
       }
     }).bind(this));
   },
@@ -1227,7 +1271,7 @@ var Browser = {
     list.setAttribute('role', 'listbox');
     this.bookmarks.appendChild(list);
     bookmarks.forEach(function browser_processBookmark(data) {
-      this.drawAwesomescreenListItem(list, data);
+      this.drawAwesomescreenListItem(list, data, null, 'bookmark');
     }, this);
   },
 
@@ -1236,19 +1280,117 @@ var Browser = {
     this.updateTabsCount();
   },
 
+  // Saves a media file to device storage.
+  saveMedia: function browser_saveMedia(url, type) {
+    function displayMessage(message) {
+      var status = document.getElementById('save-media-status');
+      status.firstElementChild.textContent = message;
+      status.classList.add('visible');
+      window.setTimeout(function() {
+        status.classList.remove('visible');
+      }, 3000);
+    }
+
+    function storeBlob(blob, name, retryCount) {
+      /*
+       * XXX: Bug 852864 - DeviceStorage addNamed failed with TypeMismatchError
+       * 3gp and ogg types of audio files are returned as blobs of video type.
+       * The workaround here is saving the blob to corresponding storage based
+       * on the type of it instead of the type specified by users. Which allows
+       * users able to save those types of audio files.
+       */
+      var storageTypeMap = {
+        'image': 'pictures',
+        'video': 'videos',
+        'audio': 'music'
+      };
+      var blobType = blob.type.split('/')[0];
+      var storageType = storageTypeMap[blobType];
+      if (!storageType) {
+        displayMessage(_('error-saving-' + type));
+        return;
+      }
+
+      var storage = navigator.getDeviceStorage(storageType);
+      var addreq = storage.addNamed(blob, name);
+
+      addreq.onsuccess = function() {
+        displayMessage(_(type + '-saved'));
+      };
+      addreq.onerror = function() {
+        // Prepend some always changing id and try to store again, but give up
+        // after MAX_SAVING_RETRIES retries.
+        if (addreq.error.name === 'NoModificationAllowedError' &&
+            retryCount !== Browser.MAX_SAVING_RETRIES) {
+          name = Date.now() + '-' + name;
+          storeBlob(blob, name, retryCount + 1);
+        } else {
+          displayMessage(_('error-saving-' + type));
+        }
+      };
+    }
+
+    var xhr = new XMLHttpRequest({mozSystem: true});
+    xhr.open('GET', url, true);
+    xhr.responseType = 'blob';
+    xhr.onload = function browser_mediaDataListener() {
+      if (xhr.status !== 200 || !xhr.response) {
+        displayMessage(_('error-saving-' + type));
+        return;
+      }
+
+      // Save the blob to device storage.
+      // Extract a filename from the URL, and to some sanitizing.
+      var name = url.split('/').reverse()[0].toLowerCase()
+                    .replace(/[^a-z0-9\.]/g, '_');
+
+      // If we have no file extension, use the content-type header to
+      // add one.
+      if (name.split('.').length == 1) {
+        var contentType = xhr.getResponseHeader('content-type');
+        name += '.' + contentType.split('/')[1];
+      }
+
+      storeBlob(xhr.response, name, 0);
+    };
+
+    xhr.onerror = function getDefaultDataError() {
+      displayMessage(_('error-saving-' + type));
+    };
+    xhr.send();
+  },
+
   // This generates callbacks for context menu targets that have
   // default actions attached
   generateSystemMenuItem: function browser_generateSystemMenuItem(item) {
     var self = this;
-    if (item.nodeName === 'A') {
-      return {
-        label: _('open-in-new-tab'),
-        callback: function() {
-          self.openInNewTab(item.data);
-        }
-      };
+    switch (item.nodeName) {
+      case 'A':
+        return {
+          label: _('open-in-new-tab'),
+          callback: function() {
+            self.openInNewTab(item.data);
+          }
+        };
+      case 'IMG':
+      case 'VIDEO':
+      case 'AUDIO':
+        var typeMap = {
+          'IMG': 'image',
+          'VIDEO': 'video',
+          'AUDIO': 'audio'
+        };
+        var type = typeMap[item.nodeName];
+
+        return {
+          label: _('save-' + type),
+          callback: function() {
+            self.saveMedia(item.data, type);
+          }
+        };
+      default:
+        return false;
     }
-    return false;
   },
 
   showContextMenu: function browser_showContextMenu(evt) {
@@ -1443,6 +1585,15 @@ var Browser = {
     delete this.tabs[id];
     ModalDialog.clear(id);
     AuthenticationDialog.clear(id);
+
+    // If that was the last tab, create a new one and show start screen
+    if (Object.keys(this.tabs).length == 0) {
+      this.selectTab(this.createTab());
+      this.switchScreen(this.PAGE_SCREEN);
+      return;
+    }
+
+    // Otherwise, if closing current tab, switch to another one
     if (this.currentTab && this.currentTab.id === id) {
       // The tab to be selected when the current one is deleted
       var newTab = tabIds.indexOf(id);
@@ -1490,7 +1641,8 @@ var Browser = {
     this.setUrlBar(this.currentTab.title);
     this.updateSecurityIcon();
     this.refreshButtons();
-    if (id == this.FIRST_TAB && this.currentTab.url == null) {
+    // Show start screen if the tab hasn't been navigated
+    if (this.currentTab.url == null) {
       this.showStartscreen();
     } else {
       this.hideStartscreen();
@@ -1513,9 +1665,10 @@ var Browser = {
     this.startscreen.classList.remove('hidden');
     Places.getTopSites(this.MAX_TOP_SITES, null,
       function(places) {
-        this.showTopSiteThumbnails(places);
-        this.loadRemaining();
-      }.bind(this));
+      this.showTopSiteThumbnails(places);
+      this.loadRemaining();
+    }.bind(this));
+    this.bookmarkButton.classList.remove('bookmarked');
   },
 
   _topSiteThumbnailObjectURLs: [],
@@ -1628,7 +1781,6 @@ var Browser = {
     this.hideCurrentTab();
     this.tabsBadge.innerHTML = '';
 
-    var multipleTabs = Object.keys(this.tabs).length > 1;
     var ul = document.createElement('ul');
 
     this.tabsList.innerHTML = '';
@@ -1640,7 +1792,7 @@ var Browser = {
     this._tabScreenObjectURLs = [];
 
     for (var tab in this.tabs) {
-      var li = this.generateTabLi(this.tabs[tab], multipleTabs);
+      var li = this.generateTabLi(this.tabs[tab]);
       ul.appendChild(li);
     }
 
@@ -1651,7 +1803,7 @@ var Browser = {
     this.inTransition = false;
   },
 
-  generateTabLi: function browser_generateTabLi(tab, multipleTabs) {
+  generateTabLi: function browser_generateTabLi(tab) {
     var title = tab.title || tab.url || _('new-tab');
     var a = document.createElement('a');
     var li = document.createElement('li');
@@ -1659,13 +1811,11 @@ var Browser = {
     var preview = document.createElement('div');
     var text = document.createTextNode(title);
 
-    if (multipleTabs) {
-      var close = document.createElement('button');
-      close.appendChild(document.createTextNode('✕'));
-      close.classList.add('close');
-      close.setAttribute('data-id', tab.id);
-      a.appendChild(close);
-    }
+    var close = document.createElement('button');
+    close.appendChild(document.createTextNode('✕'));
+    close.classList.add('close');
+    close.setAttribute('data-id', tab.id);
+    a.appendChild(close);
 
     a.setAttribute('data-id', tab.id);
     preview.classList.add('preview');
@@ -1815,11 +1965,8 @@ var Browser = {
         return;
       }
 
-      // We cant delete the last tab
-      this.deleteable = Object.keys(this.browser.tabs).length > 1;
-      if (!this.deleteable || this.browser.inTransition) {
+      if (this.browser.inTransition)
         return;
-      }
 
       this.tab.classList.add('active');
       this.tab.style.MozTransition = '';
@@ -1828,9 +1975,8 @@ var Browser = {
     },
 
     pan: function tabSwipe_pan(e) {
-      if (!this.deleteable || this.browser.inTransition) {
+      if (this.browser.inTransition)
         return;
-      }
       var movement = Math.min(this.containerWidth,
                               Math.abs(e.detail.absolute.dx));
       if (movement > 0) {
@@ -1856,9 +2002,8 @@ var Browser = {
     },
 
     swipe: function tabSwipe_swipe(e) {
-      if (!this.deleteable || this.browser.inTransition) {
+      if (this.browser.inTransition)
         return;
-      }
 
       var distance = e.detail.start.screenX - e.detail.end.screenX;
       var fastenough = Math.abs(e.detail.vx) > this.TRANSITION_SPEED;
@@ -1897,14 +2042,7 @@ var Browser = {
           // Then delete everything
           browser.deleteTab(id);
           li.parentNode.removeChild(li);
-
-          if (Object.keys(self.browser.tabs).length === 1) {
-            var closeButtons = document.getElementsByClassName('close');
-            Array.forEach(closeButtons, function(el) {
-              el.parentNode.removeChild(el);
-            });
-          }
-
+          browser.updateTabsCount();
         }, true);
         li.style.MozTransition = 'height ' + 100 + 'ms linear';
         li.style.height = '0px';

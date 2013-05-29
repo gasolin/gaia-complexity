@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.23</p>
+      <p class="stat">65.18</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">762</p>
+      <p class="stat">765</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">85.34</p>
+      <p class="stat">85.50</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">7.19</p>
+      <p class="stat">7.23</p>
     </div>
   </div>
 </div>
@@ -135,12 +135,14 @@ navigator.mozL10n.ready(function wifiSettings() {
 
   // toggle wifi on/off
   gWifiCheckBox.onchange = function toggleWifi() {
-    var req = settings.createLock().set({'wifi.enabled': this.checked});
-    this.disabled = true;
-    req.onerror = function() {
+    settings.createLock().set({
+      'wifi.enabled': this.checked,
+      'wifi.suspended': !this.checked
+    }).onerror = function() {
       // Fail to write mozSettings, return toggle control to the user.
       gWifiCheckBox.disabled = false;
     };
+    this.disabled = true;
   };
 
   /**
@@ -277,7 +279,7 @@ navigator.mozL10n.ready(function wifiSettings() {
       var pinInput = pinItem.querySelector('input');
       pinInput.oninput = function() {
         submitWpsButton.disabled = !isValidWpsPin(pinInput.value);
-      }
+      };
 
       function onWpsMethodChange() {
         var method =
@@ -323,7 +325,7 @@ navigator.mozL10n.ready(function wifiSettings() {
     var keys = network.capabilities;
     if (keys && keys.length) {
       small.textContent = _('securedBy', { capabilities: keys.join(', ') });
-      ssid.className = 'wifi-secure';
+      ssid.classList.add('wifi-secure');
     } else {
       small.textContent = _('securityOpen');
       small.dataset.l10nId = 'securityOpen';
@@ -386,6 +388,7 @@ navigator.mozL10n.ready(function wifiSettings() {
       // stop auto-scanning if wifi disabled or the app is hidden
       if (!gWifiManager.enabled || document.mozHidden) {
         scanning = false;
+        gScanPending = true;
         return;
       }
 
@@ -427,7 +430,7 @@ navigator.mozL10n.ready(function wifiSettings() {
 
             // signal is between 0 and 100, level should be between 0 and 4
             var level = Math.min(Math.floor(network.relSignalStrength / 20), 4);
-            listItem.className = 'wifi-signal' + level;
+            listItem.querySelector('a').classList.add('wifi-signal' + level);
 
             // put connected network on top of list
             if (isConnected(network)) {
@@ -564,7 +567,7 @@ navigator.mozL10n.ready(function wifiSettings() {
   // join hidden network
   document.getElementById('joinHidden').onclick = function joinHiddenNetwork() {
     toggleNetwork();
-  }
+  };
 
   function isConnected(network) {
     /**
@@ -709,7 +712,7 @@ navigator.mozL10n.ready(function wifiSettings() {
             ipAddress.textContent = info.ipAddress || '';
             speed.textContent =
                 _('linkSpeedMbs', { linkSpeed: info.linkSpeed });
-          }
+          };
           gWifiManager.connectionInfoUpdate = updateNetInfo;
           updateNetInfo();
 
@@ -733,7 +736,7 @@ navigator.mozL10n.ready(function wifiSettings() {
             network.capabilities = [key];
             dialog.dataset.security = key;
             checkPassword();
-          }
+          };
           security.onchange = onSecurityChange;
           onSecurityChange();
           break;

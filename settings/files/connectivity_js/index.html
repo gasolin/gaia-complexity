@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">68.72</p>
+      <p class="stat">68.77</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">337</p>
+      <p class="stat">336</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">27.02</p>
+      <p class="stat">26.80</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.35</p>
+      <p class="stat">2.33</p>
     </div>
   </div>
 </div>
@@ -113,6 +113,7 @@ var Connectivity = (function(window, document, undefined) {
   var mobileConnection = getMobileConnection();
 
   mobileConnection.addEventListener('datachange', updateCarrier);
+  mobileConnection.addEventListener('cardstatechange', updateCallSettings);
 
   // XXX if wifiManager implements addEventListener function
   // we can remove these listener lists.
@@ -170,11 +171,9 @@ var Connectivity = (function(window, document, undefined) {
       'absent' : 'noSimCard',
       'null' : 'simCardNotReady'
     };
-    mobileConnection.addEventListener('datachange', updateCarrier);
-    updateCarrier();
-    mobileConnection.addEventListener('cardstatechange', updateCallSettings);
-    updateCallSettings();
 
+    updateCarrier();
+    updateCallSettings();
     updateWifi();
     updateBluetooth();
     // register blutooth system message handler

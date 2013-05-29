@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">66.63</p>
+      <p class="stat">66.14</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">244</p>
+      <p class="stat">262</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">39.49</p>
+      <p class="stat">39.16</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.15</p>
+      <p class="stat">2.37</p>
     </div>
   </div>
 </div>
@@ -133,7 +133,12 @@ function checkDataUsageNotification(settings, usage, callback) {
 
 // Waits for DOMContentLoaded and messagehandlerready, then call the callback
 function waitForDOMAndMessageHandler(window, callback) {
-  var remainingSteps = 2;
+  var docState = document.readyState;
+  var DOMAlreadyLoaded = docState === 'complete' || docState === 'interactive';
+  var remainingSteps = DOMAlreadyLoaded ? 1 : 2;
+  debug('DOMAlreadyLoaded:', DOMAlreadyLoaded);
+  debug('Waiting for', remainingSteps, 'events to start!');
+
   function checkReady(evt) {
     debug(evt.type, 'event received!');
     remainingSteps--;
@@ -297,9 +302,18 @@ function getDataLimit(settings) {
 }
 
 function formatTimeHTML(timestampA, timestampB) {
+  function timeElement(content) {
+    var time = document.createElement('time');
+    time.textContent = content;
+    return time;
+  }
+
+  var fragment = document.createDocumentFragment();
+
   // No interval
   if (typeof timestampB === 'undefined') {
-    return '<time>' + formatTime(timestampA) + '</time>';
+    fragment.appendChild(timeElement(formatTime(timestampA)));
+    return fragment;
   }
 
   // Same day case
@@ -313,8 +327,12 @@ function formatTimeHTML(timestampA, timestampB) {
   }
 
   // Interval
-  return '<time>' + formatTime(timestampA) + '</time> – ' +
-         '<time>' + formatTime(timestampB) + '</time>';
+  fragment.appendChild(
+    timeElement(formatTime(timestampA, _('short-date-format')))
+  );
+  fragment.appendChild(document.createTextNode(' – '));
+  fragment.appendChild(timeElement(formatTime(timestampB)));
+  return fragment;
 }
 
 function localizeWeekdaySelector(selector) {

@@ -45,7 +45,7 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">70.37</p>
+      <p class="stat">70.25</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">54.73</p>
+      <p class="stat">54.93</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">4.60</p>
+      <p class="stat">4.66</p>
     </div>
   </div>
 </div>
@@ -451,8 +451,8 @@ var Carrier = (function newCarrier(window, document, undefined) {
 
     // state
     var state = document.createElement('small');
-    // XXX do we need l10n here?
-    state.textContent = network.state;
+    state.textContent =
+      network.state ? _('state-' + network.state) : _('state-unknown');
 
     // create list item
     var li = document.createElement('li');
@@ -503,6 +503,7 @@ var Carrier = (function newCarrier(window, document, undefined) {
       req.onerror = function onsuccess() {
         messageElement.textContent = _('operator-status-connectingfailed');
         messageElement.dataset.l10nId = 'operator-status-connectingfailed';
+        updateSelectionMode(false);
       };
     }
 
@@ -568,8 +569,7 @@ var Carrier = (function newCarrier(window, document, undefined) {
       getMccMncCodes(function() {
         // XXX this should be done later -- not during init()
         Carrier.fillAPNList('data');
-        // XXX commented this line because MMS Settings is hidden
-        // Carrier.fillAPNList('mms');
+        Carrier.fillAPNList('mms');
         Carrier.fillAPNList('supl');
       });
     }

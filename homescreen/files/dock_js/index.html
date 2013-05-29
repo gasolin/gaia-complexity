@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">66.41</p>
+      <p class="stat">66.66</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">271</p>
+      <p class="stat">268</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">52.50</p>
+      <p class="stat">51.59</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.86</p>
+      <p class="stat">1.79</p>
     </div>
   </div>
 </div>
@@ -97,7 +97,7 @@ const DockManager = (function() {
   var container, dock;
 
   var MAX_NUM_ICONS = 7;
-  var maxNumAppInViewPort = 4, numAppsBeforeDrag, maxOffsetLeft;
+  var maxNumAppInViewPort = 4, maxOffsetLeft;
 
   var windowWidth = window.innerWidth;
   var duration = 300;
@@ -120,7 +120,7 @@ const DockManager = (function() {
       target.classList.add('active');
       removeActive = function _removeActive() {
         target.classList.remove('active');
-      }
+      };
     } else {
       removeActive = function() {};
     }
@@ -217,6 +217,8 @@ const DockManager = (function() {
   }
 
   function goNextSet() {
+    calculateDimentions(dock.getNumIcons());
+
     if (dock.getLeft() <= maxOffsetLeft) {
       return;
     }
@@ -225,6 +227,8 @@ const DockManager = (function() {
   }
 
   function goPreviousSet() {
+    calculateDimentions(dock.getNumIcons());
+
     if (dock.getLeft() >= 0) {
       return;
     }
@@ -259,15 +263,16 @@ const DockManager = (function() {
     window.addEventListener(touchend, handleEvent);
   }
 
-  function placeAfterRemovingApp(numApps, centering) {
-    document.body.dataset.transitioning = 'true';
-
-    if (centering || numApps <= maxNumAppInViewPort) {
-      dock.moveByWithDuration(maxOffsetLeft / 2, .5);
-    } else {
-      dock.moveByWithDuration(dock.getLeft() + cellWidth, .5);
+  function rePosition(numApps) {
+    if (numApps > maxNumAppInViewPort && dock.getLeft() < 0 &&
+          dock.getRight() > windowWidth) {
+      // The dock takes up the screen width.
+      return;
     }
 
+    // We are going to place the dock in the middle of the screen
+    document.body.dataset.transitioning = 'true';
+    dock.moveByWithDuration(maxOffsetLeft / 2, .5);
     container.addEventListener('transitionend', function transEnd(e) {
       container.removeEventListener('transitionend', transEnd);
       delete document.body.dataset.transitioning;
@@ -317,22 +322,12 @@ const DockManager = (function() {
       container.addEventListener(touchstart, handleEvent);
       var numApps = dock.getNumIcons();
       calculateDimentions(numApps);
-
-      if (numApps === numAppsBeforeDrag ||
-          numApps > maxNumAppInViewPort &&
-          (numApps < numAppsBeforeDrag && dock.getRight() >= windowWidth ||
-           numApps > numAppsBeforeDrag && dock.getLeft() < 0)
-         ) {
-        return;
-      }
-
-      placeAfterRemovingApp(numApps, numApps > numAppsBeforeDrag);
+      rePosition(numApps);
     },
 
     onDragStart: function dm_onDragStart() {
       releaseEvents();
       container.removeEventListener(touchstart, handleEvent);
-      numAppsBeforeDrag = dock.getNumIcons();
     },
 
     /*
@@ -349,7 +344,9 @@ const DockManager = (function() {
       if (numApps > maxNumAppInViewPort && dock.getRight() >= windowWidth) {
         return;
       }
-      placeAfterRemovingApp(numApps);
+
+      calculateDimentions(numApps);
+      rePosition(numApps);
     },
 
     isFull: function dm_isFull() {

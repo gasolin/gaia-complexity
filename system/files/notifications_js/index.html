@@ -49,7 +49,7 @@
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">389</p>
+      <p class="stat">391</p>
     </div>
   </div>
   <div class="row historical">
@@ -420,13 +420,15 @@ var NotificationScreen = {
   removeNotification: function ns_removeNotification(notificationID) {
     var notifSelector = '[data-notification-i-d="' + notificationID + '"]';
     var notificationNode = this.container.querySelector(notifSelector);
-    var lockScreenNotificationNode = this.lockScreenContainer.querySelector(notifSelector);
+    var lockScreenNotificationNode =
+      this.lockScreenContainer.querySelector(notifSelector);
 
     if (notificationNode)
       notificationNode.parentNode.removeChild(notificationNode);
-    
+
     if (lockScreenNotificationNode)
-      lockScreenNotificationNode.parentNode.removeChild(lockScreenNotificationNode);
+      lockScreenNotificationNode.parentNode
+        .removeChild(lockScreenNotificationNode);
     this.updateStatusBarIcon();
   },
 

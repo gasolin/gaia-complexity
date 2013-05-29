@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">61.86</p>
+      <p class="stat">61.82</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">665</p>
+      <p class="stat">664</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">75.30</p>
+      <p class="stat">74.48</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">6.48</p>
+      <p class="stat">6.47</p>
     </div>
   </div>
 </div>
@@ -118,8 +118,6 @@ var Filmstrip = (function() {
   var cameraButton = document.getElementById('camera-button');
   var shareButton = document.getElementById('share-button');
   var deleteButton = document.getElementById('delete-button');
-  var filmstripGalleryButton =
-    document.getElementById('filmstrip-gallery-button');
 
   // Offscreen elements for generating thumbnails with
   var offscreenImage = new Image();
@@ -129,7 +127,6 @@ var Filmstrip = (function() {
   cameraButton.onclick = returnToCameraMode;
   deleteButton.onclick = deleteCurrentItem;
   shareButton.onclick = shareCurrentItem;
-  filmstripGalleryButton.onclick = Camera.galleryBtnPressed;
   mediaFrame.addEventListener('dbltap', handleDoubleTap);
   mediaFrame.addEventListener('transform', handleTransform);
   mediaFrame.addEventListener('pan', handlePan);
@@ -145,10 +142,9 @@ var Filmstrip = (function() {
   // Start off with it positioned correctly.
   setOrientation(Camera._phoneOrientation);
 
-  // If we're running in secure mode, we never want the user to see the
-  // gallery button or the share button.
-  filmstrip.removeChild(filmstripGalleryButton);
-  shareButton.parentNode.removeChild(shareButton);
+  // In secure mode, we never want the user to see the share button.
+  if (Camera._secureMode)
+    shareButton.parentNode.removeChild(shareButton);
 
   function isShown() {
     return !filmstrip.classList.contains('hidden');
@@ -192,12 +188,11 @@ var Filmstrip = (function() {
     // with no timeout and be sure that the viewfinder video is paused.
     show();
     Camera.viewfinder.pause();
-    // If there is a preview shown, we want the gallery button in
-    // the filmstrip
-    filmstripGalleryButton.classList.remove('hidden');
   };
 
   function previewItem(index) {
+    Camera.resetReturnToCamera();
+    Camera.screenTimeout();
     // Don't redisplay the item if it is already displayed
     if (currentItemIndex === index)
       return;
@@ -227,10 +222,10 @@ var Filmstrip = (function() {
   }
 
   function returnToCameraMode() {
+    Camera.setReturnToCamera();
+    Camera.screenWakeLock();
     Camera.viewfinder.play();        // Restart the viewfinder
     show(Camera.FILMSTRIP_DURATION); // Fade the filmstrip after a delay
-    // hide the gallery button in the filmstrip
-    filmstripGalleryButton.classList.add('hidden');
     preview.classList.add('offscreen');
     frame.clear();
     if (items.length > 0)
@@ -289,7 +284,7 @@ var Filmstrip = (function() {
       storage.delete(filename).onerror = function(e) {
         console.warn('Failed to delete', filename,
                      'from DeviceStorage:', e.target.error);
-      }
+      };
 
       // If this is a video file, delete its poster image as well
       if (item.isVideo) {
@@ -302,6 +297,7 @@ var Filmstrip = (function() {
                        e.target.error);
         };
       }
+
     }
   }
 
@@ -323,7 +319,7 @@ var Filmstrip = (function() {
     });
     activity.onerror = function(e) {
       console.warn('Share activity error:', activity.error.name);
-    }
+    };
   }
 
   function handleDoubleTap(e) {
@@ -481,7 +477,7 @@ var Filmstrip = (function() {
           offscreenVideo.removeAttribute('src');
           offscreenVideo.load();
           console.warn('not a video file', filename);
-        }
+        };
 
         offscreenVideo.onloadedmetadata = function() {
           createThumbnailFromVideo(offscreenVideo, rotation, filename,
@@ -746,6 +742,9 @@ var Filmstrip = (function() {
     // And we have to resize the frame (and its video player)
     frame.resize();
     frame.video.setPlayerSize();
+
+    // And inform the video player of new orientation
+    frame.video.setPlayerOrientation(orientation);
   }
 
   return {

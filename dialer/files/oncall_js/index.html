@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">68.69</p>
+      <p class="stat">68.32</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">747</p>
+      <p class="stat">792</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">62.91</p>
+      <p class="stat">65.15</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">6.13</p>
+      <p class="stat">6.52</p>
     </div>
   </div>
 </div>
@@ -95,6 +95,7 @@
 var CallScreen = {
   _ticker: null,
   _screenLock: null,
+  _typedNumber: '',
 
   body: document.body,
   screen: document.getElementById('call-screen'),
@@ -154,6 +155,23 @@ var CallScreen = {
         CallScreen.setCallerContactImage(
           req.result['wallpaper.image'], false, true);
       };
+    }
+
+    // Handle resize events
+    window.addEventListener('resize', this.resizeHandler.bind(this));
+  },
+
+  resizeHandler: function cs_resizeHandler() {
+    // Handle attention screen switches between full screen/status bar mode.
+    // If a user is typing keypad during calling,
+    // we don't show the typed number in status bar mode.
+    if (window.innerHeight <= 40) {
+      if (this.body.classList.contains('showKeypad')) {
+        this._typedNumber = KeypadManager._phoneNumber;
+        KeypadManager.restorePhoneNumber('end', true);
+      }
+    } else if (this.body.classList.contains('showKeypad')) {
+      KeypadManager.updatePhoneNumber(this._typedNumber, 'begin', true);
     }
   },
 
@@ -400,9 +418,23 @@ var OnCallHandler = (function onCallHandler() {
     var hc = new HandledCall(call, node);
     handledCalls.push(hc);
 
-    // This is the initial incoming call, need to ring !
-    if (call.state === 'incoming' && handledCalls.length === 1) {
-      handleFirstIncoming(call);
+    if (call.state === 'incoming') {
+      call.addEventListener('statechange', function callStateChange() {
+        call.removeEventListener('statechange', callStateChange);
+        // The call wasn't picked up
+        if (call.state == 'disconnected') {
+          var callInfo = {
+            type: 'notification',
+            number: call.number
+          };
+          postToMainWindow(callInfo);
+        }
+      });
+
+      // This is the initial incoming call, need to ring !
+      if (handledCalls.length === 1) {
+        handleFirstIncoming(call);
+      }
     }
 
     if (handledCalls.length > 1) {
@@ -458,6 +490,9 @@ var OnCallHandler = (function onCallHandler() {
   }
 
   function handleFirstIncoming(call) {
+    unmute();
+    turnSpeakerOff();
+
     var vibrateInterval = 0;
     if (activateVibration != false) {
       vibrateInterval = window.setInterval(function vibrate() {
@@ -490,21 +525,12 @@ var OnCallHandler = (function onCallHandler() {
         screenLock.unlock();
         screenLock = null;
       }
-
-      // The call wasn't picked up
-      if (call.state == 'disconnected') {
-        var callInfo = {
-          type: 'notification',
-          number: call.number
-        };
-        postToMainWindow(callInfo);
-      }
     });
   }
 
   function handleCallWaiting(call) {
     LazyL10n.get(function localized(_) {
-      var number = call.number || _('unknown');
+      var number = call.number || _('withheld-number');
       Contacts.findByNumber(number, function lookupContact(contact) {
         if (contact && contact.name) {
           CallScreen.incomingNumber.textContent = contact.name;
@@ -588,7 +614,7 @@ var OnCallHandler = (function onCallHandler() {
       return;
     }
 
-    // Currently managing to kind of commands:
+    // Currently managing three kinds of commands:
     // BT: bluetooth
     // HS: headset
     // * : general cases, not specific to hardware control
@@ -633,11 +659,26 @@ var OnCallHandler = (function onCallHandler() {
     }
   }
 
+  var lastHeadsetPress = 0;
+
   function handleHSCommand(message) {
-    // We will receive the message for button released,
-    // we will ignore it
-    if (message != 'headset-button-press') {
-      return;
+    /**
+     * See bug 853132: plugging / unplugging some headphones might send a
+     * 'headset-button-press' / 'headset-button-release' message
+     * => if these two events happen in the same second, it's a click;
+     * => if these two events are too distant, ignore them.
+     */
+    switch (message) {
+      case 'headset-button-press':
+        lastHeadsetPress = Date.now();
+        return;
+        break;
+      case 'headset-button-release':
+        if ((Date.now() - lastHeadsetPress) > 1000)
+          return;
+        break;
+      default:
+        return;
     }
 
     if (telephony.active) {
@@ -701,6 +742,10 @@ var OnCallHandler = (function onCallHandler() {
   }
 
   function toggleCalls() {
+    if (CallScreen.incomingContainer.classList.contains('displayed')) {
+      return;
+    }
+
     if (handledCalls.length < 2) {
       holdOrResumeSingleCall();
       return;
