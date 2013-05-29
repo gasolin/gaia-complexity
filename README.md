@@ -1,7 +1,7 @@
 gaia-complexity
 ===============
 
-Show complexity report
+Show [complexity report](http://jscomplexity.org/complexity)
 
 Get them with
 
