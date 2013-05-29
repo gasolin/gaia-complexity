@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">72.85</p>
+      <p class="stat">72.48</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">195</p>
+      <p class="stat">158</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">30.58</p>
+      <p class="stat">26.48</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.41</p>
+      <p class="stat">1.08</p>
     </div>
   </div>
 </div>
@@ -162,12 +162,6 @@ var _FbDataSearcher = function(variants) {
 var Contacts = {
 
   findByNumber: function findByNumber(number, callback) {
-    loader.load(['/contacts/js/fb/fb_data.js',
-                 '/contacts/js/fb/fb_contact_utils.js'],
-                  this._findByNumber.bind(this, number, callback));
-  },
-
-  _findByNumber: function _findByNumber(number, callback) {
     var options;
     var variants;
 
@@ -187,7 +181,7 @@ var Contacts = {
 
       options = {
         filterBy: ['tel'],
-        filterOp: 'match',
+        filterOp: 'contains',
         filterValue: variants[0] // matching the shortest variant
       };
     }
@@ -255,37 +249,6 @@ var Contacts = {
     request.onerror = function findError() {
       callback(null);
     };
-  },
-
-  findListByNumber: function findListByNumber(number, limit, callback) {
-    if (!navigator.mozContacts) {
-      callback(null);
-      return;
-    }
-
-    var self = this;
-    asyncStorage.getItem('order.lastname', function(value) {
-      var sortKey = value ? 'familyName' : 'givenName';
-
-      var options = {
-        filterBy: ['tel'],
-        filterOp: 'contains',
-        filterValue: number,
-        sortBy: sortKey,
-        sortOrder: 'ascending',
-        filterLimit: limit
-      };
-
-      var req = navigator.mozContacts.find(options);
-      req.onsuccess = function onsuccess() {
-        callback(req.result);
-      };
-
-      req.onerror = function onerror() {
-        var msg = 'Contact finding error. Error: ' + req.errorCode;
-        callback(null);
-      };
-    });
   }
 };</textarea>
   </div>

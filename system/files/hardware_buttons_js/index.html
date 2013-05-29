@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.99</p>
+      <p class="stat">65.86</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">267</p>
+      <p class="stat">269</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">50.12</p>
+      <p class="stat">49.91</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.38</p>
+      <p class="stat">1.39</p>
     </div>
   </div>
 </div>
@@ -129,6 +129,7 @@
 //   volumeup    volume up pressed and released or autorepeated
 //   volumedown  volume down pressed and released or autorepeated
 //   home+sleep  home and sleep pressed at same time (used for screenshots)
+//   home+volume home and either volume key at the same time (view source)
 //
 // Because these events are fired at the window object, they cannot be
 // captured.  Many modules listen for the home event. Those that want
@@ -255,6 +256,7 @@
         return;
       case 'volume-up-button-press':
       case 'volume-down-button-press':
+        fire('home+volume');
         setState(baseState, type);
         return;
       }
@@ -329,6 +331,7 @@
     process: function(type) {
       switch (type) {
       case 'home-button-press':
+        fire('home+volume');
         setState(baseState, type);
         return;
       case 'sleep-button-press':

@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">59.09</p>
+      <p class="stat">59.74</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">586</p>
+      <p class="stat">570</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">67.39</p>
+      <p class="stat">60.33</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">5.90</p>
+      <p class="stat">5.52</p>
     </div>
   </div>
 </div>
@@ -105,7 +105,7 @@
 // attributes.
 const IMERender = (function() {
 
-  var ime, menu;
+  var ime, menu, pendingSymbolPanel, candidatePanel, candidatePanelToggleButton;
   var getUpperCaseValue, isSpecialKey;
 
   var _menuKey, _altContainer;
@@ -114,14 +114,14 @@ const IMERender = (function() {
 
   var inputMethodName; // used as a CSS class on the candidatePanel
 
-  // Initialize the render. It needs some business logic to determine:
+  // Initiaze the render. It needs some business logic to determine:
   //   1- The uppercase for a key object
   //   2- When a key is a special key
   var init = function kr_init(uppercaseFunction, keyTest) {
     getUpperCaseValue = uppercaseFunction;
     isSpecialKey = keyTest;
     this.ime = document.getElementById('keyboard');
-  };
+  }
 
   var setInputMethodName = function(name) {
     var candidatePanel = document.getElementById('keyboard-candidate-panel');
@@ -139,7 +139,7 @@ const IMERender = (function() {
     }
 
     inputMethodName = name;
-  };
+  }
 
   // Accepts three values: true / 'locked' / false
   //   Use 'locked' when caps are locked
@@ -163,7 +163,7 @@ const IMERender = (function() {
       capsLockKey.classList.remove('kbr-key-active');
       capsLockKey.classList.remove('kbr-key-hold');
     }
-  };
+  }
 
   // Draw the keyboard and its components. Meat is here.
   var draw = function kr_draw(layout, flags) {
@@ -174,6 +174,7 @@ const IMERender = (function() {
     // and use it for multipling changeScale deppending on the value of pixel
     // density used in media queries
 
+    var content = '';
     layoutWidth = layout.width || 10;
     var totalWidth = document.getElementById('keyboard').clientWidth;
     var placeHolderWidth = totalWidth / layoutWidth;
@@ -181,21 +182,21 @@ const IMERender = (function() {
 
     layout.upperCase = layout.upperCase || {};
 
-    var content = document.createDocumentFragment();
+    var first = true;
+
     layout.keys.forEach((function buildKeyboardRow(row, nrow) {
-      var kbRow = document.createElement('div');
-      kbRow.className = 'keyboard-row';
+
+      var firstRow = '';
+      if (first) {
+        firstRow = ' first-row';
+        first = false;
+      }
+
+      content += '<div class="keyboard-row' + firstRow + '">';
       row.forEach((function buildKeyboardColumns(key, ncolumn) {
 
         var keyChar = key.value;
-
-        // Keys may be hidden if the .hidden property contains the inputType
-        if (key.hidden && key.hidden.indexOf(flags.inputType) !== -1)
-          return;
-
-        // Keys may be visible if the .visibile property contains the inputType
-        if (key.visible && key.visible.indexOf(flags.inputType) === -1)
-          return;
+        var overrides = layout[flags.inputType + 'Overrides'];
 
         // Handle uppercase
         if (flags.uppercase) {
@@ -203,7 +204,14 @@ const IMERender = (function() {
         }
 
         // Handle override
-        var code = key.keyCode || keyChar.charCodeAt(0);
+        var code;
+        if (overrides && overrides[keyChar]) {
+          keyChar = overrides[keyChar];
+          code = keyChar.charCodeAt(0);
+
+        } else {
+          code = key.keyCode || keyChar.charCodeAt(0);
+        }
 
         var className = isSpecialKey(key) ? 'special-key' : '';
 
@@ -224,43 +232,29 @@ const IMERender = (function() {
           dataset.push({'key': 'compositekey', 'value': key.compositeKey});
         }
 
-        kbRow.appendChild(buildKey(keyChar, className, keyWidth + 'px',
-          dataset, key.altNote));
+        content += buildKey(keyChar, className, keyWidth + 'px',
+                            dataset, key.altNote);
 
       }));
-      content.appendChild(kbRow);
+      content += '</div>';
     }));
 
-    // Append empty accent char menu and key highlight into content
-    var accentMenuContainer = document.createElement('span');
-    accentMenuContainer.setAttribute('id', 'keyboard-accent-char-menu-out');
-    var accentMenu = document.createElement('span');
-    accentMenu.setAttribute('id', 'keyboard-accent-char-menu');
-    var highlight = document.createElement('span');
-    highlight.setAttribute('id', 'keyboard-key-highlight');
+    // Append empty accent char menu and key highlight into content HTML
+    content += '<span id="keyboard-accent-char-menu-out">' +
+               '<span id="keyboard-accent-char-menu"></span></span>';
+    content += '<span id="keyboard-key-highlight"></span>';
 
-    accentMenuContainer.appendChild(accentMenu);
-
-    this.ime.innerHTML = '';
-
-    content.appendChild(accentMenuContainer);
-    content.appendChild(highlight);
-
-    this.ime.appendChild(content);
+    this.ime.innerHTML = content;
     this.menu = document.getElementById('keyboard-accent-char-menu');
 
     // Builds candidate panel
-    if (flags.showCandidatePanel) {
+    if (layout.needsCandidatePanel || flags.showCandidatePanel) {
       this.ime.insertBefore(
         candidatePanelToggleButtonCode(), this.ime.firstChild);
       this.ime.insertBefore(candidatePanelCode(), this.ime.firstChild);
       this.ime.insertBefore(pendingSymbolPanelCode(), this.ime.firstChild);
       showPendingSymbols('');
       showCandidates([], true);
-
-      this.ime.classList.add('candidate-panel');
-    } else {
-      this.ime.classList.remove('candidate-panel');
     }
 
     resizeUI(layout);
@@ -269,9 +263,11 @@ const IMERender = (function() {
   var showIME = function hm_showIME() {
     delete this.ime.dataset.hidden;
     this.ime.classList.remove('hide');
-  };
+  }
 
   var hideIME = function km_hideIME() {
+    this.ime.classList.add('hide');
+    this.ime.classList.remove('candidate-panel');
     this.ime.dataset.hidden = 'true';
   };
 
@@ -283,7 +279,7 @@ const IMERender = (function() {
       var spanToReplace = key.querySelector('.visual-wrapper span');
       spanToReplace.textContent = alternativeKey;
     }
-  };
+  }
 
   // Unhighlight a key
   var unHighlightKey = function kr_unHighlightKey(key) {
@@ -292,9 +288,9 @@ const IMERender = (function() {
 
   // Show pending symbols with highlight (selection) if provided
   var showPendingSymbols = function km_showPendingSymbols(symbols,
-                                                          highlightStart,
-                                                          highlightEnd,
-                                                          highlightState) {
+                                                            highlightStart,
+                                                            highlightEnd,
+                                                            highlightState) {
     var HIGHLIGHT_COLOR_TABLE = {
       'red': 'keyboard-pending-symbols-highlight-red',
       'green': 'keyboard-pending-symbols-highlight-green',
@@ -308,31 +304,35 @@ const IMERender = (function() {
     if (pendingSymbolPanel) {
 
       if (typeof highlightStart === 'undefined' ||
-        typeof highlightEnd === 'undefined' ||
-        typeof highlightState === 'undefined') {
+          typeof highlightEnd === 'undefined' ||
+          typeof highlightState === 'undefined') {
         pendingSymbolPanel.textContent = symbols;
         return;
       }
 
-      var span = document.createElement('span');
-      span.className = HIGHLIGHT_COLOR_TABLE[highlightState];
-      span.textContent = symbols.slice(highlightStart, highlightEnd);
-
-      pendingSymbolPanel.innerHTML = '';
-      pendingSymbolPanel.appendChild(span);
-      pendingSymbolPanel.appendChild(
-        document.createTextNode(symbols.substr(highlightEnd)));
+      pendingSymbolPanel.innerHTML = "<span class='" +
+                                     HIGHLIGHT_COLOR_TABLE[highlightState] +
+                                     "'>" +
+                                     symbols.slice(
+                                       highlightStart, highlightEnd) +
+                                     '</span>' +
+                                     symbols.substr(highlightEnd);
     }
   };
 
   // Show candidates
   // Each candidate is a string or an array of two strings
   var showCandidates = function(candidates, noWindowHeightUpdate) {
+
+    var ime = document.getElementById('keyboard');
     // TODO: Save the element
     var candidatePanel = document.getElementById('keyboard-candidate-panel');
+    var isFullView = ime.classList.contains('full-candidate-panel');
+
 
     if (candidatePanel) {
       candidatePanel.innerHTML = '';
+
       candidatePanel.scrollTop = candidatePanel.scrollLeft = 0;
 
       // If there were too many candidate
@@ -346,10 +346,6 @@ const IMERender = (function() {
         var span = document.createElement('span');
         span.dataset.selection = true;
         if (typeof candidate === 'string') {
-          if (candidate[0] === '*') { // it is an autocorrection candidate
-            candidate = candidate.substring(1);
-            span.classList.add('autocorrect');
-          }
           span.dataset.data = span.textContent = candidate;
         }
         else {
@@ -363,8 +359,7 @@ const IMERender = (function() {
 
   // Show keyboard alternatives
   var showKeyboardAlternatives = function(key, keyboards, current, switchCode) {
-    var content = document.createDocumentFragment();
-    var dataset, className;
+    var dataset, className, content = '';
     var menu = this.menu;
 
     var cssWidth = key.style.width;
@@ -384,17 +379,15 @@ const IMERender = (function() {
         {key: 'keyboard', value: kbr},
         {key: 'keycode', value: switchCode}
       ];
-
-      content.appendChild(buildKey(
+      content += buildKey(
         Keyboards[kbr].menuLabel,
         className, cssWidth + 'px',
-        dataset)
+        dataset
       );
 
       alreadyAdded[kbr] = true;
     }
-    menu.innerHTML = '';
-    menu.appendChild(content);
+    menu.innerHTML = content;
 
     // Replace with the container
     _altContainer = document.createElement('div');
@@ -413,19 +406,24 @@ const IMERender = (function() {
 
   // Show char alternatives.
   var showAlternativesCharMenu = function(key, altChars) {
-    var content = document.createDocumentFragment();
+    var content = '';
+
     var left = (window.innerWidth / 2 > key.offsetLeft);
 
     // Place the menu to the left
-    if (!left) {
+    if (left) {
       this.menu.classList.add('kbr-menu-left');
+    // Place menu on the right and reverse key order
+    } else {
+      this.menu.classList.add('kbr-menu-right');
       altChars = altChars.reverse();
     }
 
     // How wide (in characters) is the key that we're displaying
     // these alternatives for?
     var keycharwidth = key.dataset.compositeKey ?
-      key.dataset.compositeKey.length : 1;
+      key.dataset.compositeKey.length :
+      1;
 
     // Build a key for each alternative
     altChars.forEach(function(alt) {
@@ -442,10 +440,9 @@ const IMERender = (function() {
       if (altChars.length === 1)
         width = Math.max(width, key.offsetWidth);
 
-      content.appendChild(buildKey(alt, '', width + 'px', dataset));
+      content += buildKey(alt, '', width + 'px', dataset);
     });
-    this.menu.innerHTML = '';
-    this.menu.appendChild(content);
+    this.menu.innerHTML = content;
 
     // Replace with the container
     _altContainer = document.createElement('div');
@@ -467,18 +464,17 @@ const IMERender = (function() {
     var alternativesLeft = getWindowLeft(this.menu);
     var alternativesRight = alternativesLeft + this.menu.offsetWidth;
 
-    var offset;
     // It overflows on the right
     if (left && alternativesRight > window.innerWidth) {
       console.log('overflowing right');
-      offset = window.innerWidth - alternativesRight;
+      var offset = window.innerWidth - alternativesRight;
       console.log(offset);
       this.menu.style.left = offset + 'px';
 
-      // It overflows on the left
+    // It overflows on the left
     } else if (!left && alternativesLeft < 0) {
       console.log('overflowing left');
-      offset = alternativesLeft;
+      var offset = alternativesLeft;
       console.log(offset);
       this.menu.style.right = offset + 'px';
     }
@@ -487,9 +483,9 @@ const IMERender = (function() {
   // Hide the alternative menu
   var hideAlternativesCharMenu = function km_hideAlternativesCharMenu() {
     this.menu = document.getElementById('keyboard-accent-char-menu');
-    this.menu.style.display = 'none';
-    this.menu.className = '';
     this.menu.innerHTML = '';
+    this.menu.className = '';
+    this.menu.style.display = 'none';
 
     if (_altContainer)
       _altContainer.parentNode.replaceChild(_menuKey, _altContainer);
@@ -502,7 +498,7 @@ const IMERender = (function() {
 
   // Recalculate dimensions for the current render
   var resizeUI = function(layout) {
-    var changeScale;
+    var changeScale, scale;
 
     // Font size recalc
     var ime = document.getElementById('keyboard');
@@ -532,7 +528,7 @@ const IMERender = (function() {
         keys = row.childNodes;
         for (var k = 0, key; key = keys[k]; k += 1) {
           ratio = layout.keys[r][k].ratio || 1;
-          key.style.width = Math.floor(placeHolderWidth * ratio) + 'px';
+          key.style.width = (placeHolderWidth * ratio) + 'px';
 
           // to get the visual width/height of the key
           // for better proximity info
@@ -579,7 +575,7 @@ const IMERender = (function() {
 
   var candidatePanelToggleButtonCode = function() {
     var toggleButton = document.createElement('span');
-    toggleButton.textContent = '⇪';
+    toggleButton.innerHTML = '⇪';
     toggleButton.id = 'keyboard-candidate-panel-toggle-button';
     if (inputMethodName)
       toggleButton.classList.add(inputMethodName);
@@ -588,35 +584,21 @@ const IMERender = (function() {
   };
 
   var buildKey = function buildKey(label, className, width, dataset, altNote) {
-    var altNoteNode;
+
+    var altNoteHTML = '';
     if (altNote) {
-      altNoteNode = document.createElement('div');
-      altNoteNode.className = 'alt-note';
-      altNoteNode.textContent = altNote;
+      altNoteHTML = '<div class="alt-note">' + altNote + '</div>';
     }
 
-    var contentNode = document.createElement('button');
-    contentNode.className = 'keyboard-key ' + className;
-    contentNode.setAttribute('style', 'width: ' + width + ';');
+
+    var content = '<button class="keyboard-key ' + className + '"';
     dataset.forEach(function(data) {
-      contentNode.dataset[data.key] = data.value;
+      content += ' data-' + data.key + '="' + data.value + '" ';
     });
-
-    var vWrapperNode = document.createElement('span');
-    vWrapperNode.className = 'visual-wrapper';
-
-    var labelNode = document.createElement('span');
-    // Using innerHTML here because some labels (so far only the &nbsp; in the
-    // space key) can be HTML entities.
-    labelNode.innerHTML = label;
-
-    vWrapperNode.appendChild(labelNode);
-    if (altNoteNode) {
-      vWrapperNode.appendChild(altNoteNode);
-    }
-    contentNode.appendChild(vWrapperNode);
-
-    return contentNode;
+    content += ' style="width: ' + width + '"';
+    content += '><span class="visual-wrapper"><span>' +
+               label + '</span>' + altNoteHTML + '</span></button>';
+    return content;
   };
 
   var getWidth = function getWidth() {
@@ -650,6 +632,8 @@ const IMERender = (function() {
 
     this.ime.clientHeight;
     var rows = document.querySelectorAll('.keyboard-row');
+
+
     var rowCount = rows.length || 3;
     return Math.ceil(this.ime.clientHeight / rowCount);
   };

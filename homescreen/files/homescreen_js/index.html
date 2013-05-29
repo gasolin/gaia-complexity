@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">67.70</p>
+      <p class="stat">68.74</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">154</p>
+      <p class="stat">142</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">21.74</p>
+      <p class="stat">23.72</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.17</p>
+      <p class="stat">1.07</p>
     </div>
   </div>
 </div>
@@ -92,7 +92,7 @@
   <div class="row">
     <textarea id="file-source" class="span12">'use strict';
 
-var Homescreen = (function() {
+const Homescreen = (function() {
   var mode = 'normal';
   var origin = document.location.protocol + '//homescreen.' +
     document.location.host.replace(/(^[\w\d]+.)?([\w\d]+.[a-z]+)/, '$2');
@@ -105,46 +105,33 @@ var Homescreen = (function() {
 
   var initialized = false, landingPage;
 
+  // Initialize the various components.
+  PaginationBar.init('.paginationScroller');
+
   function initialize(lPage) {
     if (initialized) {
       return;
     }
 
-    PaginationBar.init('.paginationScroller');
-
     initialized = true;
     landingPage = lPage;
 
-    var swipeSection = Configurator.getSection('swipe');
-    var options = {
-      gridSelector: '.apps',
-      dockSelector: '.dockWrapper',
-      tapThreshold: Configurator.getSection('tap_threshold'),
-      // It defines the threshold to consider a gesture like a swipe. Number
-      // in the range 0.0 to 1.0, both included, representing the screen width
-      swipeThreshold: swipeSection.threshold,
-      swipeFriction: swipeSection.friction,
-      swipeTransitionDuration: swipeSection.transition_duration
-    };
+    window.addEventListener('hashchange', function() {
+      if (document.location.hash != '#root')
+        return;
 
-    GridManager.init(options, function gm_init() {
-      window.addEventListener('hashchange', function() {
-        if (document.location.hash != '#root')
-          return;
+      if (Homescreen.isInEditMode()) {
+        exitFromEditMode();
+      } else {
+        GridManager.goToPage(landingPage);
+      }
+    });
 
-        // this happens when the user presses the 'home' button
-        if (Homescreen.isInEditMode()) {
-          exitFromEditMode();
-        } else {
-          GridManager.goToPage(landingPage);
-        }
-        GridManager.ensurePanning();
-      });
-
+    GridManager.init('.apps', '.dockWrapper', function gm_init() {
       PaginationBar.show();
       if (document.location.hash === '#root') {
-        // Switch to the first page only if the user has not already
-        // start to pan while home is loading
+        // Switch to the first page only if the user has not already start to pan
+        // while home is loading
         GridManager.goToPage(landingPage);
       }
       DragDropManager.init();
@@ -154,8 +141,9 @@ var Homescreen = (function() {
 
   function exitFromEditMode() {
     Homescreen.setMode('normal');
+    GridManager.markDirtyState();
     ConfirmDialog.hide();
-    GridManager.exitFromEditMode();
+    GridManager.goToPage(GridManager.pageHelper.getCurrentPageNumber());
   }
 
   document.addEventListener('mozvisibilitychange', function mozVisChange() {

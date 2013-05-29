@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">66.85</p>
+      <p class="stat">67.05</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">218</p>
+      <p class="stat">199</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">40.04</p>
+      <p class="stat">39.36</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.49</p>
+      <p class="stat">1.41</p>
     </div>
   </div>
 </div>
@@ -105,9 +105,6 @@ var PermissionManager = (function() {
         overlay.dataset.type = detail.permission;
         handlePermissionPrompt(detail);
         break;
-      case 'cancel-permission-prompt':
-        discardPermissionRequest();
-        break;
       case 'fullscreenoriginchange':
         delete overlay.dataset.type;
         handleFullscreenOriginChange(detail);
@@ -126,8 +123,7 @@ var PermissionManager = (function() {
     }
     if (detail.fullscreenorigin != WindowManager.getDisplayedApp()) {
       // The message to be displayed on the approval UI.
-      var message =
-        _('fullscreen-request', { 'origin': detail.fullscreenorigin });
+      var message = _('fullscreen-request', { 'origin': detail.fullscreenorigin });
       fullscreenRequest = requestPermission(message,
                                             /* yesCallback */ null,
                                             /* noCallback */ function() {
@@ -294,21 +290,6 @@ var PermissionManager = (function() {
   rememberSection.addEventListener('click', function onLabelClick() {
     remember.checked = !remember.checked;
   });
-
-  function discardPermissionRequest() {
-    if (currentRequestId == undefined)
-      return;
-
-    dispatchResponse(currentRequestId, 'permission-deny', false);
-    hidePermissionPrompt();
-  };
-
-  // On home/holdhome pressed, discard permission request.
-  // XXX: We should make permission dialog be embededd in appWindow
-  // Gaia bug is https://bugzilla.mozilla.org/show_bug.cgi?id=853711
-  // Gecko bug is https://bugzilla.mozilla.org/show_bug.cgi?id=852013
-  window.addEventListener('home', discardPermissionRequest);
-  window.addEventListener('holdhome', discardPermissionRequest);
 
 }());</textarea>
   </div>

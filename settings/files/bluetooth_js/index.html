@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">69.50</p>
+      <p class="stat">69.47</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">824</p>
+      <p class="stat">723</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">65.96</p>
+      <p class="stat">58.03</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">7.54</p>
+      <p class="stat">6.70</p>
     </div>
   </div>
 </div>
@@ -105,18 +105,21 @@ var gDeviceList = null;
 // handle Bluetooth settings
 navigator.mozL10n.ready(function bluetoothSettings() {
   var _ = navigator.mozL10n.get;
-  var settings = Settings.mozSettings;
-  var bluetooth = getBluetooth();
+  var settings = window.navigator.mozSettings;
+  var bluetooth = window.navigator.mozBluetooth;
   var defaultAdapter = null;
 
   if (!settings || !bluetooth) {
     return;
   }
 
+  var gBluetoothInfoBlock = document.getElementById('bluetooth-desc');
   var gBluetoothCheckBox = document.querySelector('#bluetooth-status input');
 
   // display Bluetooth power state
   function updateBluetoothState(value) {
+    gBluetoothInfoBlock.textContent =
+      value ? _('bt-status-nopaired') : _('bt-status-turnoff');
     gBluetoothCheckBox.checked = value;
   }
 
@@ -174,9 +177,6 @@ navigator.mozL10n.ready(function bluetoothSettings() {
       }
 
       var nameEntered = window.prompt(_('change-phone-name'), myName);
-
-      nameEntered = nameEntered.replace(/^\s+|\s+$/g, '');
-
       if (!nameEntered || nameEntered === '' || nameEntered === myName)
         return;
 
@@ -186,7 +186,7 @@ navigator.mozL10n.ready(function bluetoothSettings() {
       var req = defaultAdapter.setName(nameEntered);
       req.onsuccess = function bt_renameSuccess() {
         myName = visibleName.textContent = defaultAdapter.name;
-      };
+      }
     };
 
     // immediatly UI update, DOM element manipulation.
@@ -219,7 +219,6 @@ navigator.mozL10n.ready(function bluetoothSettings() {
     // initial this device information and do default actions
     // when DefaultAdapter is ready.
     function initial() {
-      visibleCheckBox.checked = defaultAdapter.discoverable;
       setDiscoverable(visibleCheckBox.checked);
       // we can't get device name immediately, wait a while
       setTimeout(function() {
@@ -333,8 +332,8 @@ navigator.mozL10n.ready(function bluetoothSettings() {
             this.connectOpt.style.display = 'block';
             this.disconnectOpt.style.display = 'none';
             this.connectOpt.onclick = function() {
-              stopDiscovery();
               setDeviceConnect(device);
+              stopDiscovery();
             };
           }
         } else {
@@ -346,7 +345,7 @@ navigator.mozL10n.ready(function bluetoothSettings() {
         };
         this.menu.onsubmit = function closeMenu() {
           return self.close();
-        };
+        }
         this.menu.hidden = false;
       },
 
@@ -363,16 +362,13 @@ navigator.mozL10n.ready(function bluetoothSettings() {
     };
 
     // private DOM helper: create a device list item
-    function newListItem(device, descL10nId) {
+    function newListItem(device, desc) {
       var deviceName = document.createElement('a');
       var aName = (device.name === '') ? _('unnamed-device') : device.name;
-      var aL10nId = (device.name === '') ? 'unnamed-device' : '';
       deviceName.textContent = aName;
-      deviceName.dataset.l10nId = aL10nId;
 
       var deviceDesc = document.createElement('small');
-      deviceDesc.textContent = (descL10nId === '') ? '' : _(descL10nId);
-      deviceDesc.dataset.l10nId = descL10nId;
+      deviceDesc.textContent = desc;
 
       var li = document.createElement('li');
       li.classList.add('bluetooth-device');
@@ -439,7 +435,6 @@ navigator.mozL10n.ready(function bluetoothSettings() {
 
       navigator.mozSetMessageHandler('bluetooth-pairedstatuschanged',
         function bt_getPairedMessage(message) {
-          dispatchEvent(new CustomEvent('bluetooth-pairedstatuschanged'));
           showDevicePaired(message.paired, 'Authentication Failed');
         }
       );
@@ -461,13 +456,7 @@ navigator.mozL10n.ready(function bluetoothSettings() {
         if (!value || !pairList.index[value])
           return;
         var device = pairList.index[value][0];
-        isDeviceConnected(device, function(connected) {
-          if (connected) {
-            showDeviceConnected(device.address, true);
-          } else {
-            setDeviceConnect(device);
-          }
-        });
+        setDeviceConnect(device);
       });
     }
 
@@ -480,6 +469,7 @@ navigator.mozL10n.ready(function bluetoothSettings() {
         var paired = req.result.slice();
         var length = paired.length;
         if (length == 0) {
+          gBluetoothInfoBlock.textContent = _('bt-status-nopaired');
           pairList.show(false);
           return;
         }
@@ -489,9 +479,9 @@ navigator.mozL10n.ready(function bluetoothSettings() {
         });
         for (var i = 0; i < length; i++) {
           (function(device) {
-            var stateL10nId = (device.address === connectedAddress) ?
-              'device-status-connected' : '';
-            var aItem = newListItem(device, stateL10nId);
+            var state = (device.address === connectedAddress) ?
+              _('device-status-connected') : '';
+            var aItem = newListItem(device, state);
             aItem.onclick = function() {
               optionMenu.show(device);
             };
@@ -502,75 +492,25 @@ navigator.mozL10n.ready(function bluetoothSettings() {
             // their connection protocol
             if (device.address === connectingAddress &&
                 device.icon === 'audio-card') {
-              var small = aItem.querySelector('small');
-              small.textContent = _('device-status-connecting');
-              small.dataset.l10nId = 'device-status-connecting';
+              aItem.querySelector('small').textContent =
+                _('device-status-connecting');
               setTimeout(function() {
                 setDeviceConnect(device);
               }, 5000);
             }
           })(paired[i]);
         }
+        var text = _('bt-status-paired', {
+          name: paired[0].name,
+          n: length - 1
+        });
+        gBluetoothInfoBlock.textContent = text;
         pairList.show(true);
         // the callback function now is for restoring the connected device
         // when the bluetooth is turned on.
         if (callback)
           callback();
       };
-    }
-
-    function isDeviceConnected(device, callback) {
-      if (!callback)
-        return;
-
-      if (defaultAdapter && device) {
-        var getConnectedDevices = function(profileID, gcdCallback) {
-          var req = defaultAdapter.getConnectedDevices(profileID);
-          req.onsuccess = function() {
-            if (gcdCallback) {
-              gcdCallback(req.result || []);
-            }
-          };
-          req.onerror = function() {
-            if (gcdCallback) {
-              gcdCallback(null);
-            }
-          };
-        };
-
-        var findDeviceByAddress = function(address, connectedDevices) {
-          if (!connectedDevices)
-            return false;
-
-          var found = false;
-          for (var i in connectedDevices) {
-            var connectedDevice = connectedDevices[i];
-            if (connectedDevice.address === address) {
-              found = true;
-              break;
-            }
-          }
-          return found;
-        };
-
-        // '0x111E' is a service id of HFP.
-        // '0x1108' is a service id of HSP.
-        getConnectedDevices(0x111E, function(hfpResult) {
-          if (findDeviceByAddress(device.address, hfpResult)) {
-            callback(true);
-          } else {
-            getConnectedDevices(0x1108, function(hspResult) {
-              if (findDeviceByAddress(device.address, hspResult)) {
-                callback(true);
-              } else {
-                callback(false);
-              }
-            });
-          }
-        });
-      } else {
-        callback(false);
-      }
     }
 
     // callback function when an avaliable device found
@@ -580,18 +520,15 @@ navigator.mozL10n.ready(function bluetoothSettings() {
       if (openList.index[device.address] || pairList.index[device.address])
         return;
 
-      var aItem = newListItem(device, 'device-status-tap-connect');
+      var aItem = newListItem(device, _('device-status-tap-connect'));
 
       // bind paired callback
       aItem.onclick = function() {
-        var small = aItem.querySelector('small');
-        small.textContent = _('device-status-pairing');
-        small.dataset.l10nId = 'device-status-pairing';
-        stopDiscovery();
-
+        aItem.querySelector('small').textContent = _('device-status-pairing');
         var req = defaultAdapter.pair(device);
         pairingMode = 'active';
         pairingAddress = device.address;
+        stopDiscovery();
         req.onerror = function bt_pairError(error) {
           showDevicePaired(false, req.error.name);
         };
@@ -602,10 +539,10 @@ navigator.mozL10n.ready(function bluetoothSettings() {
     }
 
     function showDevicePaired(paired, errorMessage) {
-      // If we don't know the pairing device address,
-      // it means the pair request is handled by interface level.
-      // So we just need to update paired list.
+      // if we are in a pairing process, update found device list
+      // or do error handling.
       if (!pairingAddress) {
+        // acquire a new paired list no matter paired or unpaired
         getPairedDevice();
         return;
       }
@@ -620,15 +557,12 @@ navigator.mozL10n.ready(function bluetoothSettings() {
           var device = openList.index[workingAddress][0];
           var item = openList.index[workingAddress][1];
           openList.list.removeChild(item);
-          delete openList.index[workingAddress];
           connectingAddress = workingAddress;
         }
       } else {
         // if the attention screen still open, close it
-        if (childWindow) {
-          childWindow.PairView.closeInput();
+        if (childWindow)
           childWindow.close();
-        }
         // display failure only when active request
         if (pairingMode === 'active' && !userCanceledPairing) {
           // show pair process fail.
@@ -643,9 +577,9 @@ navigator.mozL10n.ready(function bluetoothSettings() {
         userCanceledPairing = false;
         // rollback device status
         if (openList.index[workingAddress]) {
-          var small = openList.index[workingAddress][1].querySelector('small');
-          small.textContent = _('device-status-tap-connect');
-          small.dataset.l10nId = 'device-status-tap-connect';
+          var item = openList.index[workingAddress][1];
+          item.querySelector('small').textContent =
+            _('device-status-tap-connect');
         }
       }
       // acquire a new paired list no matter paired or unpaired
@@ -671,10 +605,8 @@ navigator.mozL10n.ready(function bluetoothSettings() {
           device.address !== connectedAddress)
         return;
 
-      // '0x111E' is a service id of HFP.
+      // '0x111E' is a service id to distigush connection type.
       // https://www.bluetooth.org/Technical/AssignedNumbers/service_discovery.htm
-      // XXX: Bug 870689. The device maybe connected using HFP or HSP. Always
-      // pass 0x111E here until gecko separates these two profiles.
       var req = defaultAdapter.disconnect(0x111E);
       req.onerror = function() {
         showDeviceConnected(device.address, true);
@@ -684,62 +616,32 @@ navigator.mozL10n.ready(function bluetoothSettings() {
     function setDeviceConnect(device) {
       // we only support audio-card device to connect now
       if (!bluetooth.enabled || !defaultAdapter ||
-          device.icon !== 'audio-card' ||
-          device.address === connectedAddress) {
+          device.icon !== 'audio-card') {
         connectingAddress = null;
         return;
       }
 
       // disconnect current connected device first
-      if (connectedAddress && pairList.index[connectedAddress]) {
+      if (connectedAddress && device.address !== connectedAddress) {
         setDeviceDisconnect(pairList.index[connectedAddress][0]);
       }
 
-      var connectToDevice =
-        function bt_connectToDevice(address, serviceID, onsuccess, onerror) {
-          var req = defaultAdapter.connect(address, serviceID);
-          req.onerror = onerror;
-          req.onsuccess = onsuccess;
-          return req;
-        };
-
-      var connectError = function bt_connectError() {
-        // Connection state might be changed before DOM request response.
-        if (connectingAddress) {
-          showDeviceConnected(connectingAddress, false);
-          connectingAddress = null;
-          window.alert(_('error-connect-msg'));
-        }
-      };
-
-      // '0x111E' is a service id of HFP.
-      // '0x1108' is a service id of HSP.
+      // '0x111E' is a service id to distigush connection type.
       // https://www.bluetooth.org/Technical/AssignedNumbers/service_discovery.htm
-      var req = connectToDevice(device.address, 0x111E, null, function() {
-        if (req.error.name === 'DeviceChannelRetrievalError') {
-          // Try to connect using HSP again.
-          connectToDevice(device.address, 0x1108, null, function() {
-            connectError();
-          });
-        } else {
-          connectError();
-        }
-      });
-
+      var req = defaultAdapter.connect(device.address, 0x111E);
+      req.onerror = function() {
+        window.alert(_('error-connect-msg'));
+        showDeviceConnected(connectingAddress, false);
+        connectingAddress = null;
+      };
       connectingAddress = device.address;
-      if (!pairList.index[connectingAddress]) {
-        return;
-      }
-      var small = pairList.index[connectingAddress][1].querySelector('small');
-      small.textContent = _('device-status-connecting');
-      small.dataset.l10nId = 'device-status-connecting';
+      var item = pairList.index[connectingAddress][1];
+      item.querySelector('small').textContent = _('device-status-connecting');
     }
 
     function showDeviceConnected(deviceAddress, connected) {
       if (connected) {
         connectedAddress = deviceAddress;
-        // clear it because we are not in a connecting status now.
-        connectingAddress = null;
         // record connected device so if Bluetooth is turned off and then on
         // we can restore the connection
         window.asyncStorage.setItem('device.connected', connectedAddress);
@@ -749,12 +651,9 @@ navigator.mozL10n.ready(function bluetoothSettings() {
           window.asyncStorage.removeItem('device.connected');
         }
       }
-      if (!pairList.index[deviceAddress]) {
-        return;
-      }
-      var small = pairList.index[deviceAddress][1].querySelector('small');
-      small.textContent = (connected) ? _('device-status-connected') : '';
-      small.dataset.l10nId = (connected) ? 'device-status-connected' : '';
+      var item = pairList.index[deviceAddress][1];
+      item.querySelector('small').textContent = (connected) ?
+        _('device-status-connected') : '';
     }
 
     function onRequestPairing(evt, method) {
@@ -905,17 +804,17 @@ navigator.mozL10n.ready(function bluetoothSettings() {
     gMyDeviceInfo.update(lastMozSettingValue);
   };
 
-  bluetooth.addEventListener('adapteradded', function() {
+  bluetooth.onadapteradded = function bt_adapterAdded() {
     // enable UI toggle
     gBluetoothCheckBox.disabled = false;
     initialDefaultAdapter();
     dispatchEvent(new CustomEvent('bluetooth-adapter-added'));
-  });
-  bluetooth.addEventListener('disabled', function() {
+  };
+  bluetooth.ondisabled = function bt_onDisabled() {
     gBluetoothCheckBox.disabled = false;  // enable UI toggle
     defaultAdapter = null;  // clear defaultAdapter
     dispatchEvent(new CustomEvent('bluetooth-disabled'));
-  });
+  };
 });</textarea>
   </div>
 </div>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>ussd_ui.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">74.00</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">162</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">36.86</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.50</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">'use strict';
+
+var UssdUI = {
+
+  _: null,
+  _origin: null,
+  _conn: null,
+
+  get headerTitleNode() {
+    delete this.headerTitleNode;
+    return this.headerTitleNode = document.getElementById('header-title');
+  },
+
+  get closeNode() {
+    delete this.closeNode;
+    return this.closeNode = document.getElementById('close');
+  },
+
+  get sendNode() {
+    delete this.sendNode;
+    return this.sendNode = document.getElementById('send');
+  },
+
+  get messageNode() {
+    delete this.messageNode;
+    return this.messageNode = document.getElementById('message');
+  },
+
+  get responseTextNode() {
+    delete this.responseTextNode;
+    return this.responseTextNode = document.getElementById('response-text');
+  },
+
+  get responseTextResetNode() {
+    delete this.responseTextResetNode;
+    return this.responseTextResetNode =
+      document.getElementById('response-text-reset');
+  },
+
+  get messageScreen() {
+    delete this.messageScreen;
+    return this.messageScreen = document.getElementById('message-screen');
+  },
+
+  init: function uui_init() {
+    if (window.location.hash != '#send') {
+      this.hideLoading();
+    }
+    LazyL10n.get((function localized(_) {
+      window.addEventListener('message', this);
+      window.dispatchEvent(new CustomEvent('ready'));
+      this._ = _;
+      this.updateHeader(window.name);
+      this.closeNode.addEventListener('click', this.closeWindow.bind(this));
+      this.sendNode.addEventListener('click', this.reply.bind(this));
+      this.responseTextResetNode.addEventListener('click',
+        this.resetResponse.bind(this));
+      this.responseTextNode.addEventListener('input',
+        this.responseUpdated.bind(this));
+      this._origin = document.location.protocol + '//' +
+        document.location.host;
+    }).bind(this));
+  },
+
+  closeWindow: function uui_closeWindow() {
+    window.opener.postMessage({
+      type: 'close'
+    }, this._origin);
+
+    window.close();
+  },
+
+  showMessage: function uui_showMessage(message) {
+    this.hideLoading();
+    this.responseTextNode.removeAttribute('disabled');
+    this.messageNode.textContent = message;
+  },
+
+  showLoading: function uui_showLoading() {
+    document.body.classList.add('loading');
+    this.responseTextNode.setAttribute('disabled', 'disabled');
+    this.sendNode.setAttribute('disabled', 'disabled');
+  },
+
+  hideLoading: function uui_hideLoading() {
+    document.body.classList.remove('loading');
+  },
+
+  showResponseForm: function uui_showForm() {
+    this.messageScreen.classList.add('responseForm');
+  },
+
+  hideResponseForm: function uui_hideForm() {
+    this.messageScreen.classList.remove('responseForm');
+  },
+
+  resetResponse: function uui_resetResponse() {
+    this.responseTextNode.value = '';
+    this.sendNode.setAttribute('disabled', 'disabled');
+  },
+
+  responseUpdated: function uui_responseUpdated() {
+    this.sendNode.disabled =
+      (this.responseTextNode.value.length <= 0);
+  },
+
+  reply: function uui_reply() {
+    this.showLoading();
+    var response = this.responseTextNode.value;
+    window.opener.postMessage({
+      type: 'reply',
+      message: response
+    }, this._origin);
+    this.resetResponse();
+  },
+
+  updateHeader: function uui_updateHeader(operator) {
+    this.headerTitleNode.textContent =
+      this._('ussd-services', {
+        operator: operator !== 'Unknown' ? operator : this._('USSD')
+      });
+  },
+
+  handleEvent: function ph_handleEvent(evt) {
+    if (evt.type !== 'message' || !evt.data)
+      return;
+
+    switch (evt.data.type) {
+      case 'success':
+        this.hideResponseForm();
+        this.showMessage(evt.data.result ?
+          evt.data.result : this._('mmi-successfully-sent'));
+        break;
+      case 'error':
+        this.showMessage(evt.data.error ?
+          evt.data.error : this._('mmi-error'));
+        break;
+      case 'ussdreceived':
+        if (evt.data.sessionEnded) {
+          this.hideResponseForm();
+          if (evt.data.message == null) {
+            evt.data.message = this._('mmi-session-expired');
+          }
+        } else {
+          this.showResponseForm();
+        }
+        this.showMessage(evt.data.message);
+        break;
+      case 'voicechange':
+        this.updateHeader(evt.data.operator);
+        break;
+      case 'close':
+        this.closeWindow();
+        break;
+    }
+  }
+};
+
+window.addEventListener('load', function usui_startup(evt) {
+  window.removeEventListener('load', usui_startup);
+  UssdUI.init();
+});</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

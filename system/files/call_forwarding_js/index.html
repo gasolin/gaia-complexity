@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">66.13</p>
+      <p class="stat">60.93</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">84</p>
+      <p class="stat">42</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">21.19</p>
+      <p class="stat">11.56</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">0.56</p>
+      <p class="stat">0.23</p>
     </div>
   </div>
 </div>
@@ -116,46 +116,12 @@
   if (!settings) {
     return;
   }
-  var mobileConnection = window.navigator.mozMobileConnection;
-  if (!mobileConnection) {
+  var mobileconnection = window.navigator.mozMobileConnection;
+  if (!mobileconnection) {
     return;
   }
 
-  // Initialize the icon based on the card state and whether
-  // it is in airplane mode
-  var _cfIconStateInitialized = false;
-  function initCallForwardingIconState() {
-    var cardState = mobileConnection.cardState;
-    if (_cfIconStateInitialized || cardState !== 'ready')
-      return;
-
-    if (!mobileConnection.iccInfo)
-      return;
-
-    var iccid = mobileConnection.iccInfo.iccid;
-    if (!iccid)
-      return;
-
-    asyncStorage.getItem('ril.cf.enabled.' + iccid, function(value) {
-      if (value === null) {
-        value = false;
-      }
-      settings.createLock().set({'ril.cf.enabled': value});
-      _cfIconStateInitialized = true;
-    });
-  }
-
-  settings.createLock().set({'ril.cf.enabled': false});
-
-  initCallForwardingIconState();
-  mobileConnection.addEventListener('cardstatechange', function() {
-    initCallForwardingIconState();
-  });
-  mobileConnection.addEventListener('iccinfochange', function() {
-    initCallForwardingIconState();
-  });
-
-  mobileConnection.addEventListener('cfstatechange', function(event) {
+  mobileconnection.addEventListener('cfstatechange', function(event) {
     if (event &&
         event.reason == _cfReason.CALL_FORWARD_REASON_UNCONDITIONAL) {
       var enabled = false;
@@ -165,17 +131,9 @@
         enabled = true;
       }
       settings.createLock().set({'ril.cf.enabled': enabled});
-      asyncStorage.setItem('ril.cf.enabled.' + mobileConnection.iccInfo.iccid,
-        enabled);
     }
   });
 
-  settings.addObserver('ril.cf.carrier.enabled', function(event) {
-    var showIcon = event.settingValue;
-    settings.createLock().set({'ril.cf.enabled': showIcon});
-    asyncStorage.setItem('ril.cf.enabled.' + mobileConnection.iccInfo.iccid,
-    showIcon);
-  });
 })();</textarea>
   </div>
 </div>

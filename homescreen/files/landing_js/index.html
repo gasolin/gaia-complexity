@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">72.66</p>
+      <p class="stat">74.31</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">80</p>
+      <p class="stat">67</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">17.77</p>
+      <p class="stat">14.74</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">0.56</p>
+      <p class="stat">0.58</p>
     </div>
   </div>
 </div>
@@ -103,59 +103,46 @@ const LandingPage = (function() {
   var clockElemMeridiem = document.querySelector('#landing-clock .meridiem');
   var dateElem = document.querySelector('#landing-date');
 
-  var updateInterval = null;
-  var updateTimeout = null;
-
+  var updateInterval;
   page.addEventListener('gridpagehideend', function onPageHideEnd() {
-    stopClock();
+    window.clearInterval(updateInterval);
   });
 
   navigator.mozL10n.ready(function localize() {
     timeFormat = _('shortTimeFormat');
     dateFormat = _('longDateFormat');
-    startClock();
-    page.addEventListener('gridpageshowstart', startClock);
+    initTime();
+    page.addEventListener('gridpageshowstart', initTime);
   });
 
+  var clockOrigin = document.location.protocol + '//clock.' +
+        document.location.host.replace(/(^[\w\d]+\.)?([\w\d]+\.[a-z]+)/, '$2');
+
   var landingTime = document.querySelector('#landing-time');
+  landingTime.addEventListener('click', function launchClock(evt) {
+    Applications.getByOrigin(clockOrigin).launch();
+  });
+
   landingTime.addEventListener('contextmenu', function contextMenu(evt) {
     evt.stopImmediatePropagation();
   });
 
   document.addEventListener('mozvisibilitychange', function mozVisChange() {
-    if (document.mozHidden === false) {
-      startClock();
-    } else {
-      stopClock();
+    if (!page.dataset.currentPage) {
+      return;
     }
+
+    document.mozHidden ? window.clearInterval(updateInterval) : initTime();
   });
 
-  function startClock() {
+  function initTime() {
     var date = updateUI();
-
-    if (updateTimeout == null) {
-      updateTimeout = window.setTimeout(function setUpdateInterval() {
+    setTimeout(function setUpdateInterval() {
+      updateUI();
+      updateInterval = window.setInterval(function updating() {
         updateUI();
-
-        if (updateInterval == null) {
-          updateInterval = window.setInterval(function updating() {
-            updateUI();
-          }, 60000);
-        }
-      }, (60 - date.getSeconds()) * 1000);
-    }
-  }
-
-  function stopClock() {
-    if (updateTimeout != null) {
-      window.clearTimeout(updateTimeout);
-      updateTimeout = null;
-    }
-
-    if (updateInterval != null) {
-      window.clearInterval(updateInterval);
-      updateInterval = null;
-    }
+      }, 60000);
+    }, (60 - date.getSeconds()) * 1000);
   }
 
   function updateUI() {

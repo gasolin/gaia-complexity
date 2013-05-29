@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">78.01</p>
+      <p class="stat">78.40</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">139</p>
+      <p class="stat">118</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">30.25</p>
+      <p class="stat">18.96</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.28</p>
+      <p class="stat">1.08</p>
     </div>
   </div>
 </div>
@@ -92,18 +92,30 @@
   <div class="row">
     <textarea id="file-source" class="span12">'use strict';
 
-// extend function from Angus Crolls article about mixins
-function extend(destination, source) {
-  for (var k in source) {
-    if (source.hasOwnProperty(k)) {
-      destination[k] = source[k];
-    }
-  }
-  return destination;
-}
+var AlarmsDB = {
 
-var BaseIndexDB = function(objectStoreOptions) {
-  this.query = function ad_query(dbName, storeName, func, callback, data) {
+  DBNAME: 'alarms',
+  STORENAME: 'alarms',
+
+  // Database methods
+  getAlarmList: function ad_getAlarmList(callback) {
+    this.query(this.DBNAME, this.STORENAME, this.load, callback);
+  },
+
+  putAlarm: function ad_putAlarm(alarm, callback) {
+    this.query(this.DBNAME, this.STORENAME, this.put, callback, alarm);
+  },
+
+  getAlarm: function ad_getAlarm(key, callback) {
+    this.query(this.DBNAME, this.STORENAME, this.get, callback, key);
+  },
+
+  deleteAlarm: function ad_deleteAlarm(key, callback) {
+    this.query(this.DBNAME, this.STORENAME, this.delete, callback, key);
+  },
+
+  query: function ad_query(dbName, storeName, func, callback, data) {
+
     var indexedDB = window.indexedDB || window.webkitIndexedDB ||
         window.mozIndexedDB || window.msIndexedDB;
 
@@ -123,12 +135,12 @@ var BaseIndexDB = function(objectStoreOptions) {
       var db = event.target.result;
       if (db.objectStoreNames.contains(storeName))
         db.deleteObjectStore(storeName);
-      db.createObjectStore(storeName, objectStoreOptions);
+      db.createObjectStore(storeName, {keyPath: 'id', autoIncrement: true});
       console.log('Upgrading db done');
     };
-  };
+  },
 
-  this.put = function ad_put(database, storeName, callback, item) {
+  put: function ad_put(database, storeName, callback, item) {
     var txn = database.transaction(storeName, 'readwrite');
     var store = txn.objectStore(storeName);
 
@@ -136,7 +148,7 @@ var BaseIndexDB = function(objectStoreOptions) {
 
     putreq.onsuccess = function(event) {
       item.id = event.target.result;
-      if (typeof callback === 'function')
+      if (callback)
         callback(item);
     };
 
@@ -144,12 +156,9 @@ var BaseIndexDB = function(objectStoreOptions) {
       console.error('Add operation failure: ', database.name,
         storeName, e.message, putreq.errorCode);
     };
-  };
+  },
 
-  this.load = function ad_load(database, storeName, callback) {
-    if (typeof callback !== 'function')
-      callback = function() {};
-
+  load: function ad_load(database, storeName, callback) {
     var alarms = [];
 
     var txn = database.transaction(storeName);
@@ -169,12 +178,9 @@ var BaseIndexDB = function(objectStoreOptions) {
     cursor.onerror = function(event) {
       callback([]);
     };
-  };
+  },
 
-  this.get = function ad_get(database, storeName, callback, key) {
-    if (typeof callback !== 'function')
-      callback = function() {};
-
+  get: function ad_get(database, storeName, callback, key) {
     var txn = database.transaction(storeName);
     var store = txn.objectStore(storeName);
     var request = store.get(key);
@@ -185,14 +191,11 @@ var BaseIndexDB = function(objectStoreOptions) {
 
     request.onerror = function(event) {
       console.error('Get operation failure: ', database.name,
-        storeName, event.message, request.errorCode);
+        storeName, e.message, putreq.errorCode);
     };
-  };
+  },
 
-  this.delete = function ad_delete(database, storeName, callback, key) {
-    if (typeof callback !== 'function')
-      callback = function() {};
-
+  delete: function ad_delete(database, storeName, callback, key) {
     var txn = database.transaction(storeName, 'readwrite');
     var store = txn.objectStore(storeName);
     var request = store.delete(key);
@@ -201,34 +204,10 @@ var BaseIndexDB = function(objectStoreOptions) {
 
     request.onerror = function(e) {
       console.error('Delete operation failure: ', database.name,
-        storeName, e.message, request.errorCode);
+        storeName, e.message, putreq.errorCode);
     };
-  };
-};
-
-var AlarmsDB = {
-  DBNAME: 'alarms',
-  STORENAME: 'alarms',
-
-  // Database methods
-  getAlarmList: function ad_getAlarmList(callback) {
-    this.query(this.DBNAME, this.STORENAME, this.load, callback);
-  },
-
-  putAlarm: function ad_putAlarm(alarm, callback) {
-    this.query(this.DBNAME, this.STORENAME, this.put, callback, alarm);
-  },
-
-  getAlarm: function ad_getAlarm(key, callback) {
-    this.query(this.DBNAME, this.STORENAME, this.get, callback, key);
-  },
-
-  deleteAlarm: function ad_deleteAlarm(key, callback) {
-    this.query(this.DBNAME, this.STORENAME, this.delete, callback, key);
   }
-};
-
-extend(AlarmsDB, new BaseIndexDB({keyPath: 'id', autoIncrement: true}));</textarea>
+};</textarea>
   </div>
 </div>
 

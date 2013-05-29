@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">68.23</p>
+      <p class="stat">70.47</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">331</p>
+      <p class="stat">196</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">30.20</p>
+      <p class="stat">20.28</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.45</p>
+      <p class="stat">1.27</p>
     </div>
   </div>
 </div>
@@ -96,205 +96,92 @@
  *
  * This module is only in charge of manage the different tabs but the specific
  * behaviour is delegated to each tab (in /js/views directory).
- *
- * It is important to explain how the URL schema works. Cost Control
- * uses the concept of card to refer a tab or a view. There are two main layers:
- * the tab layer and the overlay layer. The first one is used to display tabs,
- * the second one is used to display settings or other overlaying dialogs.
- *
- * The URL schema is:
- * #tab-id[#overlay-id]
- *
- * So changing the hash to:
- * #balance-tab#settings-view
- * makes Cost Control to change to the balance view and show the settings.
- *
- * We can close the overlay layer by setting only the balance layer:
- * #datausage-tab
- * this makes Cost Control to change to the datausage tab at the same time it
- * closes the card in the overlay layer.
- *
- * If you want to preserve a layer but changing the other, use the empty string
- * as the id of the layer you want to preserve.
- * For instance, you want to only close the overlay layer but not affecting the
- * tab layer:
- * #
- *
- * Or you want to change tab layer but without affecting the overlay, use:
- * #telephony-tab#
- *
- * Remember: you cannot close the tab layer!
  */
 
 var CostControlApp = (function() {
 
   'use strict';
 
+  // XXX: This is the point of entry, check common.js for more info
+  waitForDOMAndMessageHandler(window, onReady);
+
+  var vmanager;
   var costcontrol, initialized = false;
   function onReady() {
+    vmanager = new ViewManager();
     var mobileConnection = window.navigator.mozMobileConnection;
-    var cardState = checkCardState();
-    var iccid = mobileConnection.iccInfo.iccid;
 
-    // SIM not ready
-    if (cardState !== 'ready') {
-      debug('SIM not ready:', cardState);
-      mobileConnection.oncardstatechange = onReady;
+    // SIM is absent
+    if (mobileConnection.cardState === 'absent') {
+      debug('There is no SIM');
+      document.getElementById('no-sim-info-dialog')
+        .addEventListener('click', function _close() {
+        window.close();
+      });
+      vmanager.changeViewTo('no-sim-info-dialog');
 
-    // SIM is ready, but ICC info is not ready yet
-    } else if (!Common.isValidICCID(iccid)) {
-      debug('ICC info not ready yet');
+    // SIM is not ready
+    } else if (mobileConnection.cardState !== 'ready') {
+      debug('SIM not ready:', mobileConnection.cardState);
       mobileConnection.oniccinfochange = onReady;
 
-    // All ready
+    // SIM is ready
     } else {
-      debug('SIM ready. ICCID:', iccid);
-      mobileConnection.oncardstatechange = undefined;
       mobileConnection.oniccinfochange = undefined;
       startApp();
     }
   }
 
-  // Check the card status. Return 'ready' if all OK or take actions for
-  // special situations such as 'pin/puk locked' or 'absent'.
-  function checkCardState() {
-    var mobileConnection = window.navigator.mozMobileConnection;
-    var state, cardState;
-    state = cardState = mobileConnection.cardState;
-
-    // SIM is absent
-    if (cardState === 'absent') {
-      debug('There is no SIM');
-      showSimErrorDialog('no-sim2');
-
-    // SIM is locked
-    } else if (
-      cardState === 'pinRequired' ||
-      cardState === 'pukRequired'
-    ) {
-      showSimErrorDialog('sim-locked');
-      state = 'locked';
-    }
-
-    return state;
-  }
-
-  function showSimErrorDialog(status) {
-    function realShowSimError(status) {
-      var header = _('widget-' + status + '-heading');
-      var msg = _('widget-' + status + '-meta');
-      Common.modalAlert(header + '\n' + msg);
-      Common.closeApplication();
-    }
-
-    if (isApplicationLocalized) {
-      realShowSimError(status);
-    } else {
-      window.addEventListener('localized', function _onlocalized() {
-        window.removeEventListener('localized', _onlocalized);
-        realShowSimError(status);
-      });
-    }
-  }
-
-  // XXX: See the module documentation for details about URL schema
-  var vmanager, tabmanager, settingsVManager;
-  function setupCardHandler() {
-    // View managers for dialogs and settings
-    vmanager = new ViewManager();
-    tabmanager = new ViewManager(
-      ['balance-tab', 'telephony-tab', { id: 'datausage-tab', tab: 'right' }]
-    );
-    settingsVManager = new ViewManager();
-
-    // View handler
-    window.addEventListener('hashchange', function _onHashChange(evt) {
-
-      var parser = document.createElement('a');
-      parser.href = evt.oldURL;
-      var oldHash = parser.hash.split('#');
-      parser.href = evt.newURL;
-      var newHash = parser.hash.split('#');
-
-      if (newHash.length > 3) {
-        console.error('Cost Control bad URL schema');
-        return;
-      }
-
-      debug('URL schema before normalizing:', newHash);
-
-      var normalized = false;
-      if (newHash[1] === '' && oldHash[1]) {
-        newHash[1] = oldHash[1];
-        normalized = true;
-      }
-
-      if (newHash.length === 3 && newHash[2] === '') {
-        if (oldHash.length === 3) {
-          newHash[2] = oldHash[2];
-        } else {
-          newHash = newHash.slice(0, 2);
-        }
-        normalized = true;
-      }
-
-      if (normalized) {
-        debug('URL schema after normalization:', newHash);
-        window.location.hash = newHash.join('#');
-        return;
-      }
-
-      if (newHash[1]) {
-        tabmanager.changeViewTo(newHash[1]);
-      }
-
-      if (newHash.length < 3) {
-        vmanager.closeCurrentView();
-      } else {
-        vmanager.changeViewTo(newHash[2]);
-      }
-    });
-  }
-
   function startApp() {
-    function _onNoICCID() {
-      console.error('checkSIMChange() failed. Impossible to ensure consistent' +
-                    'data. Aborting start up.');
-      showSimErrorDialog('no-sim2');
-    }
-
-    Common.checkSIMChange(function _onSIMChecked() {
+    checkSIMChange(function _onSIMChecked() {
       CostControl.getInstance(function _onCostControlReady(instance) {
         if (ConfigManager.option('fte')) {
-          Common.startFTE();
+          window.location = '/fte.html';
           return;
         }
         costcontrol = instance;
         setupApp();
       });
-    }, _onNoICCID);
+    });
   }
 
-  var isApplicationLocalized = false;
   window.addEventListener('localized', function _onLocalize() {
-    isApplicationLocalized = true;
-    if (initialized) {
+    if (initialized)
       updateUI();
-    }
   });
 
+  var tabmanager, settingsVManager;
   function setupApp() {
-    setupCardHandler();
+    // View managers for dialogs and settings
+    tabmanager = new ViewManager(
+      ['balance-tab', 'telephony-tab', 'datausage-tab']
+    );
+    settingsVManager = new ViewManager();
 
-    // Configure settings buttons
+    // Configure settings
     var settingsButtons = document.querySelectorAll('.settings-button');
     Array.prototype.forEach.call(settingsButtons,
       function _eachSettingsButton(button) {
         button.addEventListener('click', function _showSettings() {
-          window.location.hash = '##settings-view';
+          settingsVManager.changeViewTo('settings-view');
         });
       }
     );
+
+    var close = document.getElementById('close-settings');
+    close.addEventListener('click', function _onClose() {
+      settingsVManager.closeCurrentView();
+    });
+
+    Settings.initialize();
+
+    // Configure dialogs
+    var closeButtons = document.querySelectorAll('.close-dialog');
+    [].forEach.call(closeButtons, function(closeButton) {
+      closeButton.addEventListener('click', function() {
+        vmanager.closeCurrentView();
+      });
+    });
 
     // Handle 'open activity' sent by the user via the widget
     navigator.mozSetMessageHandler('activity',
@@ -302,13 +189,13 @@ var CostControlApp = (function() {
         var name = activityRequest.source.name;
         switch (name) {
           case 'costcontrol/balance':
-            window.location.hash = '#balance-tab';
+            tabmanager.changeViewTo('balance-tab');
             break;
           case 'costcontrol/telephony':
-            window.location.hash = '#telephony-tab';
+            tabmanager.changeViewTo('telephony-tab');
             break;
           case 'costcontrol/data_usage':
-            window.location.hash = '#datausage-tab';
+            tabmanager.changeViewTo('datausage-tab');
             break;
         }
       }
@@ -334,26 +221,10 @@ var CostControlApp = (function() {
       }
     );
 
-    // Check card state when visible
-    document.addEventListener('mozvisibilitychange',
-      function _onVisibilityChange(evt) {
-        if (!document.mozHidden && initialized) {
-          checkCardState();
-        }
-      }
-    );
-
     updateUI();
     ConfigManager.observe('plantype', updateUI, true);
 
     initialized = true;
-
-    loadSettings();
-  }
-
-  // Load settings in background
-  function loadSettings() {
-    document.getElementById('settings-view-placeholder').src = 'settings.html';
   }
 
   function handleNotification(type) {
@@ -363,10 +234,7 @@ var CostControlApp = (function() {
         break;
       case 'lowBalance':
       case 'zeroBalance':
-        window.location.hash = '#balance-tab';
-        break;
-      case 'dataUsage':
-        tabmanager.changeViewTo('datausage-tab');
+        tabmanager.changeViewTo('balance-tab');
         break;
     }
   }
@@ -381,14 +249,24 @@ var CostControlApp = (function() {
       if (mode !== currentMode) {
         currentMode = mode;
 
+        // Initialize on demand
+        DataUsageTab.initialize(tabmanager);
+        if (mode === 'PREPAID')
+          TelephonyTab.finalize();
+          BalanceTab.initialize(tabmanager, vmanager);
+        if (mode === 'POSTPAID') {
+          BalanceTab.finalize();
+          TelephonyTab.initialize(tabmanager);
+        }
+
         // Stand alone mode when data usage only
         if (mode === 'DATA_USAGE_ONLY') {
           var tabs = document.getElementById('tabs');
           tabs.setAttribute('aria-hidden', true);
 
           var dataUsageTab = document.getElementById('datausage-tab');
+          vmanager.changeViewTo('datausage-tab');
           dataUsageTab.classList.add('standalone');
-          window.location.hash = '#datausage-tab';
 
         // Two tabs mode
         } else {
@@ -400,62 +278,21 @@ var CostControlApp = (function() {
 
           // If it was showing the left tab, force changing to the
           // proper left view
-          if (!isDataUsageTabShown()) {
-            window.location.hash = (mode === 'PREPAID') ?
-                                   '#balance-tab#' : '#telephony-tab#';
-          }
+          if (tabmanager.getCurrentTab() !== 'datausage-tab')
+            tabmanager.changeViewTo(mode === 'PREPAID' ? 'balance-tab' :
+                                                         'telephony-tab');
         }
 
-        // XXX: Break initialization to allow Gecko to render the animation on
-        // time.
-        setTimeout(function continueLoading() {
-          document.getElementById('main').classList.remove('non-ready');
-
-          if (mode === 'PREPAID') {
-            if (typeof TelephonyTab !== 'undefined') {
-              TelephonyTab.finalize();
-            }
-            if (typeof BalanceTab !== 'undefined') {
-              BalanceTab.initialize();
-            }
-          } else if (mode === 'POSTPAID') {
-            if (typeof BalanceTab !== 'undefined') {
-              BalanceTab.finalize();
-            }
-            if (typeof TelephonyTab !== 'undefined') {
-              TelephonyTab.initialize();
-            }
-          }
-        });
       }
     });
   }
 
-  function isDataUsageTabShown() {
-    return window.location.hash.split('#')[1] === 'datausage-tab';
-  }
-
   return {
-    init: function() {
-      Common.waitForDOMAndMessageHandler(window, onReady);
-    },
-    reset: function() {
-      costcontrol = null;
-      initialized = false;
-      vmanager = null;
-      tabmanager = null;
-      settingsVManager = null;
-      currentMode = null;
-      isApplicationLocalized = false;
-      window.location.hash = '';
-    },
-    showBalanceTab: function _showBalanceTab() {
-      window.location.hash = '#balance-tab';
-    },
-    showDataUsageTab: function _showDataUsageTab() {
-      window.location.hash = '#datausage-tab';
+    showBalanceTab: function _showBalanceTab () {
+      tabmanager.changeViewTo('balance-tab');
     }
   };
+
 }());</textarea>
   </div>
 </div>

@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">62.22</p>
+      <p class="stat">62.42</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">685</p>
+      <p class="stat">671</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">81.69</p>
+      <p class="stat">79.45</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">6.62</p>
+      <p class="stat">6.30</p>
     </div>
   </div>
 </div>
@@ -91,6 +91,9 @@
 <div class="container">
   <div class="row">
     <textarea id="file-source" class="span12">'use strict';
+
+// We will use a wake lock later to prevent Music from sleeping
+var cpuLock = null;
 
 // We have three types of the playing sources
 // These are for player to know which source type is playing
@@ -117,14 +120,6 @@ if (acm) {
     }
   });
 }
-
-window.addEventListener('mozvisibilitychange', function() {
-  if (document.mozHidden) {
-    PlayerView.audio.removeEventListener('timeupdate', PlayerView);
-  } else {
-    PlayerView.audio.addEventListener('timeupdate', PlayerView);
-  }
-});
 
 // View of Player
 var PlayerView = {
@@ -188,7 +183,6 @@ var PlayerView = {
     this.isPlaying = false;
     this.isSeeking = false;
     this.dataSource = [];
-    this.playingBlob = null;
     this.currentIndex = 0;
     this.backgroundIndex = 0;
     this.setSeekBar(0, 0, 0); // Set 0 to default seek position
@@ -220,7 +214,6 @@ var PlayerView = {
       musicdb.cancelEnumeration(playerHandle);
 
     this.dataSource = [];
-    this.playingBlob = null;
   },
 
   setSourceType: function pv_setSourceType(type) {
@@ -394,29 +387,29 @@ var PlayerView = {
     // due to b2g cannot get some mp3's duration
     // and the seekBar can still show 00:00 to -00:00
     this.setSeekBar(0, 0, 0);
+  },
+
+  play: function pv_play(targetIndex, backgroundIndex) {
+    this.isPlaying = true;
+
+    // Hold a wake lock to prevent from sleeping
+    if (!cpuLock)
+      cpuLock = navigator.requestWakeLock('cpu');
 
     if (this.endedTimer) {
       clearTimeout(this.endedTimer);
       this.endedTimer = null;
     }
-  },
-
-  play: function pv_play(targetIndex, backgroundIndex) {
-    this.isPlaying = true;
 
     this.showInfo();
 
     if (arguments.length > 0) {
       var songData = this.dataSource[targetIndex];
 
-      ModeManager.playerTitle = songData.metadata.title;
-      ModeManager.updateTitle();
+      playerTitle = songData.metadata.title || unknownTitle;
+      TitleBar.changeTitleText(playerTitle);
       this.artist.textContent = songData.metadata.artist || unknownArtist;
-      this.artist.dataset.l10nId =
-        songData.metadata.artist ? '' : unknownArtistL10nId;
       this.album.textContent = songData.metadata.album || unknownAlbum;
-      this.album.dataset.l10nId =
-        songData.metadata.album ? '' : unknownAlbumL10nId;
       this.currentIndex = targetIndex;
 
       // backgroundIndex is from the index of sublistView
@@ -441,7 +434,6 @@ var PlayerView = {
 
       musicdb.getFile(songData.name, function(file) {
         this.setAudioSrc(file, true);
-        this.playingBlob = file;
       }.bind(this));
     } else if (this.sourceType === TYPE_BLOB && !this.audio.src) {
       // if we reach here, that means we want to a blob
@@ -450,11 +442,8 @@ var PlayerView = {
         var titleBar = document.getElementById('title-text');
 
         titleBar.textContent = metadata.title || unknownTitle;
-        titleBar.dataset.l10nId = metadata.title ? '' : unknownTitleL10nId;
         this.artist.textContent = metadata.artist || unknownArtist;
-        this.artist.dataset.l10nId = metadata.artist ? '' : unknownArtistL10nId;
         this.album.textContent = metadata.album || unknownAlbum;
-        this.album.dataset.l10nId = metadata.album ? '' : unknownAlbumL10nId;
 
         // Add the blob from the dataSource to the fileinfo
         // because we want use the cover image which embedded in that blob
@@ -473,6 +462,13 @@ var PlayerView = {
 
   pause: function pv_pause() {
     this.isPlaying = false;
+
+    // We can go to sleep if music pauses
+    if (cpuLock) {
+      cpuLock.unlock();
+      cpuLock = null;
+    }
+
     this.audio.pause();
   },
 
@@ -514,15 +510,12 @@ var PlayerView = {
         // When reaches the end, stop and back to the previous mode
         this.stop();
         this.clean();
-        ModeManager.playerTitle = null;
+        playerTitle = null;
 
         // To leave player mode and set the correct title to the TitleBar
         // we have to decide which mode we should back to when the player stops
-        if (ModeManager.currentMode === MODE_PLAYER) {
-          ModeManager.pop();
-        } else {
-          ModeManager.updateTitle();
-        }
+        var stopToMode = (currentMode != MODE_PLAYER) ? currentMode : fromMode;
+        changeMode(stopToMode);
         return;
       }
     } else {
@@ -622,11 +615,7 @@ var PlayerView = {
     this.seekIndicator.style.transform = 'translateX(' + x + ')';
 
     this.seekElapsed.textContent = formatTime(currentTime);
-    var remainingTime = endTime - currentTime;
-    // Check if there is remaining time to show, avoiding to display "-00:00"
-    // while song is loading (Bug 833710)
-    this.seekRemaining.textContent =
-        (remainingTime > 0) ? '-' + formatTime(remainingTime) : '---:--';
+    this.seekRemaining.textContent = '-' + formatTime(endTime - currentTime);
   },
 
   handleEvent: function pv_handleEvent(evt) {
@@ -695,14 +684,10 @@ var PlayerView = {
           this.showInfo();
 
           var songData = this.dataSource[this.currentIndex];
-          var targetRating = parseInt(target.dataset.rating);
-          var newRating = (targetRating === songData.metadata.rated) ?
-            targetRating - 1 : targetRating;
+          songData.metadata.rated = parseInt(target.dataset.rating);
 
-          songData.metadata.rated = newRating;
-
-          musicdb.updateMetadata(songData.name, songData.metadata);
-          this.setRatings(newRating);
+          musicdb.updateMetadata(songData.name, songData.metadata,
+            this.setRatings.bind(this, parseInt(target.dataset.rating)));
         }
 
         break;
@@ -758,6 +743,7 @@ var PlayerView = {
             this.endedTimer == null) {
           var timeToNext = (this.audio.duration - this.audio.currentTime + 1);
           this.endedTimer = setTimeout(function() {
+                                         this.endedTimer = null;
                                          this.next(true);
                                        }.bind(this),
                                        timeToNext * 1000);

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>batch.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">71.05</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">184</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">33.65</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">0.51</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">(function(window) {
+
+  /**
+   * Batch is a convenience data type
+   * designed to make the job of handling
+   * incoming input in batches.
+   *
+   *    function handleBatch(items) {
+   *      //items is an array of all items added
+   *    }
+   *
+   *    batch = new Calendar.Batch({
+   *      // object will wait 10ms before firing
+   *      // handle with the current list of items.
+   *      waitTime: 10,
+   *
+   *      handler: handleBatch
+   *    });
+   *
+   *    batch.add('1');
+   *    batch.add('2');
+   *    //in 10ms handleBatch will receive both items in an array.
+   *
+   *
+   * You can set a 'verify' option to filter
+   * incoming items.
+   *
+   *
+   *    function verifyItem(item) {
+   *      if(mySet.has(item.id)) {
+   *        //don't add this item to the
+   *        //batch we don't need to process it
+   *        return false;
+   *      }
+   *
+   *      // add item to the batch
+   *      return true;
+   *    }
+   *
+   *    batch = new Calendar.Batch({
+   *      //same options as above ...
+   *
+   *      verify: hasItem
+   *    });
+   *
+   *    batch.action('add', 'group-1', 22);
+   *
+   *
+   * @param {Object} options options for batch.
+   */
+  function Batch(options) {
+    var key;
+
+    if (typeof(options) === 'undefined') {
+      options = {};
+    }
+
+    this.data = {};
+
+    for (key in options) {
+      if (options.hasOwnProperty(key)) {
+        this[key] = options[key];
+      }
+    }
+  }
+
+  Batch.prototype = {
+
+    /**
+     * Current timer id
+     */
+    _timer: null,
+
+    waitTime: 1,
+
+    /* Place holder functions to be overridden */
+    verify: function() { return true; },
+    handler: function() {},
+
+    /**
+     * Adds an action to the queue.
+     * Groups items into a structure like
+     * this:
+     *
+     *    batch.action(group, action, value);
+     *
+     *    var groups = {},
+     *        stack = groups[group] = {};
+     *
+     *    stack[action] = stack[action] || [];
+     *    stack[action].push(value);
+     *
+     *
+     *    //now when the batch fires
+     *    //the handler will receive the groups object.
+     *
+     * @param {String} group group of actions.
+     * @param {String} action name of action.
+     * @param {Object} value value of action.
+     *
+     * @return {Boolean} true when action/value is added.
+     */
+    action: function(group, action, value) {
+      var items;
+
+      if (!this.verify(group, action, value)) {
+        return false;
+      }
+
+      if (!(group in this.data)) {
+        items = this.data[group] = {};
+        items = items[action] = [];
+      } else {
+        items = this.data[group];
+        if (!(action in items)) {
+          items = items[action] = [];
+        } else {
+          items = items[action];
+        }
+      }
+
+      items.push(value);
+
+      this._start();
+
+      return true;
+    },
+
+
+    /**
+     * @return {Boolean} true when batch will run at some point.
+     */
+    willRun: function() {
+      return !!this._timer;
+    },
+
+    /**
+     *
+     * Cancels current timer.
+     */
+    cancel: function() {
+      if (this._timer) {
+        clearTimeout(this._timer);
+        this._timer = null;
+      }
+    },
+
+    /**
+     * Clears current set of data.
+     */
+    clear: function() {
+      this.data = {};
+    },
+
+    _run: function(ctx) {
+      ctx.handle(ctx.items);
+      ctx.items = [];
+      this._timer = null;
+    },
+
+    _start: function() {
+      if (!this._timer) {
+        if (this.waitTime) {
+          this._timer = setTimeout(
+            this._runQueue, this.waitTime, this
+          );
+        } else {
+          this._runQueue(this);
+        }
+      }
+    },
+
+    _runQueue: function(ctx) {
+      var data = ctx.data;
+      ctx._timer = null;
+      ctx.clear();
+      ctx.handler(data);
+    }
+
+  };
+
+  Calendar.Batch = Batch;
+
+}(this));</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

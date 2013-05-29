@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">64.67</p>
+      <p class="stat">65.96</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">248</p>
+      <p class="stat">203</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">42.02</p>
+      <p class="stat">37.33</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.40</p>
+      <p class="stat">1.93</p>
     </div>
   </div>
 </div>
@@ -157,9 +157,6 @@ HandledCall.prototype.handleEvent = function hc_handle(evt) {
     case 'held':
       this.node.classList.add('held');
       break;
-    case 'busy':
-      this.busy();
-      break;
   }
 };
 
@@ -192,17 +189,9 @@ HandledCall.prototype.updateCallNumber = function hc_updateCallNumber() {
   var node = this.numberNode;
   var additionalInfoNode = this.additionalInfoNode;
 
-  if (!number) {
+  if (!number.length) {
     LazyL10n.get(function localized(_) {
-      node.textContent = _('withheld-number');
-    });
-    return;
-  }
-
-  var isEmergencyNumber = this.call.emergency;
-  if (isEmergencyNumber) {
-    LazyL10n.get(function localized(_) {
-      node.textContent = _('emergencyNumber');
+      node.textContent = _('unknown');
     });
     return;
   }
@@ -217,48 +206,23 @@ HandledCall.prototype.updateCallNumber = function hc_updateCallNumber() {
   }
 
   var self = this;
-  Contacts.findByNumber(number,
-    function lookupContact(contact, matchingTel, contactsWithSameNumber) {
-      if (contact) {
-        var primaryInfo = Utils.getPhoneNumberPrimaryInfo(matchingTel, contact);
-        var contactCopy = {
-          name: contact.name,
-          org: contact.org,
-          tel: contact.tel
-        };
-        if (primaryInfo) {
-          node.textContent = primaryInfo;
-        } else {
-          LazyL10n.get(function gotL10n(_) {
-            node.textContent = _('withheld-number');
-          });
-        }
-        KeypadManager.formatPhoneNumber('end', true);
-        var additionalInfo =
-          Utils.getPhoneNumberAdditionalInfo(matchingTel, contact, number);
-        KeypadManager.updateAdditionalContactInfo(additionalInfo);
-        if (contact.photo && contact.photo.length > 0) {
-          self.photo = contact.photo[0];
-          CallScreen.setCallerContactImage(self.photo, true, false);
-          if (typeof self.photo === 'string') {
-            contactCopy.photo = self.photo;
-          } else {
-            contactCopy.photo = [URL.createObjectURL(self.photo)];
-          }
-        }
-
-        self.recentsEntry.contactInfo = {
-          matchingTel: JSON.stringify(matchingTel),
-          contact: JSON.stringify(contactCopy),
-          contactsWithSameNumber: contactsWithSameNumber || 0
-        };
-        return;
-      }
-
-      node.textContent = number;
+  Contacts.findByNumber(number, function lookupContact(contact, matchingTel) {
+    if (contact && contact.name) {
+      node.textContent = contact.name;
       KeypadManager.formatPhoneNumber('end', true);
+      var additionalInfo = Utils.getPhoneNumberAdditionalInfo(matchingTel,
+                                                              contact);
+      KeypadManager.updateAdditionalContactInfo(additionalInfo);
+      if (contact.photo && contact.photo.length > 0) {
+        self.photo = contact.photo[0];
+        CallScreen.setCallerContactImage(self.photo, true, false);
+      }
+      return;
     }
-  );
+
+    node.textContent = number;
+    KeypadManager.formatPhoneNumber('end', true);
+  });
 };
 
 HandledCall.prototype.updateDirection = function hc_updateDirection() {
@@ -284,9 +248,7 @@ HandledCall.prototype.remove = function hc_remove() {
 };
 
 HandledCall.prototype.connected = function hc_connected() {
-  if (this.recentsEntry.type === 'incoming') {
-    this.recentsEntry.status = 'connected';
-  }
+  this.recentsEntry.type += '-connected';
 
   if (!this.node)
     return;
@@ -300,28 +262,21 @@ HandledCall.prototype.connected = function hc_connected() {
   CallScreen.syncSpeakerEnabled();
 };
 
-HandledCall.prototype.busy = function hc_busy() {
-  OnCallHandler.notifyBusyLine();
-};
-
 HandledCall.prototype.disconnected = function hc_disconnected() {
-  var entry = this.recentsEntry;
-  if (entry) {
-    if (entry.contactInfo) {
-      if (typeof entry.contactInfo.contact === 'string') {
-        entry.contactInfo.contact = JSON.parse(entry.contactInfo.contact);
-      }
-      if (typeof entry.contactInfo.matchingTel === 'string') {
-        var tel = entry.contactInfo.matchingTel;
-        entry.contactInfo.matchingTel = JSON.parse(tel);
-      }
-    }
-    OnCallHandler.addRecentEntry(entry);
+  if (this.recentsEntry &&
+     (this.recentsEntry.type.indexOf('-connected') == -1)) {
+    this.recentsEntry.type += '-refused';
+  }
+
+  if (this.recentsEntry) {
+    OnCallHandler.addRecentEntry(this.recentsEntry);
   }
 
   if (!this.node)
     return;
 
+  CallScreen.unmute();
+  CallScreen.turnSpeakerOff();
   this.remove();
 };
 

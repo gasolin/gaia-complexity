@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">156.57</p>
+      <p class="stat">156.53</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">22.23</p>
+      <p class="stat">22.22</p>
     </div>
   </div>
 </div>
@@ -1043,7 +1043,7 @@ function VideoPlayer(container) {
   var videourl;   // the url of the video to play
   var posterurl;  // the url of the poster image to display
   var rotation;   // Do we have to rotate the video? Set by load()
-  var orientation = 0; // current player orientation
+  var orientation; // current player orientation
 
   // These are the raw (unrotated) size of the poster image, which
   // must have the same size as the video.

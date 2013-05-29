@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">68.76</p>
+      <p class="stat">70.45</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">124</p>
+      <p class="stat">86</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">21.06</p>
+      <p class="stat">15.00</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">0.89</p>
+      <p class="stat">0.58</p>
     </div>
   </div>
 </div>
@@ -109,9 +109,6 @@
     if (!Applications.ready)
       return;
 
-    if (!Applications.getByManifestURL(origin + '/manifest.webapp'))
-      return;
-
     // Check widget is there
     widgetFrame = widgetContainer.querySelector('iframe');
     if (widgetFrame && !widgetFrame.dataset.killed)
@@ -120,8 +117,11 @@
     // Create the widget
     if (!widgetFrame) {
       widgetFrame = document.createElement('iframe');
-      widgetFrame.addEventListener('mozbrowsererror', _onError);
-      widgetFrame.addEventListener('mozbrowserclose', _onError);
+      widgetFrame.addEventListener('mozbrowsererror',
+        function ccdriver_onError(e) {
+          e.target.dataset.killed = true;
+        }
+      );
     }
 
     widgetFrame.dataset.frameType = 'widget';
@@ -135,42 +135,7 @@
     widgetFrame.src = origin + '/widget.html';
     widgetContainer.appendChild(widgetFrame);
 
-    _attachNetworkEvents();
     _adjustWidgetPosition();
-  }
-
-  function _onError(e) {
-    e.target.dataset.killed = true;
-  }
-
-  function _attachNetworkEvents() {
-    window.removeEventListener('moznetworkupload', _onNetworkActivity);
-    window.removeEventListener('moznetworkdownload', _onNetworkActivity);
-    window.addEventListener('moznetworkupload', _onNetworkActivity);
-    window.addEventListener('moznetworkdownload', _onNetworkActivity);
-  }
-
-  var hashMark = 0;
-  var activityCounter = 0;
-  var ACTIVITY_THRESHOLD = 250;
-  function _onNetworkActivity() {
-    activityCounter++;
-    if (activityCounter === ACTIVITY_THRESHOLD) {
-      activityCounter = 0;
-      window.removeEventListener('moznetworkupload', _onNetworkActivity);
-      window.removeEventListener('moznetworkdownload', _onNetworkActivity);
-      widgetFrame.addEventListener('mozbrowserlocationchange', _onUpdateDone);
-      widgetFrame.src = origin + '/widget.html#update#' + hashMark;
-      hashMark = 1 - hashMark; // toogle between 0 and 1
-    }
-  }
-
-  function _onUpdateDone(evt) {
-    if (evt.detail.split('#')[1] === 'updateDone') {
-      widgetFrame.removeEventListener('mozbrowserlocationchange',
-                                      _onUpdateDone);
-      _attachNetworkEvents();
-    }
   }
 
   function _showWidget() {
@@ -185,9 +150,6 @@
   }
 
   function _adjustWidgetPosition() {
-    if (!widgetFrame)
-      return;
-
     // TODO: Remove this when weird bug #809031 (Bugzilla) is solved
     // See cost_control.css as well to remove the last rule
     var offsetY = document.getElementById('notification-bar').clientHeight;

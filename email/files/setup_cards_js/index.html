@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">67.90</p>
+      <p class="stat">69.30</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">947</p>
+      <p class="stat">909</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">72.76</p>
+      <p class="stat">68.14</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">10.28</p>
+      <p class="stat">9.53</p>
     </div>
   </div>
 </div>
@@ -102,7 +102,7 @@
  * sufficient.  If an error code does not exist in this map, it gets mapped
  * to the "unknown" value's l10n string id.
  */
-var SETUP_ERROR_L10N_ID_MAP = {
+const SETUP_ERROR_L10N_ID_MAP = {
   'offline': 'setup-error-offline',
   'bad-user-or-pass': 'setup-error-bad-user-or-pass2',
   'not-authorized': 'setup-error-not-authorized',
@@ -113,8 +113,7 @@ var SETUP_ERROR_L10N_ID_MAP = {
   'unresponsive-server': 'setup-error-unresponsive-server',
   'server-problem': 'setup-error-server-problem',
   'no-config-info': 'setup-error-no-config-info',
-  'server-maintenance': 'setup-error-server-maintenance',
-  'user-account-exists': 'setup-error-account-already-exists'
+  'server-maintenance': 'setup-error-server-maintenance'
 };
 
 /**
@@ -135,8 +134,6 @@ function SetupAccountInfoCard(domNode, mode, args) {
   this.nextButton = domNode.getElementsByClassName('sup-info-next-btn')[0];
   this.nextButton.addEventListener('click', this.onNext.bind(this), false);
 
-  this.formNode = domNode.getElementsByClassName('sup-account-form')[0];
-
   this.nameNode = this.domNode.getElementsByClassName('sup-info-name')[0];
   this.emailNode = this.domNode.getElementsByClassName('sup-info-email')[0];
   this.passwordNode =
@@ -153,6 +150,7 @@ function SetupAccountInfoCard(domNode, mode, args) {
 
   new FormNavigation({
     formElem: domNode.getElementsByTagName('form')[0],
+    checkFormValidity: this.checkFormValidity.bind(this),
     onLast: this.onNext.bind(this)
   });
 }
@@ -163,7 +161,7 @@ SetupAccountInfoCard.prototype = {
     // to do initial card pushing.  This would happen if the app was started
     // without any accounts.
     if (Cards._cardStack.length === 1) {
-      Cards.removeAllCards();
+      Cards.removeCardAndSuccessors(null, 'none');
       App.showMessageViewOrSetup();
     }
     // Otherwise we were triggered from the settings UI and we can just pop
@@ -191,7 +189,7 @@ SetupAccountInfoCard.prototype = {
   },
 
   onInfoInput: function(event) {
-    this.nextButton.disabled = !this.formNode.checkValidity();
+    this.checkFormValidity();
   },
 
   onClickManualConfig: function() {
@@ -203,6 +201,18 @@ SetupAccountInfoCard.prototype = {
         password: this.passwordNode.value
       },
       'right');
+  },
+
+  checkFormValidity: function() {
+    var nameValid = this.nameNode.classList.contains('collapsed') ||
+                    this.nameNode.checkValidity();
+    var emailValid = this.emailNode.classList.contains('collapsed') ||
+                     this.emailNode.checkValidity();
+    var passwordValid = this.passwordNode.classList.contains('collapsed') ||
+                        this.passwordNode.checkValidity();
+    this.nextButton.disabled = !(nameValid && emailValid && passwordValid);
+
+    return !this.nextButton.disabled;
   },
 
   // note: this method is also reused by the manual config card
@@ -254,72 +264,68 @@ function SetupManualConfig(domNode, mode, args) {
   var backButton = domNode.getElementsByClassName('sup-back-btn')[0];
   backButton.addEventListener('click', this.onBack.bind(this), false);
 
-  this.nextButton = domNode.getElementsByClassName('sup-manual-next-btn')[0];
-  this.nextButton.addEventListener('click', this.onNext.bind(this), false);
-
-  this.formNode = domNode.getElementsByClassName('sup-manual-form')[0];
+  var nextButton = domNode.getElementsByClassName('sup-manual-next-btn')[0];
+  nextButton.addEventListener('click', this.onNext.bind(this), false);
 
   this.accountTypeNode = domNode.getElementsByClassName(
     'sup-manual-account-type')[0];
   this.accountTypeNode.addEventListener(
     'change', this.onChangeAccountType.bind(this), false);
 
-  this.formItems = {
-    common: {},
-    imap: {},
-    smtp: {},
-    activeSync: {}
-  };
-
-  this.formItems.common.displayName = domNode.getElementsByClassName(
+  this.displayNameNode = domNode.getElementsByClassName(
     'sup-info-name')[0];
-  this.formItems.common.displayName.value = args.displayName;
-  this.formItems.common.emailAddress = domNode.getElementsByClassName(
+  this.displayNameNode.value = args.displayName;
+  this.emailAddressNode = domNode.getElementsByClassName(
     'sup-info-email')[0];
-  this.formItems.common.emailAddress.value = args.emailAddress;
-  this.formItems.common.password = domNode.getElementsByClassName(
+  this.emailAddressNode.value = args.emailAddress;
+  this.passwordNode = domNode.getElementsByClassName(
     'sup-info-password')[0];
-  this.formItems.common.password.value = args.password;
+  this.passwordNode.value = args.password;
 
 
-  this.formItems.imap.hostname = domNode.getElementsByClassName(
+  this.imapHostnameNode = domNode.getElementsByClassName(
     'sup-manual-imap-hostname')[0];
-  this.formItems.imap.port = domNode.getElementsByClassName(
+  this.imapPortNode = domNode.getElementsByClassName(
     'sup-manual-imap-port')[0];
-  this.formItems.imap.socket = domNode.getElementsByClassName(
+  this.imapSocketNode = domNode.getElementsByClassName(
     'sup-manual-imap-socket')[0];
-  this.formItems.imap.username = domNode.getElementsByClassName(
+  this.imapUsernameNode = domNode.getElementsByClassName(
     'sup-manual-imap-username')[0];
 
-  this.formItems.smtp.hostname = domNode.getElementsByClassName(
+  this.smtpHostnameNode = domNode.getElementsByClassName(
     'sup-manual-smtp-hostname')[0];
-  this.formItems.smtp.port = domNode.getElementsByClassName(
+  this.smtpPortNode = domNode.getElementsByClassName(
     'sup-manual-smtp-port')[0];
-  this.formItems.smtp.socket = domNode.getElementsByClassName(
+  this.smtpSocketNode = domNode.getElementsByClassName(
     'sup-manual-smtp-socket')[0];
-  this.formItems.smtp.username = domNode.getElementsByClassName(
+  this.smtpUsernameNode = domNode.getElementsByClassName(
     'sup-manual-smtp-username')[0];
 
-  this.formItems.activeSync.hostname = domNode.getElementsByClassName(
+  this.activeSyncHostnameNode = domNode.getElementsByClassName(
     'sup-manual-activesync-hostname')[0];
-  this.formItems.activeSync.username = domNode.getElementsByClassName(
+  this.activeSyncUsernameNode = domNode.getElementsByClassName(
     'sup-manual-activesync-username')[0];
 
-  for (var type in this.formItems) {
-    for (var field in this.formItems[type]) {
-      if (this.formItems[type][field].tagName === 'INPUT') {
-        this.formItems[type][field].addEventListener(
-          'input', this.onInfoInput.bind(this));
+  var forms = domNode.getElementsByTagName('form');
+  var infoFormNav = new FormNavigation({
+    formElem: forms[0],
+    onLast: function() {
+      var accountType = this.accountTypeNode.value;
+      if (accountType === 'imap+smtp') {
+        imapFormNav.focus();
+      } else {
+        activeSyncFormNav.focus();
       }
-    }
-  }
+    }.bind(this)
+  });
 
-  this.requireFields('imap', true);
-  this.requireFields('smtp', true);
-  this.requireFields('activeSync', false);
+  var imapFormNav = new FormNavigation({
+    formElem: forms[1],
+    onLast: this.onNext.bind(this)
+  });
 
-  new FormNavigation({
-    formElem: this.formNode,
+  var activeSyncFormNav = new FormNavigation({
+    formElem: forms[2],
     onLast: this.onNext.bind(this)
   });
 }
@@ -334,22 +340,22 @@ SetupManualConfig.prototype = {
 
     if (config.type === 'imap+smtp') {
       config.incoming = {
-        hostname: this.formItems.imap.hostname.value,
-        port: this.formItems.imap.port.value,
-        socketType: this.formItems.imap.socket.value,
-        username: this.formItems.imap.username.value
+        hostname: this.imapHostnameNode.value,
+        port: this.imapPortNode.value,
+        socketType: this.imapSocketNode.value,
+        username: this.imapUsernameNode.value
       };
       config.outgoing = {
-        hostname: this.formItems.smtp.hostname.value,
-        port: this.formItems.smtp.port.value,
-        socketType: this.formItems.smtp.socket.value,
-        username: this.formItems.smtp.username.value
+        hostname: this.smtpHostnameNode.value,
+        port: this.smtpPortNode.value,
+        socketType: this.smtpSocketNode.value,
+        username: this.smtpUsernameNode.value
       };
     }
     else { // config.type === 'activesync'
       config.incoming = {
-        server: 'https://' + this.formItems.activeSync.hostname.value,
-        username: this.formItems.activeSync.username.value
+        server: 'https://' + this.activeSyncHostnameNode.value,
+        username: this.activeSyncUsernameNode.value
       };
     }
 
@@ -357,9 +363,9 @@ SetupManualConfig.prototype = {
     Cards.pushCard(
       'setup-progress', 'default', 'animate',
       {
-        displayName: this.formItems.common.displayName.value,
-        emailAddress: this.formItems.common.emailAddress.value,
-        password: this.formItems.common.password.value,
+        displayName: this.displayNameNode.value,
+        emailAddress: this.emailAddressNode.value,
+        password: this.passwordNode.value,
 
         domainInfo: config,
         callingCard: this
@@ -367,42 +373,19 @@ SetupManualConfig.prototype = {
       'right');
   },
 
-
-  onInfoInput: function(event) {
-    this.nextButton.disabled = !this.formNode.checkValidity();
-  },
-
   onChangeAccountType: function(event) {
     var imapSmtpSection = this.domNode.getElementsByClassName(
       'sup-manual-imap-smtp')[0];
     var activeSyncSection = this.domNode.getElementsByClassName(
       'sup-manual-activesync')[0];
-    var isImapSmtp = event.target.value === 'imap+smtp';
 
-    if (isImapSmtp) {
+    if (event.target.value === 'imap+smtp') {
       imapSmtpSection.classList.remove('collapsed');
       activeSyncSection.classList.add('collapsed');
     }
     else {
       imapSmtpSection.classList.add('collapsed');
       activeSyncSection.classList.remove('collapsed');
-    }
-
-    this.requireFields('imap', isImapSmtp);
-    this.requireFields('smtp', isImapSmtp);
-    this.requireFields('activeSync', !isImapSmtp);
-  },
-
-  requireFields: function(type, required) {
-    for (var field in this.formItems[type]) {
-      var item = this.formItems[type][field];
-      if (!item.hasAttribute('data-maybe-required'))
-        continue;
-
-      if (required)
-        item.setAttribute('required', '');
-      else
-        item.removeAttribute('required');
     }
   },
 
@@ -465,7 +448,7 @@ SetupProgressCard.prototype = {
 
   onCreationSuccess: function() {
     // nuke the current card stack, replace them with the done card.
-    Cards.removeAllCards();
+    Cards.removeCardAndSuccessors(null, 'none');
     Cards.pushCard(
       'setup-done', 'default', 'immediate',
       {});
@@ -493,7 +476,7 @@ function SetupDoneCard(domNode, mode, args) {
 SetupDoneCard.prototype = {
   onAddAnother: function() {
     // Nuke all cards
-    Cards.removeAllCards();
+    Cards.removeCardAndSuccessors(null, 'none');
     // Show the first setup card again.
     Cards.pushCard(
       'setup-account-info', 'default', 'immediate',
@@ -503,7 +486,7 @@ SetupDoneCard.prototype = {
   },
   onShowMail: function() {
     // Nuke this card
-    Cards.removeAllCards();
+    Cards.removeCardAndSuccessors(null, 'none');
     // Trigger the startup logic again; this should show the inbox this time.
     App.showMessageViewOrSetup(true);
   },
@@ -630,7 +613,8 @@ console.log('  CONFIG CURRENTLY:', JSON.stringify(MailAPI.config));//HACK
 }
 SettingsMainCard.prototype = {
   onClose: function() {
-    Cards.removeCardAndSuccessors(this.domNode, 'animate', 1, 1);
+    Cards.removeCardAndSuccessors(this.domNode, 'animate', 1,
+                                  ['folder-picker', 'navigation']);
   },
 
   onAccountsSplice: function(index, howMany, addedItems,
@@ -740,28 +724,6 @@ function SettingsAccountCard(domNode, mode, args) {
   domNode.getElementsByClassName('tng-account-delete')[0]
     .addEventListener('click', this.onDelete.bind(this), false);
 
-  // Handle default account checkbox. If already a default, then the checkbox
-  // cannot be unchecked. The default is changed by going to an account that
-  // is not the default and checking that checkbox.
-  var defaultLabelNode = domNode.getElementsByClassName('tng-default-label')[0];
-  var defaultInputNode = domNode.getElementsByClassName('tng-default-input')[0];
-  if (this.account.isDefault) {
-    defaultInputNode.disabled = true;
-    defaultInputNode.checked = true;
-  } else {
-
-    defaultLabelNode.addEventListener('click', function(evt) {
-      evt.stopPropagation();
-      evt.preventBubble();
-
-      if (!defaultInputNode.disabled) {
-        defaultInputNode.disabled = true;
-        defaultInputNode.checked = true;
-        this.account.modifyAccount({ setAsDefault: true });
-      }
-    }.bind(this), false);
-  }
-
   // ActiveSync, IMAP and SMTP are protocol names, no need to be localized
   domNode.getElementsByClassName('tng-account-type')[0].textContent =
     (this.account.type === 'activesync') ? 'ActiveSync' : 'IMAP+SMTP';
@@ -826,23 +788,23 @@ SettingsAccountCard.prototype = {
 
   onDelete: function() {
     var account = this.account;
-
-    var dialog = tngNodes['account-delete-confirm'].cloneNode(true);
-    var content = dialog.getElementsByTagName('p')[0];
-    content.textContent = mozL10n.get('settings-account-delete-prompt',
-                                      { account: account.name });
-    ConfirmDialog.show(dialog,
-      { // Confirm
-        id: 'account-delete-ok',
-        handler: function() {
-          account.deleteAccount();
-          Cards.removeAllCards();
-          App.showMessageViewOrSetup();
+    CustomDialog.show(
+      null,
+      mozL10n.get('settings-account-delete-prompt', { account: account.name }),
+      {
+        title: mozL10n.get('settings-account-delete-cancel'),
+        callback: function() {
+          CustomDialog.hide();
         }
       },
-      { // Cancel
-        id: 'account-delete-cancel',
-        handler: null
+      {
+        title: mozL10n.get('settings-account-delete-confirm'),
+        callback: function() {
+          account.deleteAccount();
+          CustomDialog.hide();
+          Cards.removeCardAndSuccessors(null, 'none');
+          App.showMessageViewOrSetup();
+        }
       }
     );
   },

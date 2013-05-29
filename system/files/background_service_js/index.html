@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>background_service.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">66.35</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">192</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">32.62</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.45</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- /
+/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
+
+'use strict';
+
+/*
+  Allow web apps to inject a tiny persistent background iframe
+  as the phone starts.
+*/
+var BackgroundServiceManager = (function bsm() {
+  /* We keep the references to background page iframes here.
+    The iframes will be append to body */
+  var frames = {};
+
+  /* The name of the background window open by background_page in
+    manifest. */
+  var AUTO_OPEN_BG_PAGE_NAME = 'background';
+
+  /* Init */
+  var init = function bsm_init() {
+    var applications = Applications.installedApps;
+    Object.keys(applications).forEach(function bsm_each(manifestURL) {
+      var app = applications[manifestURL];
+      if (!app.manifest.background_page)
+        return;
+
+      // XXX: this work as if background_page is always a path not a full URL.
+      var url = app.origin + app.manifest.background_page;
+      open(manifestURL, AUTO_OPEN_BG_PAGE_NAME, url);
+    });
+  };
+
+  /* mozbrowseropenwindow */
+  window.addEventListener('mozbrowseropenwindow', function bsm_winopen(evt) {
+    if (evt.detail.features !== 'background')
+      return;
+
+    // stopPropagation means we are not allowing
+    // Popup Manager to handle this event
+    evt.stopPropagation();
+
+    var manifestURL = evt.target.getAttribute('mozapp');
+    var detail = evt.detail;
+
+    open(manifestURL, detail.name, detail.url, detail.frameElement);
+  }, true);
+
+  /* mozbrowserclose */
+  window.addEventListener('mozbrowserclose', function bsm_winclose(evt) {
+    if (!'frameType' in evt.target.dataset ||
+        evt.target.dataset.frameType !== 'background')
+      return;
+
+    var manifestURL = evt.target.getAttribute('mozapp');
+
+    close(manifestURL, evt.target.dataset.frameName);
+  }, true);
+
+  /* mozbrowsererror */
+  window.addEventListener('mozbrowsererror', function bsm_winclose(evt) {
+    if (!'frameType' in evt.target.dataset ||
+        evt.target.dataset.frameType !== 'background' ||
+        evt.detail.type !== 'fatal')
+      return;
+
+    var target = evt.target;
+    var manifestURL = target.getAttribute('mozapp');
+
+    // This bg service has just crashed, clean up the frame
+    var name = target.dataset.frameName;
+    close(manifestURL, name);
+  }, true);
+
+  /* OnInstall */
+  window.addEventListener('applicationinstall', function bsm_oninstall(evt) {
+    var app = evt.detail.application;
+    var origin = app.origin;
+    if (!app.manifest.background_page)
+      return;
+
+    // XXX: this work as if background_page is always a path not a full URL.
+    var url = origin + app.manifest.background_page;
+    open(manifestURL, AUTO_OPEN_BG_PAGE_NAME, url);
+  });
+
+  /* OnUninstall */
+  window.addEventListener('applicationuninstall', function bsm_oninstall(evt) {
+    var app = evt.detail.application;
+    close(app.manifestURL);
+  });
+
+  /* Check if the app has the permission to open a background page */
+  var hasBackgroundPermission = function bsm_checkPermssion(app) {
+    var mozPerms = navigator.mozPermissionSettings;
+    if (!mozPerms)
+      return false;
+
+    var value = mozPerms.get('backgroundservice', app.manifestURL,
+                             app.origin, false);
+
+    return (value === 'allow');
+  };
+
+  /* The open function is responsible of containing the iframe */
+  var open = function bsm_open(manifestURL, name, url, frame) {
+    var app = Applications.getByManifestURL(manifestURL);
+    if (!app || !hasBackgroundPermission(app))
+      return false;
+
+    if (frames[manifestURL] && frames[manifestURL][name]) {
+      console.error('Window with the same name is there but Gecko ' +
+        ' failed to use it. See bug 766873. origin: "' + origin +
+        '", name: "' + name + '".');
+      return false;
+    }
+
+    if (!frame) {
+      frame = document.createElement('iframe');
+
+      // If we have a frame element, it's provided by mozbrowseropenwindow, and
+      // it has the mozbrowser, mozapp, and src attributes set already.
+      frame.setAttribute('mozbrowser', 'mozbrowser');
+      frame.setAttribute('mozapp', manifestURL);
+      frame.setAttribute('name', name);
+
+      var appName = app.manifest.name;
+      frame.setAttribute('remote', 'true');
+      console.info('%%%%% Launching', appName, 'bg service as remote (OOP)');
+      frame.src = url;
+    }
+    frame.className = 'backgroundWindow';
+    frame.dataset.frameType = 'background';
+    frame.dataset.frameName = name;
+
+    if (!frames[manifestURL])
+      frames[manifestURL] = {};
+    frames[manifestURL][name] = frame;
+
+    document.body.appendChild(frame);
+
+    // Background services should load in the background.
+    //
+    // (The funky setTimeout(0) is to work around
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=810431 .)
+    setTimeout(function() { frame.setVisible(false) }, 0);
+
+    return true;
+  };
+
+  /* The close function will remove the iframe from DOM and
+    delete the reference */
+  var close = function bsm_close(manifestURL, name) {
+    if (!frames[manifestURL])
+      return false;
+
+    if (typeof name == 'undefined') {
+      // Close all windows
+      Object.keys(frames[manifestURL]).forEach(function closeEach(name) {
+        document.body.removeChild(frames[manifestURL][name]);
+        frames[manifestURL][name] = null;
+      });
+      delete frames[manifestURL];
+      return true;
+    }
+
+    // Close one window
+    var frame = frames[manifestURL][name];
+    if (!frame)
+      return false;
+
+    document.body.removeChild(frame);
+    delete frames[manifestURL][name];
+
+    if (!Object.keys(frames[manifestURL]).length)
+      delete frames[manifestURL];
+    return true;
+  };
+
+  /* start initialization */
+  if (Applications.ready) {
+    init();
+  } else {
+    window.addEventListener('applicationready',
+    function bsm_appListReady(event) {
+      window.removeEventListener('applicationready', bsm_appListReady);
+      init();
+    });
+  }
+
+  /* Return the public APIs */
+  return {
+    'open': open,
+    'close': close
+  };
+}());</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>

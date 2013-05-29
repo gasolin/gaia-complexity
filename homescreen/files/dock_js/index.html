@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">67.28</p>
+      <p class="stat">63.92</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">277</p>
+      <p class="stat">240</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">50.69</p>
+      <p class="stat">51.29</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.84</p>
+      <p class="stat">1.59</p>
     </div>
   </div>
 </div>
@@ -92,56 +92,32 @@
   <div class="row">
     <textarea id="file-source" class="span12">'use strict';
 
-var DockManager = (function() {
+const DockManager = (function() {
 
   var container, dock;
 
   var MAX_NUM_ICONS = 7;
-  var maxNumAppInViewPort = 4, maxOffsetLeft;
+  var maxNumAppInViewPort = 4, numAppsBeforeDrag, maxOffsetLeft;
 
   var windowWidth = window.innerWidth;
   var duration = 300;
 
   var initialOffsetLeft, initialOffsetRight, numApps, cellWidth;
-  var isPanning = false, startEvent, currentX, deltaX, tapThreshold;
-
-  var isTouch = 'ontouchstart' in window;
-  var touchstart = isTouch ? 'touchstart' : 'mousedown';
-  var touchmove = isTouch ? 'touchmove' : 'mousemove';
-  var touchend = isTouch ? 'touchend' : 'mouseup';
-
-  var getX = (function getXWrapper() {
-    return isTouch ? function(e) { return e.touches[0].pageX } :
-                     function(e) { return e.pageX };
-  })();
-
-  function addActive(target) {
-    if ('isIcon' in target.dataset) {
-      target.classList.add('active');
-      removeActive = function _removeActive() {
-        target.classList.remove('active');
-      };
-    } else {
-      removeActive = function() {};
-    }
-  }
-
-  var removeActive = function() {};
+  var isPanning = false, startX, currentX, deltaX;
+  var tapThreshold = Page.prototype.tapThreshold;
 
   function handleEvent(evt) {
     switch (evt.type) {
-      case touchstart:
-        evt.stopPropagation();
+      case 'touchstart':
         initialOffsetLeft = dock.getLeft();
         initialOffsetRight = dock.getRight();
         numApps = dock.getNumIcons();
-        startEvent = isTouch ? evt.touches[0] : evt;
+        startX = evt.touches[0].pageX;
         attachEvents();
-        addActive(evt.target);
         break;
 
-      case touchmove:
-        deltaX = getX(evt) - startEvent.pageX;
+      case 'touchmove':
+        deltaX = evt.touches[0].pageX - startX;
         if (!isPanning) {
           if (Math.abs(deltaX) < tapThreshold) {
             return;
@@ -179,7 +155,7 @@ var DockManager = (function() {
         dock.moveBy(initialOffsetLeft + deltaX);
         break;
 
-      case touchend:
+      case 'touchend':
         releaseEvents();
 
         if (!isPanning) {
@@ -188,8 +164,6 @@ var DockManager = (function() {
           isPanning = false;
           onTouchEnd(deltaX);
         }
-
-        removeActive();
 
         break;
 
@@ -203,13 +177,9 @@ var DockManager = (function() {
             GridManager.landingPage) {
 
           Homescreen.setMode('edit');
-          removeActive();
 
           if ('isIcon' in evt.target.dataset) {
-            DragDropManager.start(evt, {
-              'x': startEvent.pageX,
-              'y': startEvent.pageY
-            });
+            DragDropManager.start(evt, {x: evt.clientX, y: evt.clientY});
           }
         }
         break;
@@ -217,8 +187,6 @@ var DockManager = (function() {
   }
 
   function goNextSet() {
-    calculateDimentions(dock.getNumIcons());
-
     if (dock.getLeft() <= maxOffsetLeft) {
       return;
     }
@@ -227,8 +195,6 @@ var DockManager = (function() {
   }
 
   function goPreviousSet() {
-    calculateDimentions(dock.getNumIcons());
-
     if (dock.getLeft() >= 0) {
       return;
     }
@@ -253,26 +219,25 @@ var DockManager = (function() {
 
   function releaseEvents() {
     container.removeEventListener('contextmenu', handleEvent);
-    window.removeEventListener(touchmove, handleEvent);
-    window.removeEventListener(touchend, handleEvent);
+    window.removeEventListener('touchmove', handleEvent);
+    window.removeEventListener('touchend', handleEvent);
   }
 
   function attachEvents() {
     container.addEventListener('contextmenu', handleEvent);
-    window.addEventListener(touchmove, handleEvent);
-    window.addEventListener(touchend, handleEvent);
+    window.addEventListener('touchmove', handleEvent);
+    window.addEventListener('touchend', handleEvent);
   }
 
-  function rePosition(numApps) {
-    if (numApps > maxNumAppInViewPort && dock.getLeft() < 0 &&
-          dock.getRight() > windowWidth) {
-      // The dock takes up the screen width.
-      return;
+  function placeAfterRemovingApp(numApps, centering) {
+    document.body.dataset.transitioning = 'true';
+
+    if (centering || numApps <= maxNumAppInViewPort) {
+      dock.moveByWithDuration(maxOffsetLeft / 2, .5);
+    } else {
+      dock.moveByWithDuration(dock.getLeft() + cellWidth, .5);
     }
 
-    // We are going to place the dock in the middle of the screen
-    document.body.dataset.transitioning = 'true';
-    dock.moveByWithDuration(maxOffsetLeft / 2, .5);
     container.addEventListener('transitionend', function transEnd(e) {
       container.removeEventListener('transitionend', transEnd);
       delete document.body.dataset.transitioning;
@@ -286,7 +251,7 @@ var DockManager = (function() {
       container.classList.add('scrollable');
     }
 
-    cellWidth = numIcons ? dock.getFirstIcon().getWidth() : 0;
+    cellWidth = dock.getWidth() / numIcons;
     maxOffsetLeft = windowWidth - numIcons * cellWidth;
   }
 
@@ -300,10 +265,9 @@ var DockManager = (function() {
      * @param {Dock} page
      *               The dock page object.
      */
-    init: function dm_init(containerEl, page, pTapThreshold) {
-      tapThreshold = pTapThreshold;
+    init: function dm_init(containerEl, page) {
       container = containerEl;
-      container.addEventListener(touchstart, handleEvent);
+      container.addEventListener('touchstart', handleEvent);
       dock = this.page = page;
 
       var numIcons = dock.getNumIcons();
@@ -319,15 +283,25 @@ var DockManager = (function() {
     },
 
     onDragStop: function dm_onDragStop() {
-      container.addEventListener(touchstart, handleEvent);
+      container.addEventListener('touchstart', handleEvent);
       var numApps = dock.getNumIcons();
       calculateDimentions(numApps);
-      rePosition(numApps);
+
+      if (numApps === numAppsBeforeDrag ||
+          numApps > maxNumAppInViewPort &&
+          (numApps < numAppsBeforeDrag && dock.getRight() >= windowWidth ||
+           numApps > numAppsBeforeDrag && dock.getLeft() < 0)
+         ) {
+        return;
+      }
+
+      placeAfterRemovingApp(numApps, numApps > numAppsBeforeDrag);
     },
 
     onDragStart: function dm_onDragStart() {
       releaseEvents();
-      container.removeEventListener(touchstart, handleEvent);
+      container.removeEventListener('touchstart', handleEvent);
+      numAppsBeforeDrag = dock.getNumIcons();
     },
 
     /*
@@ -344,8 +318,7 @@ var DockManager = (function() {
       if (numApps > maxNumAppInViewPort && dock.getRight() >= windowWidth) {
         return;
       }
-      calculateDimentions(numApps);
-      rePosition(numApps);
+      placeAfterRemovingApp(numApps);
     },
 
     isFull: function dm_isFull() {
@@ -354,17 +327,7 @@ var DockManager = (function() {
 
     goNextSet: goNextSet,
 
-    goPreviousSet: goPreviousSet,
-
-    calculateDimentions: calculateDimentions,
-
-    get cellWidth() {
-      return cellWidth;
-    },
-
-    get maxOffsetLeft() {
-      return maxOffsetLeft;
-    }
+    goPreviousSet: goPreviousSet
   };
 }());</textarea>
   </div>

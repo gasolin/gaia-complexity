@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">48.93</p>
+      <p class="stat">51.31</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">52</p>
+      <p class="stat">46</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">3.69</p>
+      <p class="stat">8.56</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">0.25</p>
+      <p class="stat">0.19</p>
     </div>
   </div>
 </div>
@@ -90,58 +90,52 @@
 
 <div class="container">
   <div class="row">
-    <textarea id="file-source" class="span12">Calendar.Presets = {
-  "google": {
-    "providerType": "Caldav",
-    "group": "remote",
-    "authenticationType": "oauth2",
-    "apiCredentials": {
-      "tokenUrl": "https://accounts.google.com/o/oauth2/token",
-      "authorizationUrl": "https://accounts.google.com/o/oauth2/auth",
-      "user_info": {
-        "url": "https://www.googleapis.com/oauth2/v3/userinfo",
-        "field": "email"
-      },
-      "client_secret": "jQTKlOhF-RclGaGJot3HIcVf",
-      "client_id": "605300196874-1ki833poa7uqabmh3hq6u1onlqlsi54h.apps.googleusercontent.com",
-      "scope": "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.email",
-      "redirect_uri": "https://oauth.gaiamobile.org/authenticated"
+    <textarea id="file-source" class="span12">(function(window) {
+  var Presets = {
+    'google': {
+      providerType: 'Caldav',
+      group: 'remote',
+      options: {
+        providerType: 'Caldav',
+        domain: 'https://calendar.google.com',
+        entrypoint: '/calendar/dav/',
+        user: '@gmail.com'
+      }
     },
-    "options": {
-      "domain": "https://apidata.googleusercontent.com",
-      "entrypoint": "/caldav/v2/",
-      "providerType": "Caldav"
+    'yahoo': {
+      providerType: 'Caldav',
+      group: 'remote',
+      options: {
+        domain: 'https://caldav.calendar.yahoo.com',
+        providerType: 'Caldav',
+        entrypoint: '/',
+        user: '@yahoo.com'
+      }
+    },
+
+    'caldav': {
+      providerType: 'Caldav',
+      group: 'remote',
+      options: {
+        domain: '',
+        providerType: 'Caldav',
+        entrypoint: ''
+      }
+    },
+
+    'local': {
+      singleUse: true,
+      providerType: 'Local',
+      group: 'local',
+      options: {
+        providerType: 'Local'
+      }
     }
-  },
-  "yahoo": {
-    "providerType": "Caldav",
-    "group": "remote",
-    "options": {
-      "domain": "https://caldav.calendar.yahoo.com",
-      "entrypoint": "/",
-      "providerType": "Caldav",
-      "user": "@yahoo.com",
-      "usernameType": "email"
-    }
-  },
-  "caldav": {
-    "providerType": "Caldav",
-    "group": "remote",
-    "options": {
-      "domain": "",
-      "entrypoint": "",
-      "providerType": "Caldav"
-    }
-  },
-  "local": {
-    "singleUse": true,
-    "providerType": "Local",
-    "group": "local",
-    "options": {
-      "providerType": "Local"
-    }
-  }
-};</textarea>
+  };
+
+  Calendar.Presets = Presets;
+
+}(this));</textarea>
   </div>
 </div>
 

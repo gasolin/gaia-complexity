@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">63.04</p>
+      <p class="stat">63.30</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">262</p>
+      <p class="stat">261</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">54.78</p>
+      <p class="stat">54.79</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.59</p>
+      <p class="stat">2.57</p>
     </div>
   </div>
 </div>
@@ -144,7 +144,7 @@ var PhoneLock = {
     // If the pseudo-input loses focus, then allow the user to restore focus
     // by touching the container around the pseudo-input.
     var self = this;
-    this.passcodeContainer.addEventListener('click', function(evt) {
+    this.passcodeContainer.addEventListener('mousedown', function(evt) {
       self.passcodeInput.focus();
       evt.preventDefault();
     });
@@ -219,8 +219,8 @@ var PhoneLock = {
     this.hideErrorMessage();
     this.MODE = mode;
     this.passcodePanel.dataset.mode = mode;
-    if (Settings.currentPanel != '#phoneLock-passcode') {
-      Settings.currentPanel = '#phoneLock-passcode'; // show dialog box
+    if (document.location.hash != 'phoneLock-passcode') {
+      document.location.hash = 'phoneLock-passcode'; // show dialog box
 
       // Open the keyboard after the UI transition. We can't listen for the
       // ontransitionend event because some of the passcode mode changes, such
@@ -256,7 +256,7 @@ var PhoneLock = {
             this._passcodeBuffer = this._passcodeBuffer.substring(0,
                 this._passcodeBuffer.length - 1);
           }
-        } else if (this._passcodeBuffer.length < 8) {
+        } else {
           this._passcodeBuffer += key;
         }
 
@@ -300,7 +300,6 @@ var PhoneLock = {
         }
         break;
       case this.passcodeEditButton:
-        this._passcodeBuffer = '';
         this.changeMode('edit');
         break;
       case this.createPasscodeButton:
@@ -349,7 +348,7 @@ var PhoneLock = {
   backToPhoneLock: function pl_backToPhoneLock() {
     this._passcodeBuffer = '';
     this.passcodeInput.blur();
-    Settings.currentPanel = '#phoneLock';
+    document.location.hash = 'phoneLock';
   }
 };
 

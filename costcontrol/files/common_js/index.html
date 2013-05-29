@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">68.28</p>
+      <p class="stat">66.70</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">286</p>
+      <p class="stat">194</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">38.79</p>
+      <p class="stat">38.15</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.55</p>
+      <p class="stat">1.68</p>
     </div>
   </div>
 </div>
@@ -92,11 +92,45 @@
   <div class="row">
     <textarea id="file-source" class="span12">'use strict';
 
-function checkDataUsageNotification(settings, usage, callback) {
-  var proxy = document.getElementById('message-handler').contentWindow;
-  var f = proxy ? proxy.checkDataUsageNotification :
-                  window.checkDataUsageNotification;
-  return f(settings, usage, callback);
+// Checks for a SIM change
+function checkSIMChange(callback) {
+  asyncStorage.getItem('lastSIM', function _compareWithCurrent(lastSIM) {
+    var currentSIM = window.navigator.mozMobileConnection.iccInfo.iccid;
+    if (lastSIM !== currentSIM) {
+      debug('SIM change!');
+      MindGap.updateTagList(currentSIM);
+    }
+    ConfigManager.requestSettings(function _onSettings(settings) {
+      if (settings.nextReset) {
+        setNextReset(settings.nextReset, callback);
+        return;
+      }
+
+      if (callback) {
+        callback();
+      }
+    });
+  });
+}
+
+// Waits for DOMContentLoaded and messagehandlerready, then call the callback
+function waitForDOMAndMessageHandler(window, callback) {
+  var remainingSteps = 2;
+  function checkReady(evt) {
+    debug(evt.type, 'event received!');
+    remainingSteps--;
+
+    // Once all events are received, execute the callback
+    if (!remainingSteps) {
+      window.removeEventListener('DOMContentLoaded', checkReady);
+      window.removeEventListener('messagehandlerready', checkReady);
+      debug('DOMContentLoaded and messagehandlerready received. Starting');
+      callback();
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', checkReady);
+  window.addEventListener('messagehandlerready', checkReady);
 }
 
 function addAlarmTimeout(type, delay) {
@@ -107,13 +141,7 @@ function addAlarmTimeout(type, delay) {
 function setNextReset(when, callback) {
   var proxy = document.getElementById('message-handler');
   return proxy ? proxy.contentWindow.setNextReset(when, callback) :
-                 window.setNextReset(when, callback);
-}
-
-function getTopUpTimeout(callback) {
-  var proxy = document.getElementById('message-handler');
-  return proxy ? proxy.contentWindow.getTopUpTimeout(callback) :
-                 window.getTopUpTimeout(callback);
+                 setNextReset(when, callback);
 }
 
 // Next automatic reset date based on user preferences
@@ -133,9 +161,8 @@ function updateNextReset(trackingPeriod, value, callback) {
     year = today.getFullYear();
     if (today.getDate() >= monthday) {
       month = (month + 1) % 12;
-      if (month === 0) {
+      if (month === 0)
         year++;
-      }
     }
     nextReset = new Date(year, month, monthday);
 
@@ -144,9 +171,8 @@ function updateNextReset(trackingPeriod, value, callback) {
     var oneDay = 24 * 60 * 60 * 1000;
     var weekday = parseInt(value, 10);
     var daysToTarget = weekday - today.getDay();
-    if (daysToTarget <= 0) {
+    if (daysToTarget <= 0)
       daysToTarget = 7 + daysToTarget;
-    }
     nextReset = new Date();
     nextReset.setTime(nextReset.getTime() + oneDay * daysToTarget);
     toMidnight(nextReset);
@@ -176,12 +202,10 @@ function resetData() {
       var data = mobileRequest.result.data;
       debug('Data length should be 1 and it is', data.length);
       var currentDataUsage = 0;
-      if (data[0].rxBytes) {
+      if (data[0].rxBytes)
         currentDataUsage += data[0].rxBytes;
-      }
-      if (data[0].txBytes) {
+      if (data[0].txBytes)
         currentDataUsage += data[0].txBytes;
-      }
 
       // Adds the fixing
       var tag = tags[tags.length - 1];
@@ -190,9 +214,8 @@ function resetData() {
       // Remove the previous ones
       for (var i = tags.length - 2; i >= 0; i--) {
         var ctag = tags[i];
-        if (ctag.sim === tag.sim) {
+        if (ctag.sim === tag.sim)
           tags.splice(i, 1);
-        }
       }
       debug('After reset', tags);
 
@@ -210,13 +233,11 @@ function resetData() {
       var data = wifiRequest.result.data;
       debug('Data length should be 1 and it is', data.length);
       var currentWifiUsage = 0;
-      if (data[0].rxBytes) {
+      if (data[0].rxBytes)
         currentWifiUsage += data[0].rxBytes;
-      }
-      if (data[0].txBytes) {
+      if (data[0].txBytes)
         currentWifiUsage += data[0].txBytes;
-      }
-      asyncStorage.setItem('wifiFixing', currentWifiUsage);
+      ConfigManager.setOption({ wifiFixing: currentWifiUsage });
     };
 
   });
@@ -245,19 +266,9 @@ function getDataLimit(settings) {
 }
 
 function formatTimeHTML(timestampA, timestampB) {
-  function timeElement(content) {
-    var time = document.createElement('time');
-    time.textContent = content;
-    return time;
-  }
-
-  var fragment = document.createDocumentFragment();
-
   // No interval
-  if (typeof timestampB === 'undefined') {
-    fragment.appendChild(timeElement(formatTime(timestampA)));
-    return fragment;
-  }
+  if (typeof timestampB === 'undefined')
+    return '<time>' + formatTime(timestampA) + '</time>';
 
   // Same day case
   var dateA = new Date(timestampA);
@@ -270,112 +281,9 @@ function formatTimeHTML(timestampA, timestampB) {
   }
 
   // Interval
-  fragment.appendChild(
-    timeElement(formatTime(timestampA, _('short-date-format')))
-  );
-  fragment.appendChild(document.createTextNode(' – '));
-  fragment.appendChild(timeElement(formatTime(timestampB)));
-  return fragment;
-}
-
-function localizeWeekdaySelector(selector) {
-  var weekStartsOnMonday =
-    !!parseInt(navigator.mozL10n.get('weekStartsOnMonday'), 10);
-  debug('Week starts on monday?', weekStartsOnMonday);
-  var monday = selector.querySelector('.monday');
-  var sunday = selector.querySelector('.sunday');
-  var list = monday.parentNode;
-  if (weekStartsOnMonday) {
-    debug('Monday, Tuesday...');
-    list.insertBefore(monday, list.childNodes[0]); // monday is the first
-    list.appendChild(sunday); // sunday is the last
-  } else {
-    debug('Sunday, Monday...');
-    list.insertBefore(sunday, list.childNodes[0]); // sunday is the first
-    list.insertBefore(monday, sunday.nextSibling); // monday is the second
-  }
-}
-
-var Common = {
-
-  isValidICCID: function(iccid) {
-    return typeof iccid === 'string' && iccid.length;
-  },
-
-  // Waits for DOMContentLoaded and messagehandlerready, then call the callback
-  waitForDOMAndMessageHandler: function(window, callback) {
-    var docState = document.readyState;
-    var DOMAlreadyLoaded = docState === 'complete' ||
-                           docState === 'interactive';
-    var remainingSteps = DOMAlreadyLoaded ? 1 : 2;
-    debug('DOMAlreadyLoaded:', DOMAlreadyLoaded);
-    debug('Waiting for', remainingSteps, 'events to start!');
-
-    function checkReady(evt) {
-      debug(evt.type, 'event received!');
-      remainingSteps--;
-
-      // Once all events are received, execute the callback
-      if (!remainingSteps) {
-        window.removeEventListener('DOMContentLoaded', checkReady);
-        window.removeEventListener('messagehandlerready', checkReady);
-        debug('DOMContentLoaded and messagehandlerready received. Starting');
-        callback();
-      }
-    }
-
-    window.addEventListener('DOMContentLoaded', checkReady);
-    window.addEventListener('messagehandlerready', checkReady);
-  },
-
-  // Checks for a SIM change
-  checkSIMChange: function(callback, onerror) {
-    asyncStorage.getItem('lastSIM', function _compareWithCurrent(lastSIM) {
-      var currentSIM = window.navigator.mozMobileConnection.iccInfo.iccid;
-      if (currentSIM === null) {
-        console.error('Impossible: or we don\'t have SIM (so this method ' +
-                      'should not be called) or the RIL is returning null ' +
-                      'from time to time when checking ICCID.');
-
-        if (typeof onerror === 'function') {
-          onerror();
-        }
-        return;
-      }
-
-      if (lastSIM !== currentSIM) {
-        debug('SIM change!');
-        MindGap.updateTagList(currentSIM);
-      }
-      ConfigManager.requestSettings(function _onSettings(settings) {
-        if (settings.nextReset) {
-          setNextReset(settings.nextReset, callback);
-          return;
-        }
-
-        if (callback) {
-          callback();
-        }
-      });
-    });
-  },
-
-  startFTE: function() {
-    window.location = '/fte.html';
-  },
-
-  startApp: function() {
-    window.location = '/index.html';
-  },
-
-  closeApplication: function() {
-    window.close();
-  },
-
-  modalAlert: function(message) {
-    alert(message);
-  }
-};</textarea>
+  return '<time>' + formatTime(timestampA) + '</time> – ' +
+         '<time>' + formatTime(timestampB) + '</time>';
+}</textarea>
   </div>
 </div>
 

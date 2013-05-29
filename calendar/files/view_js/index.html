@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">68.25</p>
+      <p class="stat">68.70</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">247</p>
+      <p class="stat">221</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">44.13</p>
+      <p class="stat">41.87</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.30</p>
+      <p class="stat">1.17</p>
     </div>
   </div>
 </div>
@@ -91,8 +91,6 @@
 <div class="container">
   <div class="row">
     <textarea id="file-source" class="span12">(function(window) {
-  var DEFAULT_ERROR_ID = 'error-default';
-
   /**
    * Very simple base class for views.
    * Provides functionality for active/inactive.
@@ -149,23 +147,6 @@
 
     get errors() {
       return this._findElement('errors');
-    },
-
-    /**
-     * Creates a string id for a given model.
-     *
-     *    view.idForModel('foo-', { _id: 1 }); // => foo-1
-     *    view.idForModel('foo-', '2'); // => foo-2
-     *
-     * @param {String} prefix of string.
-     * @param {Object|String|Numeric} objectOrString representation of model.
-     */
-    idForModel: function(prefix, objectOrString) {
-      prefix += (typeof(objectOrString) === 'object') ?
-        objectOrString._id :
-        objectOrString;
-
-      return prefix;
     },
 
     calendarId: function(input) {
@@ -232,14 +213,7 @@
      * @param {String} selector name as defined in selectors.
      * @param {Boolean} all true when to find all elements. (default false).
      */
-    _findElement: function(name, all, element) {
-      if (typeof(all) === 'object') {
-        element = all;
-        all = false;
-      }
-
-      element = element || document;
-
+    _findElement: function(name, all) {
       var cacheName;
       var selector;
 
@@ -253,9 +227,9 @@
 
         if (!this[cacheName]) {
           if (all) {
-            this[cacheName] = element.querySelectorAll(selector);
+            this[cacheName] = document.querySelectorAll(selector);
           } else {
-            this[cacheName] = element.querySelector(selector);
+            this[cacheName] = document.querySelector(selector);
           }
         }
 
@@ -285,8 +259,8 @@
       var len = list.length;
 
       for (; i < len; i++) {
-        var name = list[i].l10nID || list[i].name;
-        errors += _('error-' + name) || _(DEFAULT_ERROR_ID);
+        var name = list[i].name;
+        errors += _('error-' + name) || name;
       }
 
       // populate error and display it.

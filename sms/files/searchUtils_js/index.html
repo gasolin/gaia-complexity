@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title></title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <!--[if lt IE 9]>
+  <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+
+  <link href="../../assets/css/vendor/morris.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/bootstrap-3.0.0-wip.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/font-awesome-ie7.css" rel="stylesheet">
+  <link href="../../assets/css/vendor/codemirror.css" rel="stylesheet">
+  <link href="../../assets/css/plato.css" rel="stylesheet">
+  <link href="../../assets/css/plato-file.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+  <div class="container">
+    <a class="brand" href="http://github.com/jsoverson/plato">Plato on Github</a>
+    <ul class="nav">
+      <li>
+        <a href="../../index.html">Report Home</a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="jumbotron">
+  <div class="container">
+    <h1>searchUtils.js</h1>
+  </div>
+</div>
+
+<div class="container aggregate-stats">
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
+      <p class="stat">57.47</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
+      <p class="stat">113</p>
+    </div>
+  </div>
+  <div class="row historical">
+    <div class="span6">
+      <p id="chart_historical_maint" class="chart"></p>
+    </div>
+    <div class="span6">
+      <p id="chart_historical_sloc" class="chart"></p>
+    </div>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
+      <p class="stat">24.93</p>
+    </div>
+    <div class="span6">
+      <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
+      <p class="stat">1.12</p>
+    </div>
+  </div>
+</div>
+
+<div class="container charts">
+  <div class="row">
+    <h2 class="header">Function weight</h2>
+  </div>
+  <div class="row">
+    <div class="span6">
+      <h3 class="chart-header">By Complexity <a href="http://en.wikipedia.org/wiki/Cyclomatic_complexity"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="This metric counts the number of distinct paths through a block of code. Lower values are better." data-original-title="Cyclomatic Complexity"></i></a></h3>
+      <div id="fn-by-complexity" class="stat"></div>
+    </div>
+    <div class="span6">
+      <h3 class="chart-header">By SLOC  <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h3>
+      <div id="fn-by-sloc" class="stat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <textarea id="file-source" class="span12">'use strict';
+
+// We move the search utility function to independent js to retain the search
+// ablity. Developer can include this search util when needed.
+// How to use :
+//   SearchUtils.renderResultView(keyword, target_view, contact_updater)
+// and it will replace the view with search result list.
+
+var SearchUtils = {
+  createHighlightHTML: function su_createHighlightHTML(text, regExp, style) {
+    var sliceStrs = text.split(regExp);
+    var patterns = text.match(regExp);
+    if (!patterns) {
+      return Utils.escapeHTML(text);
+    }
+    var str = '';
+    for (var i = 0; i < patterns.length; i++) {
+      str = str +
+          Utils.escapeHTML(sliceStrs[i]) + '<span class="' + style + '">' +
+          Utils.escapeHTML(patterns[i]) + '</span>';
+    }
+    str += Utils.escapeHTML(sliceStrs.pop());
+    return str;
+  },
+
+  createNewConversation: function su_createNewConversation(conversation, reg) {
+    var dataName = escapeHTML(conversation.name || conversation.num, true);
+    var name = escapeHTML(conversation.name);
+    var bodyText = conversation.body.split('\n')[0];
+    var bodyHTML = this.createHighlightHTML(bodyText, reg);
+
+    return '<div class="item">' +
+           '  <label class="fake-checkbox">' +
+           '    <input data-num="' +
+                conversation.num + '"' + 'type="checkbox"/>' +
+           '    <span></span>' +
+           '  </label>' +
+           '  <a href="#num=' + conversation.num + '"' +
+           '     data-num="' + conversation.num + '"' +
+           '     data-name="' + dataName + '"' +
+           '     data-notempty="' +
+                 (conversation.timestamp ? 'true' : '') + '"' +
+           '     class="' +
+                 (conversation.unreadCount > 0 ? 'unread' : '') + '">' +
+           '    <span class="unread-mark">' +
+           '      <i class="i-unread-mark"></i>' +
+           '    </span>' +
+           '    <div class="name">' + name + '</div>' +
+                (!conversation.timestamp ? '' :
+           '    <div class="time ' +
+                  (conversation.unreadCount > 0 ? 'unread' : '') +
+           '      " data-time="' + conversation.timestamp + '">' +
+                  giveHourMinute(conversation.timestamp) +
+           '    </div>') +
+           '    <div class="msg">"' + bodyHTML + '"</div>' +
+           '    <div class="unread-tag"></div>' +
+           '    <div class="photo"></div>' +
+           '  </a>' +
+           '</div>';
+  },
+
+  renderResultView: function su_renderResultView(str, view, contactUpdater) {
+    if (!str) {
+      // Leave the empty view when no text in the input.
+      view.innerHTML = '';
+      return;
+    }
+
+    var self = this;
+    MessageManager.getMessages(function getMessagesCallback(messages) {
+      str = str.replace(/[.*+?^${}()|[\]\/\\]/g, '\\$&');
+      var fragment = '';
+      var searchedNum = {};
+      for (var i = 0; i < messages.length; i++) {
+        var reg = new RegExp(str, 'ig');
+        var message = messages[i];
+        var htmlContent = message.body.split('\n')[0];
+        var num = message.delivery == 'received' ?
+                  message.sender : message.receiver;
+        var read = message.read;
+
+        if (searchedNum[num])
+          searchedNum[num].unreadCount += !message.read ? 1 : 0;
+
+        if (!reg.test(htmlContent) || searchedNum[num])
+          continue;
+
+        var msgProperties = {
+          'hidden': false,
+          'body': message.body,
+          'name': num,
+          'num': num,
+          'timestamp': message.timestamp.getTime(),
+          'unreadCount': !read ? 1 : 0,
+          'id': i
+        };
+        searchedNum[num] = msgProperties;
+        var msg = self.createNewConversation(msgProperties, reg);
+        fragment += msg;
+
+      }
+      view.innerHTML = fragment;
+
+      // Update the conversation sender/receiver name with contact data.
+      if (contactUpdater) {
+        var conversationList = view.querySelectorAll('a');
+        for (var i = 0; i < conversationList.length; i++) {
+          contactUpdater(conversationList[i]);
+        }
+      }
+    }, null);
+  }
+};</textarea>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <p>.</p>
+  </div>
+</footer>
+
+<script type="text/html" id="complexity-popover-template">
+  <div class="complexity-notice">
+    Complexity : {{ complexity.cyclomatic }} <br>
+    Length : {{ complexity.halstead.length }} <br>
+    Difficulty : {{ complexity.halstead.difficulty.toFixed(2) }} <br>
+    Est # bugs : {{ complexity.halstead.bugs.toFixed(2) }}<br>
+  </div>
+</script>
+
+<script type="text/javascript" src="../../assets/scripts/bundles/core-bundle.js"></script>
+<script type="text/javascript" src="../../assets/scripts/bundles/codemirror.js"></script>
+<script type="text/javascript" src="../../assets/scripts/codemirror.markpopovertext.js"></script>
+<script type="text/javascript" src="report.js"></script>
+<script type="text/javascript" src="report.history.js"></script>
+<script type="text/javascript" src="../../assets/scripts/plato-file.js"></script>
+</body>
+</html>
