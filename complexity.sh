@@ -1,7 +1,8 @@
-#git remote update
-#git merge upstream/master
 cd ..
-repo sync
+# always analyze with latest master
+git remote update
+git merge upstream/master
+#repo sync
 
 plato -d reports/bluetooth -t "Bluetooth Source Analysis" apps/bluetooth/js/*.js
 plato -d reports/browser -t "Browser Source Analysis" apps/browser/js/*.js

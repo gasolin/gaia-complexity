@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">67.48</p>
+      <p class="stat">67.75</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">951</p>
+      <p class="stat">930</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">66.31</p>
+      <p class="stat">66.82</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">9.35</p>
+      <p class="stat">9.20</p>
     </div>
   </div>
 </div>
@@ -123,7 +123,6 @@ var playing = false;
 var playerShowing = false;
 
 // keep the screen on when playing
-var screenLock;
 var endedTimer;
 
 // same thing for the controls
@@ -469,20 +468,16 @@ function createThumbnailItem(videonum) {
 
 function detailsOverflowHandler(e) {
   var el = e.target;
-  var max = { portrait: 45, landscape: 175 };
   var title = el.firstElementChild;
-  var orientation = window.innerWidth > window.innerHeight ?
-    'landscape' : 'portrait';
-  var end = title.textContent.length > max[orientation] ?
-    max[orientation] : -4;
-  if (title.textContent.length >= 4) {
+  if (title.textContent.length > 5) {
+    var max = (window.innerWidth > window.innerHeight) ? 175 : 45;
+    var end = title.textContent.length > max ? max - 1 : -5;
     title.textContent = title.textContent.slice(0, end) + '\u2026';
+    // Force element to be repainted to enable 'overflow' event
+    // Can't repaint without the timeout maybe a gecko bug.
+    el.style.overflow = 'visible';
+    setTimeout(function() { el.style.overflow = 'hidden'; });
   }
-
-  // Force element to be repainted to enable 'overflow' event
-  // Can't repaint without the timeout maybe a gecko bug.
-  el.style.overflow = 'visible';
-  setTimeout(function() { el.style.overflow = 'hidden'; });
 }
 
 function thumbnailClickHandler() {
@@ -659,12 +654,6 @@ function hidePlayer(updateMetadata) {
   dom.player.pause();
 
   function completeHidingPlayer() {
-    // Allow the screen to blank now.
-    if (screenLock) {
-      screenLock.unlock();
-      screenLock = null;
-    }
-
     // switch to the video gallery view
     dom.fullscreenView.classList.add('hidden');
     dom.thumbnailSelectView.classList.add('hidden');
@@ -764,10 +753,6 @@ function play() {
   // Start playing
   dom.player.play();
   playing = true;
-
-  // Don't let the screen go to sleep
-  if (!screenLock)
-    screenLock = navigator.requestWakeLock('screen');
 }
 
 function pause() {
@@ -777,12 +762,6 @@ function pause() {
   // Stop playing the video
   dom.player.pause();
   playing = false;
-
-  // Let the screen go to sleep
-  if (screenLock) {
-    screenLock.unlock();
-    screenLock = null;
-  }
 }
 
 // Update the progress bar and play head as the video plays

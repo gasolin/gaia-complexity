@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">62.05</p>
+      <p class="stat">62.38</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">1028</p>
+      <p class="stat">1065</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">79.62</p>
+      <p class="stat">79.91</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">9.32</p>
+      <p class="stat">9.56</p>
     </div>
   </div>
 </div>
@@ -177,9 +177,15 @@ var LockScreen = {
   triggeredTimeoutId: 0,
 
   /*
-  * Interval ID for elastic of curve and arrow
+  * Interval ID for elastic of curve and arrow (null means the animation is
+  * not running).
   */
-  elasticIntervalId: 0,
+  elasticIntervalId: null,
+
+  /*
+  * True if the animation should be running right now.
+  */
+  elasticEnabled: false,
 
   /*
   * elastic animation interval
@@ -218,6 +224,7 @@ var LockScreen = {
     /* Status changes */
     window.addEventListener('volumechange', this);
     window.addEventListener('screenchange', this);
+    document.addEventListener('visibilitychange', this);
 
     /* Gesture */
     this.area.addEventListener('mousedown', this);
@@ -380,6 +387,11 @@ var LockScreen = {
 
         this.lockIfEnabled(true);
         break;
+
+      case 'visibilitychange':
+        this.visibilityChanged();
+        break;
+
       case 'voicechange':
       case 'cardstatechange':
       case 'iccinfochange':
@@ -1093,12 +1105,37 @@ var LockScreen = {
     });
   },
 
-  setElasticEnabled: function ls_setElasticEnabled(value) {
-    clearInterval(this.elasticIntervalId);
-    if (value) {
-      this.elasticIntervalId =
-        setInterval(this.playElastic.bind(this), this.ELASTIC_INTERVAL);
+  stopElasticTimer: function ls_stopElasticTimer() {
+    // Stop the timer if its running.
+    if (this.elasticIntervalId != null) {
+      clearInterval(this.elasticIntervalId);
+      this.elasticIntervalId = null;
     }
+  },
+
+  startElasticTimer: function ls_startElasticTimer() {
+    this.elasticIntervalId =
+      setInterval(this.playElastic.bind(this), this.ELASTIC_INTERVAL);
+  },
+
+  setElasticEnabled: function ls_setElasticEnabled(value) {
+    // Remember the state we want to be in.
+    this.elasticEnabled = value;
+    // If the timer is already running, stop it.
+    this.stopElasticTimer();
+    // If the document is visible, go ahead and start the timer now.
+    if (value && !document.hidden) {
+      this.startElasticTimer();
+    }
+  },
+
+  visibilityChanged: function ls_visibilityChanged() {
+    // Stop the timer when we go invisible and
+    // re-start it when we become visible.
+    if (document.hidden)
+      this.stopElasticTimer();
+    else if (this.elasticEnabled)
+      this.startElasticTimer();
   },
 
   playElastic: function ls_playElastic() {

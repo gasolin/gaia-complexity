@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">66.86</p>
+      <p class="stat">67.81</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">399</p>
+      <p class="stat">367</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">38.38</p>
+      <p class="stat">31.91</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">3.83</p>
+      <p class="stat">3.33</p>
     </div>
   </div>
 </div>
@@ -113,7 +113,6 @@ var UIManager = {
     'pin-label',
     'pin-retries-left',
     'pin-input',
-    'fake-pin-input',
     'pin-error',
     'skip-pin-button',
     'unlock-sim-button',
@@ -122,21 +121,17 @@ var UIManager = {
     'puk-label',
     'puk-retries-left',
     'puk-input',
-    'fake-puk-input',
     'puk-info',
     'puk-error',
     'newpin-input',
-    'fake-newpin-input',
     'newpin-error',
     'confirm-newpin-input',
-    'fake-confirm-newpin-input',
     'confirm-newpin-error',
     // XCK Screen
     'xckcode-screen',
     'xck-label',
     'xck-retries-left',
     'xck-input',
-    'fake-xck-input',
     'xck-error',
     // Import contacts
     'sim-import-button',
@@ -183,18 +178,8 @@ var UIManager = {
     this.timeConfigurationLabel.innerHTML = f.localeFormat(currentDate, format);
     this.dateConfigurationLabel.innerHTML = currentDate.
       toLocaleFormat('%Y-%m-%d');
-    // Add events to DOM
-    this.fakePinInput.addEventListener('keypress',
-                                       this.fakeInputValues.bind(this));
-    this.fakePukInput.addEventListener('keypress',
-                                       this.fakeInputValues.bind(this));
-    this.fakeNewpinInput.addEventListener('keypress',
-                                          this.fakeInputValues.bind(this));
-    this.fakeConfirmNewpinInput.addEventListener('keypress',
-                                              this.fakeInputValues.bind(this));
-    this.fakeXckInput.addEventListener('keypress',
-                                       this.fakeInputValues.bind(this));
 
+    // Add events to DOM
     this.simImportButton.addEventListener('click', this);
     this.sdImportButton.addEventListener('click', this);
     this.skipPinButton.addEventListener('click', this);
@@ -334,23 +319,6 @@ var UIManager = {
     var tzRegion = document.getElementById('tz-region');
     var tzCity = document.getElementById('tz-city');
     tzSelect(tzRegion, tzCity, this.setTimeZone, this.setTimeZone);
-  },
-
-  fakeInputValues: function ui_fakeInputValues(event) {
-    var fakeInput = event.target;
-    var code = event.charCode;
-    if (code === 0 || (code >= 0x30 && code <= 0x39)) {
-      var displayInput =
-              document.getElementById(fakeInput.id.substr(5, fakeInput.length));
-      var content = displayInput.value;
-      if (code === 0) { // backspace
-        content = content.substr(0, content.length - 1);
-      } else {
-        content += String.fromCharCode(code);
-      }
-      displayInput.value = content;
-    }
-    fakeInput.value = '';
   },
 
   handleEvent: function ui_handleEvent(event) {

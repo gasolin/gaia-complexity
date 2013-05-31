@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.17</p>
+      <p class="stat">65.30</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">556</p>
+      <p class="stat">569</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">78.20</p>
+      <p class="stat">82.68</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">3.83</p>
+      <p class="stat">3.90</p>
     </div>
   </div>
 </div>
@@ -200,7 +200,7 @@
       CEWarningVol = volume;
     });
 
-    window.asyncStorage.getItem(CACHE_CETIME,
+    window.asyncStorage.getItem(CACHE_CETIMES,
       function onGettingContentVolume(value) {
         if (!value) {
           return;
@@ -295,7 +295,7 @@
          CEAccumulatorTime = CEAccumulatorTime +
          (parseInt(new Date().getTime(), 10) - CETimestamp);
       }
-      window.asyncStorage.setItem(CACHE_CETIME, CEAccumulatorTime);
+      window.asyncStorage.setItem(CACHE_CETIMES, CEAccumulatorTime);
     }
   }
 
@@ -366,34 +366,47 @@
   // OFF -> VIBRATION -> MUTE
   var muteState = 'OFF';
 
-  for (var channel in currentVolume) {
-    (function(channel) {
-      var setting = 'audio.volume.' + channel;
-      SettingsListener.observe(setting, 5, function onSettingsChange(volume) {
-        if (pendingRequestCount)
-          return;
+  /*
+    Bind setting handlers
+    @param {Function} callback Callback being called after each setting handler
+                               has been invoked once.
+   */
+  (function bindVolumeSettingsHandlers(callback) {
+    var callsMade = 0;
+    var callbacksReceived = 0;
 
-        var max = MAX_VOLUME[channel];
-        currentVolume[channel] =
+    for (var channel in currentVolume) {
+      callsMade++;
+
+      (function(channel) {
+        var setting = 'audio.volume.' + channel;
+        SettingsListener.observe(setting, 5, function onSettingsChange(volume) {
+          // Initial loaded setting should always pass through (one per channel)
+          if (pendingRequestCount)
+            return;
+
+          var max = MAX_VOLUME[channel];
+          currentVolume[channel] =
             parseInt(Math.max(0, Math.min(max, volume)), 10);
 
-        if (channel == 'content' && inited && volume > 0) {
-          leaveSilentMode('content',
-                          /* skip volume restore */ true);
-        } else if (channel == 'notification' && volume > 0) {
-          leaveSilentMode('notification',
-                          /* skip volume restore */ true);
-        } else if (channel == 'content' && volume == 0) {
-          // Enter silent mode when notification volume is 0
-          // no matter who sets this value.
-          enterSilentMode('notification');
-        }
+          if (channel === 'content' && inited && volume > 0) {
+            leaveSilentMode('content',
+                            /* skip volume restore */ true);
+          } else if (channel === 'notification' && volume > 0) {
+            leaveSilentMode('notification',
+                            /* skip volume restore */ true);
+          } else if (channel === 'content' && volume == 0) {
+            // Enter silent mode when notification volume is 0
+            // no matter who sets this value.
+            enterSilentMode('notification');
+          }
 
-        if (!inited)
-          fetchCachedVolume();
-      });
-    })(channel);
-  }
+          if (!inited && ++callbacksReceived === callsMade)
+            callback();
+        });
+      })(channel);
+    }
+  })(fetchCachedVolume);
 
   SettingsListener.observe('vibration.enabled', true, function(vibration) {
     if (pendingRequestCount)
