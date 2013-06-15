@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.69</p>
+      <p class="stat">65.20</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">495</p>
+      <p class="stat">504</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">46.58</p>
+      <p class="stat">48.30</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">4.33</p>
+      <p class="stat">4.41</p>
     </div>
   </div>
 </div>
@@ -113,7 +113,7 @@
   // inside an iframe (no standalone mode), all the messages should be attended
   // so we can conclude **there is nothing to do**.
   if (inStandAloneMode() && window.history.length > 1) {
-    debug('Nothing to do, closing...');
+    debug('Nothing to do in message handler, returning to app...');
     window.history.back();
   }
 
@@ -124,12 +124,9 @@
   // Close if in standalone mode
   var closing;
   function closeIfProceeds() {
-    debug('Trying to close...');
+    debug('Checking for closing...');
     if (inStandAloneMode()) {
-      closing = setTimeout(function _close() {
-        window.close();
-        debug('Closing message handler');
-      }, 1000);
+      closing = Common.closeApplication();
     }
   }
 
@@ -286,6 +283,9 @@
 
       // No need for notification
       } else {
+        if (typeof callback === 'function') {
+          setTimeout(callback);
+        }
         return;
       }
       debug('Notification type:', type);
@@ -414,9 +414,17 @@
       navigator.mozSetMessageHandler('sms-received', function _onSMS(sms) {
         clearTimeout(closing);
         ConfigManager.requestAll(function _onInfo(configuration, settings) {
+
+          var isBalanceResponse = configuration.balance &&
+                                  configuration.balance.senders
+                                    .indexOf(sms.sender) > -1;
+
+          var isTopupResponse = configuration.topup &&
+                                configuration.topup.senders
+                                  .indexOf(sms.sender) > -1;
+
           // Non expected SMS
-          if (configuration.balance.senders.indexOf(sms.sender) === -1 &&
-              configuration.topup.senders.indexOf(sms.sender) === -1) {
+          if (!isBalanceResponse && !isTopupResponse) {
             closeIfProceeds();
             return;
           }
@@ -451,6 +459,7 @@
           }
 
           if (!isBalance && !isConfirmation && !isError) {
+            closeIfProceeds();
             return;
           }
 
@@ -458,7 +467,7 @@
 
           if (isBalance) {
             // Compose new balance
-            var integer = balanceData[1];
+            var integer = balanceData[1].replace(/[^0-9]/g, '');
             var decimal = balanceData[2] || '0';
             var newBalance = {
               balance: parseFloat(integer + '.' + decimal),

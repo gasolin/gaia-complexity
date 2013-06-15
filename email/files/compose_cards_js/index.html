@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">62.87</p>
+      <p class="stat">62.66</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">670</p>
+      <p class="stat">678</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">71.95</p>
+      <p class="stat">72.50</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">7.23</p>
+      <p class="stat">7.34</p>
     </div>
   </div>
 </div>
@@ -179,7 +179,7 @@ function ComposeCard(domNode, mode, args) {
   }
   // Add attachments area event listener
   var attachmentBtns =
-    domNode.getElementsByClassName('cmp-attachment-container');
+    domNode.getElementsByClassName('cmp-attachment-btn');
   for (var i = 0; i < attachmentBtns.length; i++) {
     attachmentBtns[i].addEventListener('click',
                                        this.onAttachmentAdd.bind(this));
@@ -503,7 +503,7 @@ ComposeCard.prototype = {
 
   insertAttachments: function() {
     var attachmentsContainer =
-      this.domNode.getElementsByClassName('cmp-attachments-container')[0];
+      this.domNode.getElementsByClassName('cmp-attachment-container')[0];
 
     if (this.composer.attachments && this.composer.attachments.length) {
       // Clean the container before we insert the new attachments
@@ -572,8 +572,10 @@ ComposeCard.prototype = {
   updateAttachmentsSize: function() {
     var attachmentLabel =
       this.domNode.getElementsByClassName('cmp-attachment-label')[0];
+    var attachmentTotal =
+      this.domNode.getElementsByClassName('cmp-attachment-total')[0];
     var attachmentsSize =
-      this.domNode.getElementsByClassName('cmp-attachments-size')[0];
+      this.domNode.getElementsByClassName('cmp-attachment-size')[0];
 
     attachmentLabel.textContent =
       mozL10n.get('compose-attachments',
@@ -585,7 +587,7 @@ ComposeCard.prototype = {
       // When there is no attachments, hide the container
       // to keep the style of empty attachments
       var attachmentsContainer =
-        this.domNode.getElementsByClassName('cmp-attachments-container')[0];
+        this.domNode.getElementsByClassName('cmp-attachment-container')[0];
 
       attachmentsContainer.classList.add('collapsed');
     }
@@ -597,6 +599,12 @@ ComposeCard.prototype = {
 
       attachmentsSize.textContent = prettyFileSize(totalSize);
     }
+
+    // Only display the total size when the number of attachments is more than 1
+    if (this.composer.attachments.length > 1)
+      attachmentTotal.classList.remove('collapsed');
+    else
+      attachmentTotal.classList.add('collapsed');
   },
 
   onClickRemoveAttachment: function(node, attachment) {

@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">64.45</p>
+      <p class="stat">64.86</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">165</p>
+      <p class="stat">182</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">44.46</p>
+      <p class="stat">43.35</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">1.05</p>
+      <p class="stat">1.12</p>
     </div>
   </div>
 </div>
@@ -93,6 +93,7 @@
     <textarea id="file-source" class="span12">(function(window) {
 
   const NEXT_TICK = 'calendar-next-tick';
+  var NUMERIC = /^([0-9]+)$/;
   var nextTickStack = [];
 
   var hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -186,6 +187,22 @@
       }
 
       return 0;
+    },
+
+    /**
+     * Ermahgerd!
+     *
+     * @param {number|string} id Some id.
+     */
+    probablyParseInt: function(id) {
+      // by an unfortunate decision we have both
+      // string ids and number ids.. based on the
+      // input we run parseInt
+      if (id.match && id.match(NUMERIC)) {
+        return parseInt(id, 10);
+      }
+
+      return id;
     },
 
     /**

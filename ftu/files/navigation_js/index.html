@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">61.60</p>
+      <p class="stat">61.32</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">290</p>
+      <p class="stat">297</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">44.20</p>
+      <p class="stat">44.46</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.53</p>
+      <p class="stat">2.60</p>
     </div>
   </div>
 </div>
@@ -117,15 +117,20 @@ var steps = {
   },
   5: {
     onlyForward: false,
-    hash: '#import_contacts',
+    hash: '#geolocation',
     requireSIM: false
   },
   6: {
     onlyForward: false,
-    hash: '#welcome_browser',
+    hash: '#import_contacts',
     requireSIM: false
   },
   7: {
+    onlyForward: false,
+    hash: '#welcome_browser',
+    requireSIM: false
+  },
+  8: {
     onlyForward: false,
     hash: '#browser_privacy',
     requireSIM: false
@@ -134,7 +139,6 @@ var steps = {
 
 // Retrieve number of steps for navigation
 var numSteps = Object.keys(steps).length;
-var _;
 
 var Navigation = {
   currentStep: 1,
@@ -279,6 +283,9 @@ var Navigation = {
         }
         // Avoid refresh when connecting
         WifiManager.scan(WifiUI.renderNetworks);
+        break;
+      case '#geolocation':
+        UIManager.mainTitle.innerHTML = _('geolocation');
         break;
       case '#date_and_time':
         UIManager.mainTitle.innerHTML = _('dateAndTime');

@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">57.56</p>
+      <p class="stat">57.37</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">415</p>
+      <p class="stat">427</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">20.57</p>
+      <p class="stat">20.76</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.02</p>
+      <p class="stat">2.05</p>
     </div>
   </div>
 </div>
@@ -416,11 +416,20 @@
       },
 
       'Provider.Local': {
-        group: ['Provider.Abstract'],
+        group: [
+          'Provider.Abstract',
+          'EventMutations'
+        ],
 
         js: [
           'ext/uuid',
-          'provider/local',
+          'provider/local'
+        ]
+      },
+
+      'EventMutations': {
+        js: [
+          'ext/uuid',
           'event_mutations'
         ]
       },
@@ -432,7 +441,10 @@
       },
 
       'Provider.CaldavPullEvents': {
-        js: ['provider/caldav_pull_events']
+        js: [
+          'ext/uuid',
+          'provider/caldav_pull_events'
+        ]
       },
 
       'Provider.Caldav': {

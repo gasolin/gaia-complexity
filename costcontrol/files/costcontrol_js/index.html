@@ -49,7 +49,7 @@
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">469</p>
+      <p class="stat">483</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">48.22</p>
+      <p class="stat">48.38</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">3.41</p>
+      <p class="stat">3.52</p>
     </div>
   </div>
 </div>
@@ -104,7 +104,6 @@
  */
 
 var CostControl = (function() {
-
   'use strict';
 
   var costcontrol;
@@ -155,8 +154,7 @@ var CostControl = (function() {
 
   // Check if a SMS matches the form of a balance request
   function isBalanceRequestSMS(sms, configuration) {
-    return sms.body === configuration.balance.text &&
-           sms.receiver === configuration.balance.destination;
+    return sms.receiver === configuration.balance.destination;
   }
 
   // Perform a request. They must be specified via a request object with:
@@ -179,8 +177,9 @@ var CostControl = (function() {
       switch (requestObj.type) {
         case 'balance':
           // Check service
-          var issues = getServiceIssues(settings);
-          if (issues) {
+          var issues = getServiceIssues(configuration, settings);
+          var canBeIgnoredByForcing = (issues === 'minimum_delay' && force);
+          if (issues && !canBeIgnoredByForcing) {
             result.status = 'error';
             result.details = issues;
             result.data = settings.lastBalance;
@@ -203,9 +202,9 @@ var CostControl = (function() {
 
           // Check in-progress
           var isWaiting = settings.waitingForBalance !== null;
-          var timeout = checkEnoughDelay(BALANCE_TIMEOUT,
-                                         settings.lastBalanceRequest);
-          if (isWaiting && !timeout && !force) {
+          var timeout = Toolkit.checkEnoughDelay(BALANCE_TIMEOUT,
+                                                 settings.lastBalanceRequest);
+          if (isWaiting && !timeout) {
             result.status = 'in_progress';
             result.data = settings.lastBalance;
             if (callback) {
@@ -244,8 +243,8 @@ var CostControl = (function() {
 
           // Check in-progress
           var isWaiting = settings.waitingForTopUp !== null;
-          var timeout = checkEnoughDelay(BALANCE_TIMEOUT,
-                                         settings.lastTopUpRequest);
+          var timeout = Toolkit.checkEnoughDelay(BALANCE_TIMEOUT,
+                                                 settings.lastTopUpRequest);
           if (isWaiting && !timeout && !force) {
             result.status = 'in_progress';
             result.data = settings.lastDataUsage;
@@ -278,15 +277,8 @@ var CostControl = (function() {
     });
   }
 
-  var airplaneMode = false;
-  SettingsListener.observe('ril.radio.disabled', false,
-    function _onValue(value) {
-      airplaneMode = value;
-    }
-  );
-
   // Check service status and return the most representative issue if there is
-  function getServiceIssues(settings) {
+  function getServiceIssues(configuration, settings) {
     if (airplaneMode) {
       return 'airplane_mode';
     }
@@ -308,6 +300,16 @@ var CostControl = (function() {
     var voice = connection.voice;
     if (voice.signalStrength === null) {
       return 'no_coverage';
+    }
+
+    if (configuration.balance.minimum_delay) {
+      var isMinimumDelayHonored = Toolkit.checkEnoughDelay(
+        configuration.balance.minimum_delay,
+        settings.lastBalanceRequest
+      );
+      if (!isMinimumDelayHonored) {
+        return 'minimum_delay';
+      }
     }
 
     return '';
@@ -569,7 +571,19 @@ var CostControl = (function() {
     return [output, accum];
   }
 
-  return { getInstance: getInstance };
+  var airplaneMode = false;
+  function init() {
+    SettingsListener.observe('ril.radio.disabled', false,
+      function _onValue(value) {
+        airplaneMode = value;
+      }
+    );
+  }
+
+  return {
+    init: init,
+    getInstance: getInstance
+  };
 
 }());</textarea>
   </div>

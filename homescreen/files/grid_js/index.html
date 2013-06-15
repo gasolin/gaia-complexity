@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">64.52</p>
+      <p class="stat">64.72</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">1305</p>
+      <p class="stat">1320</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">103.97</p>
+      <p class="stat">102.46</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">11.46</p>
+      <p class="stat">11.68</p>
     </div>
   </div>
 </div>
@@ -737,29 +737,46 @@ var GridManager = (function() {
       goToPage(currentPage);
   }
 
+  function pageOverflowed(page) {
+    return page.getNumIcons() > MAX_ICONS_PER_PAGE;
+  }
+
   /*
    * Checks number of apps per page
    *
    * It propagates icons in order to avoiding overflow in
    * pages with a number of apps greater that the maximum
    */
-  function ensurePagesOverflow() {
-    pages.forEach(function checkIsOverflow(page, index) {
-      // ignore the landing page
-      if (index < numberOfSpecialPages) {
-        return;
-      }
+  function ensurePagesOverflow(callback) {
+    ensurePageOverflow(numberOfSpecialPages, callback);
+  }
 
-      // if the page is not full
-      while (page.getNumIcons() > MAX_ICONS_PER_PAGE) {
-        var propagateIco = page.popIcon();
-        if (index === pages.length - 1) {
-          pageHelper.addPage([propagateIco]); // new page
-        } else {
-          pages[index + 1].prependIcon(propagateIco); // next page
-        }
-      }
-    });
+  function ensurePageOverflow(index, callback) {
+    var page = pages[index];
+    if (!page) {
+      callback();
+      return; // There are not more pages
+    }
+
+    if (!pageOverflowed(page)) {
+      ensurePageOverflow(index + 1, callback);
+      return;
+    }
+
+    var propagateIco = page.popIcon();
+    if (index === pages.length - 1) {
+      propagateIco.loadRenderedIcon(function loaded(url) {
+        pageHelper.addPage([propagateIco]); // new page
+        window.URL.revokeObjectURL(url);
+        ensurePageOverflow(pageOverflowed(page) ? index : index + 1, callback);
+      });
+    } else {
+      propagateIco.loadRenderedIcon(function loaded(url) {
+        pages[index + 1].prependIcon(propagateIco); // next page
+        window.URL.revokeObjectURL(url);
+        ensurePageOverflow(pageOverflowed(page) ? index : index + 1, callback);
+      });
+    }
   }
 
   var pageHelper = {
@@ -993,8 +1010,7 @@ var GridManager = (function() {
         }
       }
 
-      ensurePagesOverflow();
-      removeEmptyPages();
+      ensurePagesOverflow(removeEmptyPages);
     };
   }
 
@@ -1300,8 +1316,7 @@ var GridManager = (function() {
       dragging = false;
       delete document.body.dataset.transitioning;
       ensurePanning();
-      ensurePagesOverflow();
-      removeEmptyPages();
+      ensurePagesOverflow(removeEmptyPages);
     },
 
     /*

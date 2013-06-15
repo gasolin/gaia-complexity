@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">61.42</p>
+      <p class="stat">61.36</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">1983</p>
+      <p class="stat">2017</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">107.27</p>
+      <p class="stat">108.55</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">16.02</p>
+      <p class="stat">16.33</p>
     </div>
   </div>
 </div>
@@ -549,9 +549,20 @@ var WindowManager = (function() {
     dispatchEvent(new CustomEvent('appclose'));
   }
 
-  windows.addEventListener('mozbrowserloadend', function firstpaint(evt) {
+  windows.addEventListener('mozbrowserloadend', function loadend(evt) {
     var iframe = evt.target;
     delete iframe.dataset.unloaded;
+    var backgroundColor = evt.detail.backgroundColor;
+    /* When rotating the screen, the child may take some time to reflow.
+     * If the child takes longer than layers.orientation.sync.timeout
+     * to respond, gecko will go ahead and draw anyways. This code
+     * uses a simple heuristic to guess the least distracting color
+     * we should draw in the blank space. */
+
+    /* Only allow opaque colors */
+    if (backgroundColor.indexOf('rgb(') != -1) {
+      iframe.style.backgroundColor = backgroundColor;
+    }
   });
 
   windows.addEventListener('mozbrowservisibilitychange',
@@ -1030,6 +1041,14 @@ var WindowManager = (function() {
     AttentionScreen.showForOrigin(newApp);
   }
 
+  function setOrientationForInlineActivity(frame) {
+    if ('orientation' in frame.dataset) {
+      screen.mozLockOrientation(frame.dataset.orientation);
+    } else {  // If no orientation was requested, then let it rotate
+      screen.mozUnlockOrientation();
+    }
+  }
+
   function setOrientationForApp(origin) {
     if (origin == null) { // No app is currently running.
       screen.mozLockOrientation('portrait-primary');
@@ -1053,8 +1072,7 @@ var WindowManager = (function() {
           setAppSize(origin);
         }
       }
-    }
-    else {  // If no orientation was requested, then let it rotate
+    } else {  // If no orientation was requested, then let it rotate
       screen.mozUnlockOrientation();
     }
   }
@@ -1175,7 +1193,8 @@ var WindowManager = (function() {
       manifestURL: manifestURL,
       frame: frame,
       iframe: iframe,
-      launchTime: 0
+      launchTime: 0,
+      isHomescreen: (manifestURL === homescreenManifestURL)
     });
     runningApps[origin] = app;
 
@@ -1246,6 +1265,11 @@ var WindowManager = (function() {
     // set the frame to visible state
     if ('setVisible' in iframe)
       iframe.setVisible(true);
+
+    if ('orientation' in manifest) {
+      frame.dataset.orientation = manifest.orientation;
+      setOrientationForInlineActivity(frame);
+    }
 
     setFrameBackground(openFrame, function gotBackground() {
       // Start the transition when this async/sync callback is called.
@@ -1323,6 +1347,7 @@ var WindowManager = (function() {
     if (!inlineActivityFrames.length) {
       // Give back focus to the displayed app
       var app = runningApps[displayedApp];
+      setOrientationForApp(displayedApp);
       if (app && app.iframe) {
         app.iframe.focus();
         if ('wrapper' in app.frame.dataset) {
@@ -1330,6 +1355,9 @@ var WindowManager = (function() {
         }
       }
       screenElement.classList.remove('inline-activity');
+    } else {
+      setOrientationForInlineActivity(
+        inlineActivityFrames[inlineActivityFrames.length - 1]);
     }
   }
 
@@ -1571,10 +1599,11 @@ var WindowManager = (function() {
       case 'will-unlock':
         if (LockScreen.locked)
           return;
+
         if (inlineActivityFrames.length) {
           setVisibilityForInlineActivity(true);
         } else {
-          setVisibilityForCurrentApp(true);
+          runningApps[displayedApp].setVisible(true);
         }
         resetDeviceLockedTimer();
         break;
@@ -1591,7 +1620,7 @@ var WindowManager = (function() {
         // If the audio is active, the app should not set non-visible
         // otherwise it will be muted.
         if (!normalAudioChannelActive) {
-          setVisibilityForCurrentApp(false);
+          runningApps[displayedApp].setVisible(false);
         }
         resetDeviceLockedTimer();
         break;
@@ -1610,7 +1639,12 @@ var WindowManager = (function() {
             if (inlineActivityFrames.length) {
               setVisibilityForInlineActivity(false);
             } else {
-              setVisibilityForCurrentApp(false);
+              /**
+               * We only retain the screenshot layer
+               * when attention screen drops.
+               * Otherwise we just bring the app to background.
+               */
+              runningApps[displayedApp].setVisible(false, true);
             }
           }, 3000);
 
@@ -1645,7 +1679,7 @@ var WindowManager = (function() {
           if (normalAudioChannelActive && evt.detail.channel !== 'normal' &&
               LockScreen.locked) {
             deviceLockedTimer = setTimeout(function setVisibility() {
-              setVisibilityForCurrentApp(false);
+              runningApps[displayedApp].setVisible(false);
             }, 3000);
           }
 

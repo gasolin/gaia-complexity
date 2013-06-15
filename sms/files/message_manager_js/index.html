@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">67.51</p>
+      <p class="stat">67.77</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">490</p>
+      <p class="stat">501</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">47.61</p>
+      <p class="stat">46.79</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">4.23</p>
+      <p class="stat">4.18</p>
     </div>
   </div>
 </div>
@@ -293,11 +293,18 @@ var MessageManager = {
     var threadMessages = document.getElementById('thread-messages');
     var recipient;
 
+    // Group Participants should never persist any hash changes
+    ThreadUI.groupView.reset();
+
+    // Leave the edit mode before transitioning to another panel. This is safe
+    // to do even if we're not in edit mode as it's essentially a no-op then.
+    ThreadUI.cancelEdit();
+    ThreadListUI.cancelEdit();
+
     switch (window.location.hash) {
       case '#new':
 
         ThreadUI.cleanFields(true);
-        mainWrapper.classList.remove('edit');
         threadMessages.classList.add('new');
 
         MessageManager.activity.recipients = null;
@@ -329,12 +336,12 @@ var MessageManager = {
         });
         break;
       case '#thread-list':
+        ThreadUI.inThread = false;
+
         //Keep the  visible button the :last-child
-        var editButton = document.getElementById('icon-edit');
+        var editButton = document.getElementById('messages-edit-icon');
         editButton.parentNode.appendChild(editButton);
-        if (mainWrapper.classList.contains('edit')) {
-          mainWrapper.classList.remove('edit');
-        } else if (threadMessages.classList.contains('new')) {
+        if (threadMessages.classList.contains('new')) {
           MessageManager.slide('right', function() {
             threadMessages.classList.remove('new');
           });
@@ -352,10 +359,8 @@ var MessageManager = {
           });
         }
         break;
-      case '#edit':
-        ThreadListUI.cleanForm();
-        ThreadUI.cleanForm();
-        mainWrapper.classList.toggle('edit');
+      case '#group-view':
+        ThreadUI.groupView();
         break;
       default:
         var threadId = Threads.currentId;
@@ -365,9 +370,7 @@ var MessageManager = {
           filter = new MozSmsFilter();
           filter.threadId = threadId;
 
-          if (mainWrapper.classList.contains('edit')) {
-            mainWrapper.classList.remove('edit');
-          } else if (threadMessages.classList.contains('new')) {
+          if (threadMessages.classList.contains('new')) {
             // After a message is sent...
             //
             threadMessages.classList.remove('new');
@@ -383,13 +386,21 @@ var MessageManager = {
             // Update Header
             ThreadUI.updateHeaderData(function updateHeader() {
               MessageManager.slide('left', function slideEnd() {
-                ThreadUI.renderMessages(filter);
+                // hashchanges from #group-view back to #thread=n
+                // are considered "in thread" and should not
+                // trigger a complete re-rendering of the messages
+                // in the thread.
+                if (!ThreadUI.inThread) {
+                  ThreadUI.inThread = true;
+                  ThreadUI.renderMessages(filter);
+                }
               });
             });
           }
         }
       break;
     }
+
   },
 
   getThreads: function mm_getThreads(callback, extraArg) {

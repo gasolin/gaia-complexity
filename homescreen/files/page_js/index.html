@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">69.44</p>
+      <p class="stat">69.54</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">1031</p>
+      <p class="stat">1043</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">86.01</p>
+      <p class="stat">88.62</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">10.83</p>
+      <p class="stat">11.01</p>
     </div>
   </div>
 </div>
@@ -731,10 +731,10 @@ Page.prototype = {
   ready: true,
 
   setReady: function pg_setReady(value) {
+    this.ready = value;
     if (value) {
       this.container.dispatchEvent(new CustomEvent('onpageready'));
     }
-    this.ready = value;
   },
 
   /*
@@ -782,8 +782,8 @@ Page.prototype = {
     this.placeIcon(draggableNode, draggableIndex, targetIndex);
 
     var self = this;
-    targetNode.addEventListener('transitionend', function onTransitionEnd() {
-      targetNode.removeEventListener('transitionend', onTransitionEnd);
+    targetNode.addEventListener('transitionend', function onTransitionEnd(e) {
+      e.target.removeEventListener('transitionend', onTransitionEnd);
       children.splice(draggableIndex, 1);
       children.splice(targetIndex, 0, draggableNode);
       setTimeout(self.setReady.bind(self, true));
@@ -820,12 +820,20 @@ Page.prototype = {
     }
 
     if (!this.ready) {
-      var self = this;
-
-      self.container.addEventListener('onpageready', function onPageReady() {
-        self.container.removeEventListener('onpageready', onPageReady);
-        self.doDragLeave(callback, reflow);
+      var self = this, ensureCallbackID = null;
+      self.container.addEventListener('onpageready', function onPageReady(e) {
+        e.target.container.removeEventListener('onpageready', onPageReady);
+        if (ensureCallbackID !== null) {
+          window.clearTimeout(ensureCallbackID);
+          self.doDragLeave(callback, reflow);
+        }
       });
+
+      // We ensure that there is not a transitionend lost on dragging
+      var ensureCallbackID = window.setTimeout(function() {
+        ensureCallbackID = null;
+        self.doDragLeave(callback, reflow);
+      }, 300); // Dragging transition time
 
       return;
     }
@@ -1067,6 +1075,10 @@ dockProto.moveByWithDuration = function dk_moveByWithDuration(scrollX,
 
 dockProto.getLeft = function dk_getLeft() {
   return this.olist.getBoundingClientRect().left;
+};
+
+dockProto.getTransform = function dk_getTransform() {
+  return this.movableContainer.style.MozTransform;
 };
 
 /**

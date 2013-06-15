@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">67.81</p>
+      <p class="stat">67.10</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">367</p>
+      <p class="stat">411</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">31.91</p>
+      <p class="stat">33.38</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">3.33</p>
+      <p class="stat">3.81</p>
     </div>
   </div>
 </div>
@@ -142,6 +142,15 @@ var UIManager = {
     'networks',
     'wifi-refresh-button',
     'wifi-join-button',
+    'join-hidden-button',
+    // Hidden Wifi
+    'hidden-wifi-authentication',
+    'hidden-wifi-ssid',
+    'hidden-wifi-security',
+    'hidden-wifi-password',
+    'hidden-wifi-identity',
+    'hidden-wifi-identity-box',
+    'hidden-wifi-show-password',
     //Date & Time
     'date-configuration',
     'time-configuration',
@@ -150,6 +159,8 @@ var UIManager = {
     'time-form',
     // 3G
     'data-connection-switch',
+    // Geolocation
+    'geolocation-switch',
     // Tutorial
     'tutorial-screen',
     'tutorial-progress',
@@ -191,9 +202,27 @@ var UIManager = {
     this.wifiJoinButton.addEventListener('click', this);
     this.networks.addEventListener('click', this);
 
+    this.joinHiddenButton.addEventListener('click', this);
+    this.hiddenWifiSecurity.addEventListener('change', this);
+    this.wifiJoinButton.disabled = true;
+
+    this.hiddenWifiPassword.addEventListener('keyup', function() {
+      this.wifiJoinButton.disabled = !WifiHelper.isValidInput(
+        this.hiddenWifiSecurity.value,
+        this.hiddenWifiPassword.value,
+        this.hiddenWifiIdentity.value
+      );
+    }.bind(this));
+
+    this.hiddenWifiShowPassword.onchange = function togglePasswordVisibility() {
+      UIManager.hiddenWifiPassword.type = this.checked ? 'text' : 'password';
+    };
+
     this.timeConfiguration.addEventListener('input', this);
     this.dateConfiguration.addEventListener('input', this);
     this.initTZ();
+
+    this.geolocationSwitch.addEventListener('click', this);
 
     // Prevent form submit in case something tries to send it
     this.timeForm.addEventListener('submit', function(event) {
@@ -351,7 +380,18 @@ var UIManager = {
         WifiManager.scan(WifiUI.renderNetworks);
         break;
       case 'wifi-join-button':
-        WifiUI.joinNetwork();
+        if (window.location.hash === '#hidden-wifi-authentication') {
+          WifiUI.joinHiddenNetwork();
+        } else {
+          WifiUI.joinNetwork();
+        }
+        break;
+      case 'join-hidden-button':
+        WifiUI.addHiddenNetwork();
+        break;
+      case 'hidden-wifi-security':
+        var securityType = event.target.value;
+        WifiUI.handleHiddenWifiSecurity(securityType);
         break;
       // Date & Time
       case 'time-configuration':
@@ -360,9 +400,13 @@ var UIManager = {
       case 'date-configuration':
         this.setDate();
         break;
+      // Geolocation
+      case 'geolocation-switch':
+        this.updateSetting(event.target.name, event.target.checked);
+        break;
       // Privacy
       case 'share-performance':
-        this.updateSetting(event.target.name, event.target.value);
+        this.updateSetting(event.target.name, event.target.checked);
         break;
       default:
         // wifi selection

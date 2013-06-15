@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">68.01</p>
+      <p class="stat">67.39</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">325</p>
+      <p class="stat">343</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">45.33</p>
+      <p class="stat">46.66</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.73</p>
+      <p class="stat">2.87</p>
     </div>
   </div>
 </div>
@@ -133,6 +133,7 @@ var AttentionScreen = {
     window.addEventListener('home', this.hide.bind(this));
     window.addEventListener('holdhome', this.hide.bind(this));
     window.addEventListener('appwillopen', this.appOpenHandler.bind(this));
+    window.addEventListener('emergencyalert', this.hide.bind(this));
 
     window.addEventListener('will-unlock', this.screenUnlocked.bind(this));
   },
@@ -195,11 +196,18 @@ var AttentionScreen = {
     attentionFrame.dataset.frameType = 'attention';
     attentionFrame.dataset.frameName = evt.detail.name;
     attentionFrame.dataset.frameOrigin = evt.target.dataset.frameOrigin;
+    attentionFrame.dataset.manifestURL = manifestURL;
 
     // We would like to put the dialer call screen on top of all other
     // attention screens by ensure it is the last iframe in the DOM tree
     if (this._hasTelephonyPermission(app)) {
       this.attentionScreen.appendChild(attentionFrame);
+
+      // This event is for SIM PIN lock module.
+      // Because we don't need SIM PIN dialog during call
+      // but the mozMobileConnection cardstatechange event could
+      // be invoked by airplane mode toggle before the call is established.
+      this.dispatchEvent('callscreenwillopen');
     } else {
       this.attentionScreen.insertBefore(attentionFrame,
                                         this.bar.nextElementSibling);
@@ -258,6 +266,16 @@ var AttentionScreen = {
         evt.target.dataset.frameType !== 'attention' ||
         (evt.type === 'mozbrowsererror' && evt.detail.type !== 'fatal'))
       return;
+
+    // Check telephony permission before removing.
+    var app = Applications.getByManifestURL(evt.target.dataset.manifestURL);
+    if (app && this._hasTelephonyPermission(app)) {
+      // This event is for SIM PIN lock module.
+      // Because we don't need SIM PIN dialog during call
+      // but the mozMobileConnection cardstatechange event could
+      // be invoked by airplane mode toggle before the call is established.
+      this.dispatchEvent('callscreenwillclose');
+    }
 
     // Remove the frame
     var origin = evt.target.dataset.frameOrigin;

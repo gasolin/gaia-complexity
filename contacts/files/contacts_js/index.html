@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">67.87</p>
+      <p class="stat">67.77</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">873</p>
+      <p class="stat">881</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">61.21</p>
+      <p class="stat">61.34</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">8.56</p>
+      <p class="stat">8.67</p>
     </div>
   </div>
 </div>
@@ -400,7 +400,11 @@ var Contacts = (function() {
           return;
         }
         contactsDetails.render(currentContact, TAG_OPTIONS);
-        navigation.go('view-contact-details', 'right-left');
+        if (contacts.Search.isInSearchMode()) {
+          navigation.go('view-contact-details', 'go-deeper-search');
+        } else {
+          navigation.go('view-contact-details', 'go-deeper');
+        }
       });
     });
   };
@@ -790,6 +794,8 @@ var Contacts = (function() {
       '/contacts/js/contacts_shortcuts.js',
       '/contacts/js/confirm_dialog.js',
       '/contacts/js/contacts_tag.js',
+      '/contacts/js/import_utils.js',
+      '/contacts/js/utilities/normalizer.js',
       '/contacts/js/contacts_settings.js',
       '/contacts/js/contacts_details.js',
       '/contacts/js/contacts_form.js',
@@ -798,7 +804,6 @@ var Contacts = (function() {
       '/contacts/js/utilities/sdcard.js',
       '/contacts/js/utilities/vcard_parser.js',
       '/contacts/js/utilities/import_sim_contacts.js',
-      '/contacts/js/utilities/normalizer.js',
       '/contacts/js/utilities/status.js',
       '/contacts/js/utilities/overlay.js',
       '/contacts/js/utilities/dom.js',
@@ -808,7 +813,6 @@ var Contacts = (function() {
       '/shared/style/switches.css',
       '/shared/style/confirm.css',
       '/contacts/style/fixed_header.css',
-      '/contacts/style/transitions.css',
       '/contacts/style/animations.css',
       '/facebook/style/curtain_frame.css',
       '/contacts/style/status.css',
@@ -927,6 +931,10 @@ var Contacts = (function() {
         return;
       }
       Contacts.checkCancelableActivity();
+      if (document.mozHidden === false &&
+                                navigation.currentView() === 'view-settings') {
+        contacts.Settings.updateTimestamps();
+      }
     });
   };
 

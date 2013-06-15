@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">68.32</p>
+      <p class="stat">68.37</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">791</p>
+      <p class="stat">793</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">65.15</p>
+      <p class="stat">63.92</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">6.52</p>
+      <p class="stat">6.53</p>
     </div>
   </div>
 </div>
@@ -104,8 +104,7 @@ var CallScreen = {
   calls: document.getElementById('calls'),
 
   get activeCall() {
-    delete this.activeCall;
-    return this.activeCall = this.calls.querySelector(':not(.held)');
+    return OnCallHandler.activeCall();
   },
 
   mainContainer: document.getElementById('main-container'),
@@ -168,7 +167,7 @@ var CallScreen = {
     if (window.innerHeight <= 40) {
       if (this.body.classList.contains('showKeypad')) {
         this._typedNumber = KeypadManager._phoneNumber;
-        KeypadManager.restorePhoneNumber('end', true);
+        KeypadManager.restorePhoneNumber();
       }
     } else if (this.body.classList.contains('showKeypad')) {
       KeypadManager.updatePhoneNumber(this._typedNumber, 'begin', true);
@@ -222,7 +221,7 @@ var CallScreen = {
   },
 
   hideKeypad: function cs_hideKeypad() {
-    KeypadManager.restorePhoneNumber('end', true);
+    KeypadManager.restorePhoneNumber();
     KeypadManager.restoreAdditionalContactInfo();
     this.body.classList.remove('showKeypad');
   },
@@ -330,15 +329,6 @@ var OnCallHandler = (function onCallHandler() {
       telephony.muted = false;
     }
 
-    // Animating the screen in the viewport.
-    // We wait for the next tick because we may receive an exitCallScreen
-    // as soon as we're loaded.
-    setTimeout(function nextTick() {
-      if (!closing) {
-        toggleScreen();
-      }
-    });
-
     postToMainWindow('ready');
   }
 
@@ -386,6 +376,9 @@ var OnCallHandler = (function onCallHandler() {
       exitCallScreen(false);
     } else {
       CallScreen.calls.dataset.count = handledCalls.length;
+      if (!displayed && !closing) {
+        toggleScreen();
+      }
     }
   }
 
@@ -405,16 +398,14 @@ var OnCallHandler = (function onCallHandler() {
       return;
     }
 
-    var node = null;
-    // Find an available node for displaying the call
-    var children = CallScreen.calls.children;
-    for (var i = 0; i < children.length; i++) {
-      var n = children[i];
-      if (n.dataset.occupied === 'false') {
-        node = n;
-        break;
-      }
+    // First incoming or outgoing call, reset mute and speaker.
+    if (handledCalls.length == 0) {
+      CallScreen.unmute();
+      CallScreen.turnSpeakerOff();
     }
+
+    // Find an available node for displaying the call
+    var node = CallScreen.calls.querySelector('.call[data-occupied="false"]');
     var hc = new HandledCall(call, node);
     handledCalls.push(hc);
 
@@ -490,9 +481,6 @@ var OnCallHandler = (function onCallHandler() {
   }
 
   function handleFirstIncoming(call) {
-    unmute();
-    turnSpeakerOff();
-
     var vibrateInterval = 0;
     if (activateVibration != false) {
       vibrateInterval = window.setInterval(function vibrate() {
@@ -851,6 +839,19 @@ var OnCallHandler = (function onCallHandler() {
     }, 3000);
   }
 
+  function activeCall() {
+    var telephonyActiveCall = telephony.active;
+    var activeCall = null;
+    for (var i = 0; i < handledCalls.length; i++) {
+      var handledCall = handledCalls[i];
+      if (telephonyActiveCall === handledCall.call) {
+        activeCall = handledCall;
+        break;
+      }
+    }
+    return activeCall;
+  }
+
   return {
     setup: setup,
 
@@ -869,7 +870,8 @@ var OnCallHandler = (function onCallHandler() {
 
     addRecentEntry: addRecentEntry,
 
-    notifyBusyLine: notifyBusyLine
+    notifyBusyLine: notifyBusyLine,
+    activeCall: activeCall
   };
 })();
 

@@ -45,11 +45,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">65.42</p>
+      <p class="stat">65.24</p>
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">254</p>
+      <p class="stat">262</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">35.43</p>
+      <p class="stat">35.95</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">2.35</p>
+      <p class="stat">2.47</p>
     </div>
   </div>
 </div>
@@ -160,17 +160,9 @@
 
       var mode = ConfigManager.getApplicationMode();
 
-      // Handle welcome screen
-      var selectors = {
-          PREPAID: '.authed-sim',
-          POSTPAID: '.authed-sim',
-          DATA_USAGE_ONLY: '.nonauthed-sim'
-      };
-
-      var selector = hasSim ? selectors[mode] : '.no-sim';
-      wizard.querySelector(selector).setAttribute('aria-hidden', false);
       if (!hasSim) {
         wizard.querySelector('p.info').setAttribute('aria-hidden', true);
+        wizard.querySelector('.no-sim').setAttribute('aria-hidden', false);
       }
 
       if (mode === 'DATA_USAGE_ONLY') {
@@ -217,6 +209,22 @@
     localizeWeekdaySelector(document.getElementById('post2-select-weekday'));
     localizeWeekdaySelector(document.getElementById('non2-select-weekday'));
   });
+
+  if (window.location.hash) {
+    var wizard = document.getElementById('firsttime-view');
+
+    if (window.location.hash === '#PREPAID' ||
+        window.location.hash === '#POSTPAID') {
+      wizard.querySelector('.authed-sim').setAttribute('aria-hidden', false);
+    } else {
+      wizard.querySelector('.nonauthed-sim').setAttribute('aria-hidden', false);
+    }
+  }
+
+  parent.postMessage({
+    type: 'fte_ready',
+    data: ''
+  }, Common.COST_CONTROL_APP);
 
   // TRACK SETUP
 
@@ -321,7 +329,7 @@
       ConfigManager.setOption({ fte: false }, function _returnToApp() {
         updateNextReset(settings.trackingPeriod, settings.resetTime,
           function _returnToTheApplication() {
-            window.location = 'index.html';
+            Common.startApp();
           }
         );
       });

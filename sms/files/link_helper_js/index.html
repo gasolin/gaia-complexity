@@ -49,7 +49,7 @@
     </div>
     <div class="span6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">68</p>
+      <p class="stat">72</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="span6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">11.88</p>
+      <p class="stat">11.55</p>
     </div>
     <div class="span6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">0.34</p>
+      <p class="stat">0.35</p>
     </div>
   </div>
 </div>
@@ -98,9 +98,13 @@
 */
 
 var LinkHelper = {
-  _urlRegex: new RegExp(['(^|\\s|,|;)[-\\w:%\\+.~#?&//=]{2,256}',
-    '\\.[a-z]{2,6}(?:\\/[-\\w:%\\+.~#?&//=]*)?'].
-    join(''), 'mgi'),
+  _urlRegex: new RegExp([
+      '(^|\\s|,|;|<br>)',             // right before
+      '(https?://)?',                 // protocol (if any)
+      '[-\\w%\\+.~#?&//=]{2,256}',    // server name
+      '\\.[a-z]{2,6}(:[0-9]{2,4})?',  // .domain[:port]
+      '(\\/[-\\w:%\\+.~#?;&//=]*)?'   // queries
+      ].join(''), 'mgi'),
   _emailRegex: /([\w\.-]+)@([\w\.-]+)\.([a-z\.]{2,6})/mgi,
   _phoneRegex: new RegExp(['(\\+?1?[-.]?\\(?([0-9]{3})\\)?',
     '[-.]?)?([0-9]{3})[-.]?([0-9]{4})([0-9]{1,4})?'].
